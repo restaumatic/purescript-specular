@@ -1,8 +1,5 @@
 module Specular.FRP (
-    Time
-  , Frame
-
-  , Event
+    Event
   , newEvent
   , subscribeEvent_
 
@@ -32,25 +29,21 @@ import Data.Maybe (Maybe(..))
 import Data.Traversable (sequence)
 import Data.UniqueMap.Mutable as UMM
 
-newtype Time = Time Int
-
-derive newtype instance eqTime :: Eq Time
-
 type FrameEnv = { currentTime :: Time, effectsRef :: IORef (IOSync Unit) }
 
+-- | Computations that occur during a Frame.
+-- 
+-- During a Frame, no arbitrary effects are performed. Instead they are
+-- registered using `effect` to be performed after the frame.
+--
+-- Frame computations have access to current logical time. See `oncePerFrame`
+-- for why this is needed.
 newtype Frame a = Frame (ReaderT FrameEnv IOSync a)
 
 getTime :: Frame Time
 getTime = Frame $ asks _.currentTime
 
-runFrame :: forall a. Time -> Frame a -> IOSync a
-runFrame currentTime (Frame x) = do
-  effectsRef <- newIORef (pure unit)
-  value <- runReaderT x { currentTime, effectsRef }
-  join $ readIORef effectsRef
-  pure value
-
--- | Schedule an effect to be executed after the Frame runs.
+-- | Schedule an effect to be executed after the Frame completed.
 effect :: IOSync Unit -> Frame Unit
 effect action = Frame $ do
   effectsRef <- asks _.effectsRef
@@ -65,21 +58,59 @@ derive newtype instance monadFrame :: Monad Frame
 internalFrameIOSync :: forall a. IOSync a -> Frame a
 internalFrameIOSync = Frame <<< liftIOSync
 
--------------------------------------------------------------
+-- | Run a Frame computation and then run its effects.
+runFrame :: forall a. Time -> Frame a -> IOSync a
+runFrame currentTime (Frame x) = do
+  effectsRef <- newIORef (pure unit)
+  value <- runReaderT x { currentTime, effectsRef }
+  join $ readIORef effectsRef
+  pure value
 
-nextTimeRef :: IORef Time
-nextTimeRef = unsafePerformEff $ runIOSync $ newIORef (Time 0)
-
+-- | Run a Frame computation with a fresh time value and then run its effects.
 runNextFrame :: forall a. Frame a -> IOSync a
 runNextFrame frame = do
   time <- readIORef nextTimeRef
   writeIORef nextTimeRef (case time of Time t -> Time (t + 1))
   runFrame time frame
 
+-- | Create a computation that will run the given action at most once during
+-- each Frame. if `x <- oncePerFrame action`, then `x *> x = x`.
+oncePerFrame :: Frame Unit -> IOSync (Frame Unit)
+oncePerFrame action = do
+  ref <- newIORef Nothing
+  pure $ do
+    time <- getTime
+    m_lastTime <- internalFrameIOSync $ readIORef ref
+    case m_lastTime of
+      Just lastTime | lastTime == time ->
+        pure unit
+      _ -> do
+        internalFrameIOSync $ writeIORef ref (Just time)
+        action
+
 -------------------------------------------------------------
 
-newtype Behavior a = Behavior (Frame a)
+-- | Logical time.
+-- There's no monotonicity requirement (for now), so we have only Eq instance.
+newtype Time = Time Int
 
+derive newtype instance eqTime :: Eq Time
+
+-- | The global time counter.
+nextTimeRef :: IORef Time
+nextTimeRef = unsafePerformEff $ runIOSync $ newIORef (Time 0)
+
+-------------------------------------------------------------
+
+-- | Behaviors are time-changing values that can be read, but not subscribed to.
+--
+-- A Behavior should never change during a frame.
+--
+-- Can be composed using Monad instance.
+newtype Behavior a = Behavior (Frame a)
+-- Behavior is represented by a computation that reads its value.
+
+-- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
 newBehavior initialValue = do
   ref <- newIORef initialValue
@@ -88,6 +119,7 @@ newBehavior initialValue = do
     , set: writeIORef ref
     }
 
+-- | Read a value of a Behavior.
 readBehavior :: forall a. Behavior a -> Frame a
 readBehavior (Behavior read) = read
 
@@ -110,11 +142,25 @@ instance bindBehavior :: Bind Behavior where
 type Listener = Frame Unit
 type Unsubscribe = IOSync Unit
 
+-- | A source of occurences.
+--
+-- During a frame, an Event occurs at most once with a value of type a.
+--
+-- Event is a functor. It is not, however, an Applicative. There is no
+-- meaningful interpretation of `pure` (when would the event occur?).
+-- There is an interpretation of `apply` (Event that fires when the input
+-- events coincide), but it's not very useful.
 newtype Event a = Event
   { occurence :: Behavior (Maybe a)
   , subscribe :: Listener -> IOSync Unsubscribe
   }
+-- We represent an Event with:
+--  - a Behavior that tells whether this Event occurs during a given frame,
+--    and if so, its occurence value,
+--  - subscription function.
 
+-- | Create an Event that can be triggered externally.
+-- Each `fire` will run a frame where the event occurs.
 newEvent :: forall a. IOSync { event :: Event a, fire :: a -> IOSync Unit }
 newEvent = do
   occurence <- newBehavior Nothing
@@ -138,6 +184,7 @@ newEvent = do
 instance functorEvent :: Functor Event where
   map f (Event {occurence, subscribe}) = Event { occurence: map (map f) occurence, subscribe }
 
+-- | An Event that never occurs.
 never :: forall a. Event a
 never = Event { occurence: pure Nothing, subscribe: \_ -> pure (pure unit) }
 
@@ -160,19 +207,6 @@ sampleAt event behavior = mapEventB (\f -> f <$> behavior) event
 
 filterMapEvent :: forall a b. (a -> Maybe b) -> Event a -> Event b
 filterMapEvent f = filterMapEventB (pure <<< f)
-
-oncePerFrame :: Frame Unit -> IOSync (Frame Unit)
-oncePerFrame action = do
-  ref <- newIORef Nothing
-  pure $ do
-    time <- getTime
-    m_lastTime <- internalFrameIOSync $ readIORef ref
-    case m_lastTime of
-      Just lastTime | lastTime == time ->
-        pure unit
-      _ -> do
-        internalFrameIOSync $ writeIORef ref (Just time)
-        action
 
 mergeEvents ::
      forall a b c
