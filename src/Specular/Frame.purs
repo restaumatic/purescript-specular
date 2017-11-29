@@ -13,6 +13,10 @@ module Specular.Frame (
   , sampleAt
 
   , filterMapEvent
+
+  , Dynamic
+  , holdDyn
+  , subscribeDyn_
 ) where
 
 import Prelude
@@ -200,3 +204,29 @@ subscribeEvent_ handler (Event {occurence,subscribe}) =
     m_value <- readBehavior occurence
     for_ m_value $ \value ->
       effect $ handler value
+
+-----------------------------------------------------------------
+
+newtype Dynamic a = Dynamic
+  { value :: Behavior a
+  , change :: Event Unit
+  }
+
+holdDyn :: forall a. a -> Event a -> IOSync (Dynamic a)
+holdDyn initial (Event event) = do
+  ref <- newIORef initial
+  let value = Behavior $ do
+        m_newValue <- readBehavior event.occurence
+        internalFrameIOSync $ case m_newValue of
+          Just newValue -> do
+            writeIORef ref newValue
+            pure newValue
+          Nothing ->
+            readIORef ref
+
+  pure $ Dynamic { value, change: map (\_ -> unit) (Event event) }
+
+subscribeDyn_ :: forall a. (a -> IOSync Unit) -> Dynamic a -> IOSync Unsubscribe
+subscribeDyn_ handler (Dynamic {value, change}) = do
+  runNextFrame (readBehavior value) >>= handler
+  subscribeEvent_ handler (mapEventB (\_ -> value) change)
