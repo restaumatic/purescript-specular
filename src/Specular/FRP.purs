@@ -19,7 +19,6 @@ module Specular.FRP (
 
 import Prelude
 
-import Control.Alt ((<|>))
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)

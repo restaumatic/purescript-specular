@@ -71,7 +71,7 @@ spec = describe "Builder" $ do
       ioSync (outerHTML node) `shouldReturn`
         """<div><span></span>bar<span></span></div>"""
 
-    it "two subscriptions to the samy Dynamic" $ do
+    it "two subscriptions to the same Dynamic" $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
       Tuple node result <- runBuilderInDiv $ do
          dynamic_ dyn

@@ -12,8 +12,7 @@ module Specular.Dom.Widget (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Console (log)
+import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
