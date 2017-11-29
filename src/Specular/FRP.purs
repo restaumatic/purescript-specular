@@ -14,6 +14,7 @@ module Specular.FRP (
   , Dynamic
   , holdDyn
   , subscribeDyn_
+  , switch
 ) where
 
 import Prelude
@@ -303,55 +304,66 @@ instance applyDynamic :: Apply Dynamic where
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
 
+-- | Make an Event that occurs when the Event which is the value of the given
+-- Dynamic occurs.
+switch :: forall a. Dynamic (Event a) -> Event a
+switch (Dynamic { value, change: Event change }) = Event
+  { occurence: do
+      -- The resulting Event occurs when the current inner Event occurs
+      Event innerEvent <- value
+      innerEvent.occurence
+
+  , subscribe: \l -> do
+      onceListener <- oncePerFrame l
+      -- oncePerFrame guards us against the case of coincidence
+      -- of the inner and outer Dynamic
+
+      unsubRef <- newIORef (pure unit)
+
+      let
+        cleanup :: IOSync Unit
+        cleanup = join (readIORef unsubRef)
+
+        replaceWith :: Event a -> Frame Unit
+        replaceWith (Event event) = do
+          effect $ do
+            cleanup
+            unsub <- event.subscribe onceListener
+            writeIORef unsubRef unsub
+
+        -- Unsubscribe from the previous change event (if any)
+        -- and subscribe to the current one.
+        updateListener :: Frame Unit
+        updateListener = readBehavior value >>= replaceWith
+
+      -- First, we subscribe to the current inner Dynamic
+      runNextFrame updateListener
+
+      unsub <- change.subscribe $ do
+        -- when the outer Dynamic changes,
+
+        onceListener
+        -- we notify our listener
+
+        updateListener
+        -- and resubscribe
+
+      pure (cleanup *> unsub)
+  }
+
+
 joinDyn :: forall a. Dynamic (Dynamic a) -> Dynamic a
-joinDyn (Dynamic { value, change: Event change }) = Dynamic
-  { value: value >>= current
+joinDyn dynamic@(Dynamic {change}) = Dynamic
+  { value: current dynamic >>= current
       -- Value is the current value of the inner Dynamic
-  , change: Event
-      { occurence: do
-          -- The joined Dynamic changes when the outer Dynamic changes,
-          -- or when the current inner Dynamic changes
-          Dynamic { change: Event innerChange } <- value
-          (<|>) <$> change.occurence <*> innerChange.occurence
+  , change:
+      -- The resulting Dynamic changes when either:
 
-      , subscribe: \l -> do
-          onceListener <- oncePerFrame l
-          -- oncePerFrame guards us against the case of coincidence
-          -- of the inner and outer Dynamic
+      switch (map (\(Dynamic inner) -> inner.change) dynamic)
+      --  - the inner Dynamic changes,
 
-          unsubRef <- newIORef (pure unit)
-
-          let
-            cleanup :: IOSync Unit
-            cleanup = join (readIORef unsubRef)
-
-            replaceWith :: Dynamic a -> Frame Unit
-            replaceWith (Dynamic dyn) = do
-              let Event change = dyn.change
-              effect $ do
-                cleanup
-                unsub <- change.subscribe onceListener
-                writeIORef unsubRef unsub
-
-            -- Unsubscribe from the previous change event (if any)
-            -- and subscribe to the current one.
-            updateListener :: Frame Unit
-            updateListener = readBehavior value >>= replaceWith
-
-          -- First, we subscribe to the current inner Dynamic
-          runNextFrame updateListener
-
-          unsub <- change.subscribe $ do
-            -- when the outer Dynamic changes,
-
-            onceListener
-            -- we notify our listener
-
-            updateListener
-            -- and resubscribe
-
-          pure (cleanup *> unsub)
-      }
+      `mergePulses` change
+      --  - the outer Dynamic changes.
   }
 
 instance bindDynamic :: Bind Dynamic where
