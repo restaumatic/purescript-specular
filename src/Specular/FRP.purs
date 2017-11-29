@@ -1,4 +1,4 @@
-module Specular.Frame (
+module Specular.FRP (
     Time
   , Frame
 
