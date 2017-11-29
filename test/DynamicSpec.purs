@@ -69,3 +69,51 @@ spec = describe "Dynamic" $ do
       ioSync $ fire 1
 
       log `shouldHaveValue` [Tuple 0 10, Tuple 1 11]
+
+  describe "Monad instance" $ do
+    it "works" $ do
+      ev1 <- ioSync newEvent
+      ev2 <- ioSync newEvent
+      log <- ioSync $ newIORef []
+      Tuple rootDynInner _ <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
+      Tuple rootDynOuter _ <- ioSync $ runCleanupT $ holdDyn rootDynInner ev2.event
+
+      let dyn = join rootDynOuter
+      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      log `shouldHaveValue` [0]
+      clear log
+
+      -- inner fires
+      ioSync $ ev1.fire 1
+      log `shouldHaveValue` [1]
+      clear log
+
+      -- outer fires
+      ioSync $ ev2.fire (pure 2)
+      log `shouldHaveValue` [2]
+      clear log
+
+      -- inner fires when outer not pointing to it
+      ioSync $ ev1.fire 10
+      log `shouldHaveValue` []
+
+      -- outer fires to itself
+      ioSync $ ev2.fire (3 <$ rootDynOuter)
+      log `shouldHaveValue` [3]
+      clear log
+
+      -- outer fires to itself again
+      ioSync $ ev2.fire (4 <$ rootDynOuter)
+      log `shouldHaveValue` [4]
+      clear log
+
+      -- outer fires to inner
+      ioSync $ ev2.fire rootDynInner
+      log `shouldHaveValue` [10]
+      clear log
+
+      -- extra subscription should not mess things up
+      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn
+      ioSync $ ev1.fire 15
+      ioSync $ ev2.fire rootDynInner
+      log `shouldHaveValue` [15, 15]

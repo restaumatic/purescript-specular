@@ -18,6 +18,7 @@ module Specular.FRP (
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
@@ -284,6 +285,12 @@ holdDyn initial (Event event) = do
     , change: map (\_ -> unit) (Event event)
     }
 
+current :: forall a. Dynamic a -> Behavior a
+current (Dynamic {value}) = value
+
+changed :: forall a. Dynamic a -> Event a
+changed (Dynamic {value, change}) = mapEventB (\_ -> value) change
+
 instance functorDynamic :: Functor Dynamic where
   map f (Dynamic { value, change }) = Dynamic { value: map f value, change }
 
@@ -295,6 +302,62 @@ instance applyDynamic :: Apply Dynamic where
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
+
+joinDyn :: forall a. Dynamic (Dynamic a) -> Dynamic a
+joinDyn (Dynamic { value, change: Event change }) = Dynamic
+  { value: value >>= current
+      -- Value is the current value of the inner Dynamic
+  , change: Event
+      { occurence: do
+          -- The joined Dynamic changes when the outer Dynamic changes,
+          -- or when the current inner Dynamic changes
+          Dynamic { change: Event innerChange } <- value
+          (<|>) <$> change.occurence <*> innerChange.occurence
+
+      , subscribe: \l -> do
+          onceListener <- oncePerFrame l
+          -- oncePerFrame guards us against the case of coincidence
+          -- of the inner and outer Dynamic
+
+          unsubRef <- newIORef (pure unit)
+
+          let
+            cleanup :: IOSync Unit
+            cleanup = join (readIORef unsubRef)
+
+            replaceWith :: Dynamic a -> Frame Unit
+            replaceWith (Dynamic dyn) = do
+              let Event change = dyn.change
+              effect $ do
+                cleanup
+                unsub <- change.subscribe onceListener
+                writeIORef unsubRef unsub
+
+            -- Unsubscribe from the previous change event (if any)
+            -- and subscribe to the current one.
+            updateListener :: Frame Unit
+            updateListener = readBehavior value >>= replaceWith
+
+          -- First, we subscribe to the current inner Dynamic
+          runNextFrame updateListener
+
+          unsub <- change.subscribe $ do
+            -- when the outer Dynamic changes,
+
+            onceListener
+            -- we notify our listener
+
+            updateListener
+            -- and resubscribe
+
+          pure (cleanup *> unsub)
+      }
+  }
+
+instance bindDynamic :: Bind Dynamic where
+  bind d f = joinDyn (map f d)
+
+instance monadDynamic :: Monad Dynamic
 
 subscribeDyn_ ::
      forall m a
