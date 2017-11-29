@@ -2,17 +2,12 @@ module EventSpec where
 
 import Prelude hiding (append)
 
-import Control.Monad.Aff (Aff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.IOSync (IOSync, runIOSync)
-import Data.Array (snoc)
-import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
+import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
 import Specular.Frame (filterMapEvent, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Runner (RunnerEffects)
+import Test.Utils (append, clear, ioSync, shouldHaveValue)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Event" $ do
@@ -88,21 +83,3 @@ spec = describe "Event" $ do
     ioSync $ root.fire 3
     ioSync $ root.fire 4
     log `shouldHaveValue` [2, 6, 8]
-
-
-append :: forall a. IORef (Array a) -> a -> IOSync Unit
-append ref value = modifyIORef ref (\a -> snoc a value)
-
-clear :: forall a r. IORef (Array a) -> Aff r Unit
-clear ref = ioSync $ writeIORef ref []
-
-shouldHaveValue :: forall a r. Eq a => Show a => IORef a -> a -> Aff r Unit
-shouldHaveValue ref expected = ioSync (readIORef ref) `shouldReturn` expected
-
-shouldReturn :: forall r t. Show t => Eq t => Aff r t -> t -> Aff r Unit
-shouldReturn action expected = do
-  actual <- action
-  actual `shouldEqual` expected
-
-ioSync :: forall r a. IOSync a -> Aff r a
-ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync

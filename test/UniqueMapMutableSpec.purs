@@ -2,16 +2,12 @@ module UniqueMapMutableSpec where
 
 import Prelude
 
-import Control.Monad.Aff (Aff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Array (sort)
 import Data.Maybe (Maybe(..))
 import Data.UniqueMap.Mutable as UMM
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Runner (RunnerEffects)
+import Test.Utils (ioSync, shouldReturn)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Data.UniqueMap.Mutable" $ do
@@ -40,11 +36,3 @@ spec = describe "Data.UniqueMap.Mutable" $ do
     key2 <- ioSync $ UMM.insert 2 m
 
     ioSync (sort <$> UMM.values m) `shouldReturn` [1,2]
-
-shouldReturn :: forall r t. Show t => Eq t => Aff r t -> t -> Aff r Unit
-shouldReturn action expected = do
-  actual <- action
-  actual `shouldEqual` expected
-
-ioSync :: forall r a. IOSync a -> Aff r a
-ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync
