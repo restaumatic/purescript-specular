@@ -34,8 +34,8 @@ import Data.UniqueMap.Mutable as UMM
 type FrameEnv = { currentTime :: Time, effectsRef :: IORef (IOSync Unit) }
 
 -- | Computations that occur during a Frame.
--- 
--- During a Frame, no arbitrary effects are performed. Instead they are
+--
+-- During a frame, no arbitrary effects are performed. Instead they are
 -- registered using `effect` to be performed after the frame.
 --
 -- Frame computations have access to current logical time. See `oncePerFrame`
@@ -145,13 +145,13 @@ type Listener = Frame Unit
 type Unsubscribe = IOSync Unit
 
 -- | A source of occurences.
---
--- During a frame, an Event occurs at most once with a value of type a.
---
--- Event is a functor. It is not, however, an Applicative. There is no
--- meaningful interpretation of `pure` (when would the event occur?).
--- There is an interpretation of `apply` (Event that fires when the input
--- events coincide), but it's not very useful.
+-- |
+-- | During a frame, an Event occurs at most once with a value of type a.
+-- | 
+-- | Event is a functor. It is not, however, an Applicative. There is no
+-- | meaningful interpretation of `pure` (when would the event occur?).
+-- | There is an interpretation of `apply` (Event that fires when the input
+-- | events coincide), but it's not very useful.
 newtype Event a = Event
   { occurence :: Behavior (Maybe a)
   , subscribe :: Listener -> IOSync Unsubscribe
@@ -162,7 +162,7 @@ newtype Event a = Event
 --  - subscription function.
 
 -- | Create an Event that can be triggered externally.
--- Each `fire` will run a frame where the event occurs.
+-- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall a. IOSync { event :: Event a, fire :: a -> IOSync Unit }
 newEvent = do
   occurence <- newBehavior Nothing
@@ -304,8 +304,7 @@ instance applyDynamic :: Apply Dynamic where
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
 
--- | Make an Event that occurs when the Event which is the value of the given
--- Dynamic occurs.
+-- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
 switch (Dynamic { value, change: Event change }) = Event
   { occurence: do
