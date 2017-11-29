@@ -2,6 +2,7 @@ module EventSpec where
 
 import Prelude hiding (append)
 
+import Control.Monad.Cleanup (execCleanupT)
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
 import Specular.Frame (filterMapEvent, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
@@ -15,8 +16,8 @@ spec = describe "Event" $ do
   it "pushes values to subscribers, honors unsubscribe" $ do
     {event,fire} <- ioSync newEvent
     log <- ioSync $ newIORef []
-    unsub1 <- ioSync $ subscribeEvent_ (\x -> append log $ "1:" <> x) event
-    unsub2 <- ioSync $ subscribeEvent_ (\x -> append log $ "2:" <> x) event
+    unsub1 <- ioSync $ execCleanupT $ subscribeEvent_ (\x -> append log $ "1:" <> x) event
+    unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (\x -> append log $ "2:" <> x) event
     ioSync $ fire "A"
     ioSync unsub1
     ioSync $ fire "B"
@@ -33,7 +34,7 @@ spec = describe "Event" $ do
                               (\l r -> pure $ "both: " <> l <> ", " <> r)
                               root1.event
                               root2.event
-      _ <- ioSync $ subscribeEvent_ (append log) event
+      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       clear log
       ioSync $ root1.fire "left"
@@ -53,7 +54,7 @@ spec = describe "Event" $ do
                     (\l r -> pure $ "both: " <> l <> ", " <> r)
                     root.event root.event
 
-      _ <- ioSync $ subscribeEvent_ (append log) event
+      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync $ root.fire "root"
       log `shouldHaveValue` ["both: root, root"]
@@ -64,7 +65,7 @@ spec = describe "Event" $ do
     log <- ioSync $ newIORef []
 
     let event = sampleAt root.event b.behavior
-    _ <- ioSync $ subscribeEvent_ (append log) event
+    _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
     ioSync $ root.fire ("1" <> _)
     ioSync $ b.set "B"
@@ -76,7 +77,7 @@ spec = describe "Event" $ do
     log <- ioSync $ newIORef []
 
     let event = filterMapEvent (\x -> if x < 5 then Just (2 * x) else Nothing) root.event
-    _ <- ioSync $ subscribeEvent_ (append log) event
+    _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
     ioSync $ root.fire 1
     ioSync $ root.fire 10

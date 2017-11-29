@@ -21,9 +21,10 @@ module Specular.Frame (
 
 import Prelude
 
+import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
-import Control.Monad.IOSync.Class (liftIOSync)
+import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Data.Foldable (for_, sequence_)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
@@ -198,12 +199,22 @@ mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
        pure $ unsubL *> unsubR
     }
 
-subscribeEvent_ :: forall a. (a -> IOSync Unit) -> Event a -> IOSync Unsubscribe
-subscribeEvent_ handler (Event {occurence,subscribe}) =
-  subscribe $ do
+mergePulses :: Event Unit -> Event Unit -> Event Unit
+mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
+
+subscribeEvent_ ::
+     forall m a
+   . MonadCleanup m
+  => MonadIOSync m
+  => (a -> IOSync Unit)
+  -> Event a
+  -> m Unit
+subscribeEvent_ handler (Event {occurence,subscribe}) = do
+  unsub <- liftIOSync $ subscribe $ do
     m_value <- readBehavior occurence
     for_ m_value $ \value ->
       effect $ handler value
+  onCleanup unsub
 
 -----------------------------------------------------------------
 
@@ -212,21 +223,52 @@ newtype Dynamic a = Dynamic
   , change :: Event Unit
   }
 
-holdDyn :: forall a. a -> Event a -> IOSync (Dynamic a)
+holdDyn ::
+     forall m a
+   . MonadCleanup m
+  => MonadIOSync m
+  => a
+  -> Event a
+  -> m (Dynamic a)
 holdDyn initial (Event event) = do
-  ref <- newIORef initial
-  let value = Behavior $ do
-        m_newValue <- readBehavior event.occurence
-        internalFrameIOSync $ case m_newValue of
-          Just newValue -> do
-            writeIORef ref newValue
-            pure newValue
-          Nothing ->
-            readIORef ref
+  ref <- liftIOSync $ newIORef initial
+  let
+    updateOrReadValue = do
+      m_newValue <- readBehavior event.occurence
+      internalFrameIOSync $ case m_newValue of
+        Just newValue -> do
+          writeIORef ref newValue
+          pure newValue
+        Nothing ->
+          readIORef ref
 
-  pure $ Dynamic { value, change: map (\_ -> unit) (Event event) }
+  unsub <- liftIOSync $ event.subscribe $ void $ updateOrReadValue
+  onCleanup unsub
 
-subscribeDyn_ :: forall a. (a -> IOSync Unit) -> Dynamic a -> IOSync Unsubscribe
+  pure $ Dynamic
+    { value: Behavior updateOrReadValue
+    , change: map (\_ -> unit) (Event event)
+    }
+
+instance functorDynamic :: Functor Dynamic where
+  map f (Dynamic { value, change }) = Dynamic { value: map f value, change }
+
+instance applyDynamic :: Apply Dynamic where
+  apply (Dynamic f) (Dynamic x) = Dynamic
+    { value: f.value <*> x.value
+    , change: mergePulses f.change x.change
+    }
+
+instance applicativeDynamic :: Applicative Dynamic where
+  pure x = Dynamic { value: pure x, change: never }
+
+subscribeDyn_ ::
+     forall m a
+   . MonadCleanup m
+  => MonadIOSync m
+  => (a -> IOSync Unit)
+  -> Dynamic a
+  -> m Unit
 subscribeDyn_ handler (Dynamic {value, change}) = do
-  runNextFrame (readBehavior value) >>= handler
+  liftIOSync $ runNextFrame (readBehavior value) >>= handler
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
