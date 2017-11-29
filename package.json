@@ -4,11 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "pulp test"
+    "test": "pulp test",
+    "browser-test": "pulp test --main BrowserMain --runtime phantomjs",
+    "browser-test-w": "pulp -w test --main BrowserMain --runtime phantomjs"
   },
   "author": "Maciej Bielecki <zyla@prati.pl>",
   "license": "MIT",
   "devDependencies": {
+    "phantomjs-prebuilt": "^2.1.16",
     "pulp": "^12.0.1",
     "purescript": "^0.11.7"
   }
