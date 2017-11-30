@@ -13,6 +13,8 @@ module Specular.FRP.Base (
   , filterMapEvent
 
   , Dynamic
+  , current
+  , changed
   , holdDyn
   , foldDyn
   , subscribeDyn_
