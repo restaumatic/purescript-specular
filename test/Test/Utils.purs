@@ -8,6 +8,8 @@ import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Array (snoc)
 import Data.IORef (IORef, modifyIORef, readIORef, writeIORef)
+import Specular.Dom.Browser (Node)
+import Specular.Dom.Node.Class (EventType)
 import Test.Spec.Assertions (shouldEqual)
 
 append :: forall a. IORef (Array a) -> a -> IOSync Unit
@@ -26,3 +28,7 @@ shouldReturn action expected = do
 
 ioSync :: forall r a. IOSync a -> Aff r a
 ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync
+
+-- | Dispatch an Event with the given type and no additional information
+-- | on the node.
+foreign import dispatchTrivialEvent :: Node -> EventType -> IOSync Unit

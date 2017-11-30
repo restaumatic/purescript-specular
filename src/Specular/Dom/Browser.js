@@ -97,3 +97,20 @@ exports.outerHTML = function(node) {
     return node.outerHTML;
   };
 };
+
+// addEventListenerImpl :: EventType -> (Event -> IOSync Unit) -> Node -> IOSync (IOSync Unit)
+exports.addEventListenerImpl = function(eventType) {
+  return function(handler) {
+    return function(node) {
+      return function() {
+        var listener = function(event) {
+          handler(event)();
+        };
+        node.addEventListener(eventType, listener);
+        return function() {
+          node.removeEventListener(eventType, listener);
+        };
+      };
+    };
+  };
+};

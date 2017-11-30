@@ -4,9 +4,13 @@ module Specular.Dom.Widget (
 
   , dynamic_
 
+  , el
+  , elAttr
   , elDynAttr'
   , elDynAttr
   , text
+  , dynText
+  , domEventWithSample
 ) where
 
 import Prelude
@@ -24,8 +28,8 @@ import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..), snd)
-import Specular.Dom.Node.Class (class DOM, Attrs, appendChild, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
-import Specular.FRP (Dynamic, subscribeDyn_)
+import Specular.Dom.Node.Class (class DOM, class EventDOM, Attrs, EventType, addEventListener, appendChild, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
+import Specular.FRP (Dynamic, Event, newEvent, subscribeDyn_)
 
 newtype Builder node a = Builder (ReaderT (BuilderEnv node) (WriterT (IOSync Unit) IOSync) a)
 
@@ -133,9 +137,44 @@ elDynAttr ::
   -> Builder node a
 elDynAttr tagName dynAttrs inner = snd <$> elDynAttr' tagName dynAttrs inner
 
+elAttr ::
+     forall node a
+   . DOM node
+  => String
+  -> Attrs
+  -> Builder node a
+  -> Builder node a
+elAttr tagName attrs inner = elDynAttr tagName (pure attrs) inner
+
+el ::
+     forall node a
+   . DOM node
+  => String
+  -> Builder node a
+  -> Builder node a
+el tagName inner = elAttr tagName mempty inner
+
 text :: forall node. DOM node => String -> Builder node Unit
 text str = do
   env <- getEnv
   liftIOSync $ do
     node <- createTextNode str
     appendChild node env.parent
+
+dynText :: forall node. DOM node => Dynamic String -> Builder node Unit
+dynText = dynamic_ <<< map text
+
+domEventWithSample ::
+     forall event node m a
+   . EventDOM event node
+  => MonadIOSync m
+  => MonadCleanup m
+  => (event -> IOSync a)
+  -> EventType
+  -> node
+  -> m (Event a)
+domEventWithSample sample eventType node = do
+  {event,fire} <- liftIOSync newEvent
+  unsub <- liftIOSync $ addEventListener eventType (sample >=> fire) node
+  onCleanup unsub
+  pure event

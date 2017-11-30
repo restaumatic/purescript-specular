@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Node.Class (class DOM, TagName)
+import Specular.Dom.Node.Class (class DOM, class EventDOM, TagName)
 
 foreign import data Node :: Type
 
@@ -38,3 +38,10 @@ foreign import appendChildImpl :: Node -> Node -> IOSync Unit
 foreign import removeAllBetweenImpl :: Node -> Node -> IOSync Unit
 
 foreign import outerHTML :: Node -> IOSync String
+
+foreign import data Event :: Type
+
+instance eventDomNode :: EventDOM Event Node where
+  addEventListener = addEventListenerImpl
+
+foreign import addEventListenerImpl :: String -> (Event -> IOSync Unit) -> Node -> IOSync (IOSync Unit)

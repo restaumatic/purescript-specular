@@ -5,7 +5,7 @@ import Prelude hiding (append)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.IORef (newIORef)
 import Data.Tuple (Tuple(..))
-import Specular.FRP (holdDyn, newEvent, subscribeDyn_)
+import Specular.FRP (foldDyn, holdDyn, newEvent, subscribeDyn_)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue)
@@ -39,6 +39,20 @@ spec = describe "Dynamic" $ do
       _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       log `shouldHaveValue` [2]
+
+  describe "foldDyn" $ do
+    it "updates value correctly" $ do
+      {event,fire} <- ioSync newEvent
+      log <- ioSync $ newIORef []
+      Tuple dyn _ <- ioSync $ runCleanupT $ foldDyn add 0 event
+
+      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+
+      ioSync $ fire 1
+      ioSync $ fire 2
+      ioSync $ fire 3
+
+      log `shouldHaveValue` [0,1,3,6]
 
   describe "Applicative instance" $ do
     it "works with different root Dynamics" $ do

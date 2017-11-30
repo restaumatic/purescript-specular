@@ -5,16 +5,17 @@ import Prelude hiding (append)
 import Control.Monad.Aff (Aff)
 import Control.Monad.Cleanup (runCleanupT)
 import Control.Monad.IOSync (IOSync)
+import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node, outerHTML)
 import Specular.Dom.Node.Class (createElement)
-import Specular.Dom.Widget (Builder, dynamic_, elDynAttr, runBuilder, text)
-import Specular.FRP (Dynamic, holdDyn, newEvent)
+import Specular.Dom.Widget (Builder, domEventWithSample, dynamic_, elDynAttr, elDynAttr', runBuilder, text)
+import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (ioSync, shouldReturn)
+import Test.Utils (append, dispatchTrivialEvent, ioSync, shouldHaveValue, shouldReturn)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Builder" $ do
@@ -116,6 +117,19 @@ spec = describe "Builder" $ do
 
       ioSync (outerHTML node) `shouldReturn`
         """<div>bar1bar2</div>"""
+
+  describe "domEventWithSample" $ do
+    it "dispatches DOM events and handles unsubscribe" $ do
+      Tuple node {button,event} <- runBuilderInDiv $ do
+        Tuple button _ <- elDynAttr' "button" (pure mempty) (text "foo")
+        event <- domEventWithSample (\_ -> pure unit) "click" button
+        pure {button,event}
+
+      log <- ioSync $ newIORef []
+      _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
+
+      ioSync $ dispatchTrivialEvent button "click"
+      log `shouldHaveValue` [unit]
 
 newDynamic :: forall a. a -> IOSync (Tuple (Dynamic a) (a -> IOSync Unit))
 newDynamic initial = do

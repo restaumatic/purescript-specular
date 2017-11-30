@@ -37,3 +37,9 @@ class DOM node where
   -- | Assumes that `from` and `to` have the same parent,
   -- | and `from` is before `to`.
   removeAllBetween :: node -> node -> IOSync Unit
+
+type EventType = String
+
+class DOM node <= EventDOM event node | node -> event where
+  -- | Register an event listener. Returns unregister action.
+  addEventListener :: EventType -> (event -> IOSync Unit) -> node -> IOSync (IOSync Unit)
