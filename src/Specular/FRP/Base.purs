@@ -360,7 +360,7 @@ switch (Dynamic { value, change: Event change }) = Event
   , subscribe: \l -> do
       onceListener <- oncePerFrame l
       -- oncePerFrame guards us against the case of coincidence
-      -- of the inner and outer Dynamic
+      -- of the inner Event and outer Dynamic change
 
       unsubRef <- newIORef (pure unit)
 
