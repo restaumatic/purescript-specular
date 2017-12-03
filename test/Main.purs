@@ -8,9 +8,11 @@ import Test.Spec.Runner (RunnerEffects, run)
 import UniqueMapMutableSpec as UniqueMapMutableSpec
 import EventSpec as EventSpec
 import DynamicSpec as DynamicSpec
+import FixSpec as FixSpec
 
 main :: Eff (RunnerEffects ()) Unit
 main = run [consoleReporter] do
+  FixSpec.spec
   DynamicSpec.spec
   EventSpec.spec
   UniqueMapMutableSpec.spec
