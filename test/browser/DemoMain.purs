@@ -7,13 +7,15 @@ import Control.Monad.IO.Effect (INFINITY)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
-import Examples.Counter as Counter
-import Examples.RegistrationForm as RegistrationForm
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, el, runBuilder, text, weakDynamic_)
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (Event, holdDyn, leftmost)
 import Specular.FRP.Fix (fixFRP)
+
+import Examples.Counter as Counter
+import Examples.RegistrationForm as RegistrationForm
+import Examples.AsyncRequest as AsyncRequest
 
 foreign import documentBody :: IOSync Node
 
@@ -37,10 +39,12 @@ mainWidget = fixFRP $ \view -> do
   el "h2" $ text "Choose another demo:"
   chooseCounter <- demoButton "Counter" Counter.mainWidget
   chooseRegistrationForm <- demoButton "RegistrationForm" (void RegistrationForm.mainWidget)
+  chooseAsyncRequest <- demoButton "AsyncRequest" AsyncRequest.mainWidget
 
   let changeDemo = leftmost
         [ chooseCounter
         , chooseRegistrationForm
+        , chooseAsyncRequest
         ]
   currentDemo <- holdDyn (text "(no demo chosen)") changeDemo
 
