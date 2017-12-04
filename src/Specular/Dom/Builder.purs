@@ -29,7 +29,7 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..), snd)
 import Specular.Dom.Node.Class (class DOM, class EventDOM, Attrs, EventType, addEventListener, appendChild, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
-import Specular.FRP (Dynamic, Event, newEvent, subscribeDyn_)
+import Specular.FRP (Dynamic, Event, WeakDynamic, newEvent, subscribeDyn_, subscribeWeakDyn_)
 
 newtype Builder node a = Builder (ReaderT (BuilderEnv node) (WriterT (IOSync Unit) IOSync) a)
 
@@ -100,11 +100,16 @@ dynamic_ dyn = do
   {replace} <- runReplaceable (pure unit)
   subscribeDyn_ replace dyn
 
+weakDynamic_ :: forall m. MonadReplace m => MonadIOSync m => WeakDynamic (m Unit) -> m Unit
+weakDynamic_ dyn = do
+  {replace} <- runReplaceable (pure unit)
+  subscribeWeakDyn_ replace dyn
+
 elDynAttr' ::
      forall node a
    . DOM node
   => String
-  -> Dynamic Attrs
+  -> WeakDynamic Attrs
   -> Builder node a
   -> Builder node (Tuple node a)
 elDynAttr' tagName dynAttrs inner = do
@@ -123,7 +128,7 @@ elDynAttr' tagName dynAttrs inner = do
       removeAttributes node removed
       setAttributes node changed
 
-  subscribeDyn_ resetAttributes dynAttrs
+  subscribeWeakDyn_ resetAttributes dynAttrs
   result <- Builder $ local (setParent node) (unBuilder inner)
   liftIOSync $ appendChild node env.parent
   pure (Tuple node result)
@@ -132,7 +137,7 @@ elDynAttr ::
      forall node a
    . DOM node
   => String
-  -> Dynamic Attrs
+  -> WeakDynamic Attrs
   -> Builder node a
   -> Builder node a
 elDynAttr tagName dynAttrs inner = snd <$> elDynAttr' tagName dynAttrs inner
@@ -161,8 +166,8 @@ text str = do
     node <- createTextNode str
     appendChild node env.parent
 
-dynText :: forall node. DOM node => Dynamic String -> Builder node Unit
-dynText = dynamic_ <<< map text
+dynText :: forall node. DOM node => WeakDynamic String -> Builder node Unit
+dynText = weakDynamic_ <<< map text
 
 domEventWithSample ::
      forall event node m a

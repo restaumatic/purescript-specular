@@ -10,9 +10,9 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node, outerHTML)
-import Specular.Dom.Node.Class (createElement)
 import Specular.Dom.Builder (Builder, domEventWithSample, dynamic_, elDynAttr, elDynAttr', runBuilder, text)
-import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_)
+import Specular.Dom.Node.Class (createElement)
+import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_, weaken)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, dispatchTrivialEvent, ioSync, shouldHaveValue, shouldReturn)
@@ -34,7 +34,7 @@ spec = describe "Builder" $ do
     Tuple dyn updateDyn <- ioSync $ newDynamic $
       SM.fromFoldable [ Tuple "k1" "v1", Tuple "k2" "v2" ]
     Tuple node result <- runBuilderInDiv $ do
-       elDynAttr "div" dyn $ pure unit
+       elDynAttr "div" (weaken dyn) $ pure unit
 
     ioSync (outerHTML node) `shouldReturn`
       """<div><div k1="v1" k2="v2"></div></div>"""
