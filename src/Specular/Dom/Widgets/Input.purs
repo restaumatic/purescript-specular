@@ -1,5 +1,6 @@
 module Specular.Dom.Widgets.Input (
     textInputOnChange  
+  , textInputOnInput
 ) where
 
 import Prelude
@@ -16,5 +17,11 @@ textInputOnChange initial attrs = do
   Tuple node _ <- elDynAttr' "input" (pure $ attrs <> ("value" := initial)) (pure unit)
   changed <- domEventWithSample (\_ -> getTextInputValue node) "change" node
   holdDyn initial changed
+
+textInputOnInput :: String -> Attrs -> Builder Node (Dynamic String)
+textInputOnInput initial attrs = do
+  Tuple node _ <- elDynAttr' "input" (pure $ attrs <> ("value" := initial)) (pure unit)
+  input <- domEventWithSample (\_ -> getTextInputValue node) "input" node
+  holdDyn initial input
 
 foreign import getTextInputValue :: Node -> IOSync String
