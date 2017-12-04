@@ -28,7 +28,7 @@ jobs:
 
       - run: |
           yarn install
-          npm install -g bower
+          npm install bower
           bower install
 
       - save_cache:
