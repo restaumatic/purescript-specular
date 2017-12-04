@@ -29,7 +29,7 @@ jobs:
       - run: |
           export PATH=./node_modules/.bin:$PATH
           yarn install
-          yarn install bower
+          npm install bower
           node_modules/.bin/bower install
 
       - save_cache:
