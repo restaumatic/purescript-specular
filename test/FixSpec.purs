@@ -6,12 +6,14 @@ import Control.Monad.Cleanup (runCleanupT)
 import Control.Monad.IOSync.Class (liftIOSync)
 import Data.IORef (newIORef)
 import Data.Tuple (Tuple(..))
-import Specular.FRP (holdDyn, never, newEvent, subscribeEvent_, subscribeWeakDyn_, weaken)
+import Specular.FRP (Dynamic, Event, WeakDynamic, holdDyn, never, newEvent, subscribeEvent_, weaken)
 import Specular.FRP.Base (mergeEvents)
-import Specular.FRP.Fix (fixDyn, fixEvent)
+import Specular.FRP.Fix (fixDyn, fixEvent, fixFRP)
+import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, ioSync, shouldHaveValue)
+import Test.Utils (append, ioSync, shouldHaveInferredType, shouldHaveValue)
+import Type.Prelude (Proxy(..))
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = do
@@ -85,3 +87,38 @@ spec = do
      ioSync $ fire 2
 
      log `shouldHaveValue` [Tuple 1 1, Tuple 2 2]
+
+  describe "fixRecord" $ do
+    describe "type inference" $ do
+      it "empty record" $ do
+        void $ ioSync $ runCleanupT $
+          fixFRP $ \r -> do
+            let _ = r `shouldHaveInferredType` (Proxy :: Proxy {})
+            pure (Tuple {} unit)
+
+      it "non-empty record" $ do
+        void $ ioSync $ runCleanupT $
+          fixFRP $ \r -> do
+            let _ = r `shouldHaveInferredType`
+                      (Proxy :: Proxy { event :: Event Int
+                                      , dynamic :: WeakDynamic Int
+                                      })
+            pure (Tuple { event: never :: Event Int
+                        , dynamic: pure 0 :: Dynamic Int
+                        }
+                        unit)
+
+    it "works for Events and Dynamics" $ do
+      log <- ioSync $ newIORef []
+      Tuple fire _ <- ioSync $ runCleanupT $
+        fixFRP $ \input -> do
+          {event, fire} <- liftIOSync newEvent
+          dynamic <- holdDyn 0 event
+
+          _ <- subscribeEvent_ (append log) input.event
+          _ <- subscribeWeakDyn_ (append log) input.dynamic
+          pure (Tuple { event, dynamic } fire)
+
+      ioSync $ fire 1
+
+      log `shouldHaveValue` [0, 1, 1]
