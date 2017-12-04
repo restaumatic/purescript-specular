@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "pulp test",
-    "test-w": "pulp -w test",
+    "node-test": "pulp test",
+    "node-test-w": "pulp -w test",
     "browser-test": "pulp test --main BrowserMain --runtime phantomjs",
-    "browser-test-w": "pulp -w test --main BrowserMain --runtime phantomjs"
+    "browser-test-w": "pulp -w test --main BrowserMain --runtime phantomjs",
+	"test": "npm run node-test && npm run browser-test"
   },
   "author": "Maciej Bielecki <zyla@prati.pl>",
   "license": "MIT",
