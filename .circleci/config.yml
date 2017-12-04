@@ -27,9 +27,10 @@ jobs:
           - v1-dependencies-
 
       - run: |
+          export PATH=./node_modules/.bin:$PATH
           yarn install
-          npm install bower
-          bower install
+          yarn install bower
+          node_modules/.bin/bower install
 
       - save_cache:
           paths:
