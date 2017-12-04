@@ -1,4 +1,4 @@
-module Examples.Counter (spec, mainWidget, buttonOnClick) where
+module Examples.Counter (spec, mainWidget) where
 
 import Prelude hiding (append)
 
@@ -6,6 +6,7 @@ import Control.Monad.Cleanup (class MonadCleanup)
 import Control.Monad.IOSync.Class (class MonadIOSync)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
+import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.Dom.Browser (Node, outerHTML)
 import Specular.Dom.Builder (Builder, domEventWithSample, dynText, el, elDynAttr', text)
 import Specular.Dom.Node.Class (Attrs)
@@ -84,8 +85,3 @@ control {increment,decrement} = do
       , (_ - 1) <$ decrement
       ]
   pure (Tuple {value} unit)
-
-buttonOnClick :: WeakDynamic Attrs -> Builder Node Unit -> Builder Node (Event Unit)
-buttonOnClick attrs inner = do
-  Tuple node _ <- elDynAttr' "button" attrs inner
-  domEventWithSample (\_ -> pure unit) "click" node

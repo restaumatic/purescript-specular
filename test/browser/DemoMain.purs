@@ -10,6 +10,7 @@ import Data.Tuple (Tuple(..))
 import Examples.Counter as Counter
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, el, runBuilder, text, weakDynamic_)
+import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (Event, holdDyn, leftmost)
 import Specular.FRP.Fix (fixFRP)
 
@@ -19,7 +20,7 @@ type Demo = Builder Node Unit
 
 demoButton :: String -> Builder Node Unit -> Builder Node (Event Demo)
 demoButton name demo = do
-  clicked <- Counter.buttonOnClick (pure mempty) (text name)
+  clicked <- buttonOnClick (pure mempty) (text name)
   pure $ demo <$ clicked
 
 main :: Eff (infinity :: INFINITY) Unit
