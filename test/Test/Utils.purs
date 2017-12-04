@@ -30,10 +30,6 @@ shouldReturn action expected = do
 ioSync :: forall r a. IOSync a -> Aff r a
 ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync
 
--- | Dispatch an Event with the given type and no additional information
--- | on the node.
-foreign import dispatchTrivialEvent :: Node -> EventType -> IOSync Unit
-
 class ShouldHaveInferredType actual expected where
   -- | Assert that the given value has inferred type @expected@.
   -- | If the assertion turns out to be false, the call will not compile.

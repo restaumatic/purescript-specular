@@ -13,8 +13,8 @@ import Specular.Dom.Builder (domEventWithSample, dynamic_, elDynAttr, elDynAttr'
 import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_, weaken)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, dispatchTrivialEvent, ioSync, shouldHaveValue, shouldReturn)
-import Test.Utils.Dom (runBuilderInDiv)
+import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
+import Test.Utils.Dom (runBuilderInDiv, dispatchTrivialEvent)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Builder" $ do
