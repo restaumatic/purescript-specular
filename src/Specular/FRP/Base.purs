@@ -13,6 +13,8 @@ module Specular.FRP.Base (
 
   , filterMapEvent
 
+  , readBehaviorIO
+
   , Dynamic
   , current
   , changed
@@ -175,6 +177,10 @@ instance bindBehavior :: Bind Behavior where
     readBehavior (k value)
 
 instance monadBehavior :: Monad Behavior
+
+-- | Run a frame which reads the given Behavior.
+readBehaviorIO :: forall a. Behavior a -> IOSync a
+readBehaviorIO = runNextFrame <<< readBehavior
 
 -------------------------------------------------------------
 

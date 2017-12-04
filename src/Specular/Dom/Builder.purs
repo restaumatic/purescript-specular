@@ -2,9 +2,6 @@ module Specular.Dom.Builder (
     Builder
   , runBuilder
 
-  , dynamic_
-  , weakDynamic_
-
   , el
   , elAttr
   , elDynAttr'
@@ -12,12 +9,21 @@ module Specular.Dom.Builder (
   , text
   , dynText
   , domEventWithSample
+
+  -- TODO: move these function somewhere else,
+  -- they are more general than Builder
+  , dynamic_
+  , weakDynamic_
+  , startIO
 ) where
 
 import Prelude
 
+import Control.Monad.Aff (killFiber, launchAff, launchAff_)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Control.Monad.Eff.Class (class MonadEff)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Exception (error)
+import Control.Monad.IO (IO, runIO)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
@@ -184,3 +190,9 @@ domEventWithSample sample eventType node = do
   unsub <- liftIOSync $ addEventListener eventType (sample >=> fire) node
   onCleanup unsub
   pure event
+
+-- | Start an asynchronous IO computation. It will be cancelled on cleanup.
+startIO :: forall m. MonadIOSync m => MonadCleanup m => IO Unit -> m Unit
+startIO action = do
+  fiber <- liftIOSync $ liftEff $ launchAff $ runIO action
+  onCleanup $ liftEff $ launchAff_ $ killFiber (error "Cancelled") fiber
