@@ -3,6 +3,7 @@ module Specular.Dom.Builder (
   , runBuilder
 
   , dynamic_
+  , weakDynamic_
 
   , el
   , elAttr

@@ -1,10 +1,9 @@
-module SimpleAppTest where
+module Examples.Counter (spec, mainWidget, buttonOnClick) where
 
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (class MonadCleanup)
 import Control.Monad.IOSync.Class (class MonadIOSync)
-import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node, outerHTML)
@@ -19,15 +18,17 @@ import Test.Utils (ioSync, shouldReturn)
 import Test.Utils.Dom (runBuilderInDiv, dispatchTrivialEvent, querySelector)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
-spec = describe "simple counter app" $ do
-  it "works" $ do
-    Tuple node _ <- runBuilderInDiv $ do
-      fixFRP $ view >=> control
+spec = describe "Counter" $ do
+  it "initially renders zero" $ do
+    Tuple node _ <- runBuilderInDiv mainWidget
 
     ioSync (outerHTML node) `shouldReturn`
       ( """<div><p>0</p>""" <>
         """<button class="increment">Increment</button>""" <>
         """<button class="decrement">Decrement</button></div>""" )
+
+  it "reacts to increment/decrement buttons" $ do
+    Tuple node _ <- runBuilderInDiv mainWidget
 
     incrementButton <- ioSync $ querySelector ".increment" node
     decrementButton <- ioSync $ querySelector ".decrement" node
@@ -47,6 +48,9 @@ spec = describe "simple counter app" $ do
       ( """<div><p>-2</p>""" <>
         """<button class="increment">Increment</button>""" <>
         """<button class="decrement">Decrement</button></div>""" )
+
+mainWidget :: Builder Node Unit
+mainWidget = fixFRP $ view >=> control
 
 view ::
      { value :: WeakDynamic Int }
