@@ -1,0 +1,156 @@
+module Examples.RegistrationForm (spec, mainWidget, buttonOnClick) where
+
+import Prelude hiding (append)
+
+import Control.Monad.Cleanup (class MonadCleanup, runCleanupT)
+import Control.Monad.IOSync.Class (class MonadIOSync)
+import Data.IORef (newIORef)
+import Data.Monoid (mempty)
+import Data.Tuple (Tuple(..))
+import Specular.Dom.Browser (Node, outerHTML)
+import Specular.Dom.Builder (Builder, domEventWithSample, el, elDynAttr', text, weakDynamic_)
+import Specular.Dom.Node.Class (Attrs, (:=))
+import Specular.Dom.Widgets.Input (textInputOnChange)
+import Specular.FRP (Dynamic, Event, never, tagDyn)
+import Specular.FRP.Base (sampleAt, subscribeEvent_)
+import Specular.FRP.Fix (fixFRP)
+import Specular.FRP.WeakDynamic (WeakDynamic)
+import Test.Spec (Spec, describe, it, pending')
+import Test.Spec.Runner (RunnerEffects)
+import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
+import Test.Utils.Dom (dispatchTrivialEvent, querySelector, runBuilderInDiv, setInputValueWithChange)
+
+spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec = describe "RegistrationForm" $ do
+  it "initially renders empty form" $ do
+    Tuple node _ <- runBuilderInDiv mainWidget
+
+    ioSync (outerHTML node) `shouldReturn`
+      ( """<div>""" <>
+        """<div><label>Login: </label><input value="" class="login"></div>""" <>
+        """<div><label>Password: </label><input value="" class="password" type="password"></div>""" <>
+        """<div><label>Repeat password: </label><input value="" class="repeat-password" type="password"></div>""" <>
+        """<button>Register</button>""" <>
+        """</div>""" )
+
+  it "reacts to password change" $ do
+    Tuple node _ <- runBuilderInDiv mainWidget
+
+    passwordInput <- ioSync $ querySelector ".password" node
+    ioSync $ setInputValueWithChange "foo" passwordInput
+
+    -- NB: Input values are not present in outerHTML
+    ioSync (outerHTML node) `shouldReturn`
+      ( """<div>""" <>
+        """<div><label>Login: </label><input value="" class="login"></div>""" <>
+        """<div><label>Password: </label><input value="" class="password" type="password"></div>""" <>
+        """<div><label>Repeat password: </label><input value="" class="repeat-password" type="password"></div>""" <>
+        """<div>Passwords do not match</div>""" <>
+        """<button>Register</button>""" <>
+        """</div>""" )
+
+  it "reacts to submit button" $ do
+    let showFormResult {login,password} = "login: " <> login <> ", password: " <> password
+
+    Tuple node event <- runBuilderInDiv mainWidget
+    log <- ioSync $ newIORef []
+    _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log <<< showFormResult) event
+
+
+    loginInput <- ioSync $ querySelector ".login" node
+    ioSync $ setInputValueWithChange "user" loginInput
+
+    passwordInput <- ioSync $ querySelector ".password" node
+    repeatPasswordInput <- ioSync $ querySelector ".repeat-password" node
+    ioSync $ setInputValueWithChange "hunter2" passwordInput
+    ioSync $ setInputValueWithChange "hunter2" repeatPasswordInput
+
+    submitButton <- ioSync $ querySelector "button" node
+    ioSync $ dispatchTrivialEvent submitButton "click"
+
+    log `shouldHaveValue` [ "login: user, password: hunter2" ]
+    
+-- | Data obtained from the form.
+type FormResult =
+  { login :: String
+  , password :: String
+  }
+
+-- | Renders a registration form.
+-- | Returns an Event that fires on "Register" button,
+-- | with the form data.
+mainWidget :: Builder Node (Event FormResult)
+mainWidget = fixFRP $ view >=> control
+
+view ::
+    { loginIsTaken :: WeakDynamic Boolean
+    , passwordsMatch :: WeakDynamic Boolean
+    }
+  -> Builder Node
+    { login :: Dynamic String
+    , password :: Dynamic String
+    , repeatPassword :: Dynamic String
+    , register :: Event Unit
+    }
+view {loginIsTaken, passwordsMatch} = do
+  login <- el "div" $ do
+    el "label" $ text "Login: "
+    value <- textInputOnChange "" ("class" := "login")
+    weakDynamic_ $ flip map loginIsTaken $ \loginIsTakenValue ->
+      when loginIsTakenValue $
+        text "Login already taken"
+    pure value
+
+  password <- el "div" $ do
+    el "label" $ text "Password: "
+    textInputOnChange "" ("type" := "password" <> "class" := "password")
+
+  repeatPassword <- el "div" $ do
+    el "label" $ text "Repeat password: "
+    textInputOnChange "" ("type" := "password" <> "class" := "repeat-password")
+
+  weakDynamic_ $ flip map passwordsMatch $ \passwordsMatchValue ->
+    unless passwordsMatchValue $
+      el "div" $ text "Passwords do not match"
+
+  register <- buttonOnClick (pure mempty) $ text "Register"
+
+  pure { login, password, repeatPassword, register }
+
+control ::
+     forall m
+   . MonadIOSync m
+  => MonadCleanup m
+  => { login :: Dynamic String
+     , password :: Dynamic String
+     , repeatPassword :: Dynamic String
+     , register :: Event Unit
+     }
+  -> m (Tuple
+    { loginIsTaken :: Dynamic Boolean
+    , passwordsMatch :: Dynamic Boolean
+    }
+    (Event FormResult)
+    )
+control {login,password,repeatPassword,register: registerButtonClicked} = do
+  let
+    loginIsTaken = map (_ == "admin") login
+    passwordsMatch = (==) <$> password <*> repeatPassword
+
+    register = tagDyn formResult registerButtonClicked
+    
+    -- FIXME: This should be replaced by `rsequence`
+    formResult :: Dynamic FormResult
+    formResult = do
+       loginValue <- login
+       passwordValue <- password
+       pure { login: loginValue, password: passwordValue }
+
+  pure $ Tuple
+    {loginIsTaken, passwordsMatch}
+    register
+
+buttonOnClick :: WeakDynamic Attrs -> Builder Node Unit -> Builder Node (Event Unit)
+buttonOnClick attrs inner = do
+  Tuple node _ <- elDynAttr' "button" attrs inner
+  domEventWithSample (\_ -> pure unit) "click" node

@@ -8,6 +8,7 @@ import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
 import Examples.Counter as Counter
+import Examples.RegistrationForm as RegistrationForm
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, el, runBuilder, text, weakDynamic_)
 import Specular.Dom.Widgets.Button (buttonOnClick)
@@ -35,9 +36,12 @@ mainWidget = fixFRP $ \view -> do
 
   el "h2" $ text "Choose another demo:"
   chooseCounter <- demoButton "Counter" Counter.mainWidget
+  chooseRegistrationForm <- demoButton "RegistrationForm" (void RegistrationForm.mainWidget)
 
   let changeDemo = leftmost
-        [ chooseCounter ]
+        [ chooseCounter
+        , chooseRegistrationForm
+        ]
   currentDemo <- holdDyn (text "(no demo chosen)") changeDemo
 
   pure (Tuple {currentDemo} unit)
