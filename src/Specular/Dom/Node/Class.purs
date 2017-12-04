@@ -5,8 +5,12 @@ import Prelude
 import Control.Monad.IOSync (IOSync)
 import Data.Maybe (Maybe)
 import Data.StrMap (StrMap)
+import Data.StrMap as StrMap
 
 type Attrs = StrMap String
+
+-- | Convenient syntax for building Attrs
+infix 5 StrMap.singleton as :=
 
 type TagName = String
 
