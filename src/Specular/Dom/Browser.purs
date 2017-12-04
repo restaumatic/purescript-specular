@@ -37,7 +37,7 @@ foreign import insertBeforeImpl :: Node -> Node -> Node -> IOSync Unit
 foreign import appendChildImpl :: Node -> Node -> IOSync Unit
 foreign import removeAllBetweenImpl :: Node -> Node -> IOSync Unit
 
-foreign import outerHTML :: Node -> IOSync String
+foreign import innerHTML :: Node -> IOSync String
 
 foreign import data Event :: Type
 

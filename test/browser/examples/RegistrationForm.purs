@@ -7,7 +7,7 @@ import Control.Monad.IOSync.Class (class MonadIOSync)
 import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node, outerHTML)
+import Specular.Dom.Browser (Node, innerHTML)
 import Specular.Dom.Builder (Builder, domEventWithSample, el, elDynAttr', text, weakDynamic_)
 import Specular.Dom.Node.Class (Attrs, (:=))
 import Specular.Dom.Widgets.Input (textInputOnChange)
@@ -25,13 +25,12 @@ spec = describe "RegistrationForm" $ do
   it "initially renders empty form" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
 
-    ioSync (outerHTML node) `shouldReturn`
-      ( """<div>""" <>
-        """<div><label>Login: </label><input value="" class="login"></div>""" <>
+    ioSync (innerHTML node) `shouldReturn`
+      ( """<div><label>Login: </label><input value="" class="login"></div>""" <>
         """<div><label>Password: </label><input value="" class="password" type="password"></div>""" <>
         """<div><label>Repeat password: </label><input value="" class="repeat-password" type="password"></div>""" <>
-        """<button>Register</button>""" <>
-        """</div>""" )
+        """<button>Register</button>"""
+      )
 
   it "reacts to password change" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
@@ -39,15 +38,14 @@ spec = describe "RegistrationForm" $ do
     passwordInput <- ioSync $ querySelector ".password" node
     ioSync $ setInputValueWithChange "foo" passwordInput
 
-    -- NB: Input values are not present in outerHTML
-    ioSync (outerHTML node) `shouldReturn`
-      ( """<div>""" <>
-        """<div><label>Login: </label><input value="" class="login"></div>""" <>
+    -- NB: Input values are not present in innerHTML
+    ioSync (innerHTML node) `shouldReturn`
+      ( """<div><label>Login: </label><input value="" class="login"></div>""" <>
         """<div><label>Password: </label><input value="" class="password" type="password"></div>""" <>
         """<div><label>Repeat password: </label><input value="" class="repeat-password" type="password"></div>""" <>
         """<div>Passwords do not match</div>""" <>
-        """<button>Register</button>""" <>
-        """</div>""" )
+        """<button>Register</button>"""
+      )
 
   it "reacts to submit button" $ do
     let showFormResult {login,password} = "login: " <> login <> ", password: " <> password

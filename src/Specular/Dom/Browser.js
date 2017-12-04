@@ -91,10 +91,10 @@ exports.removeAllBetweenImpl = function(from) {
   };
 };
 
-// outerHTML :: Node -> IOSync String
-exports.outerHTML = function(node) {
+// innerHTML :: Node -> IOSync String
+exports.innerHTML = function(node) {
   return function() {
-    return node.outerHTML;
+    return node.innerHTML;
   };
 };
 

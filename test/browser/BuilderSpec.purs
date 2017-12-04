@@ -8,7 +8,7 @@ import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (outerHTML)
+import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder (domEventWithSample, dynamic_, elDynAttr, elDynAttr', text)
 import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_, weaken)
 import Test.Spec (Spec, describe, it)
@@ -26,8 +26,8 @@ spec = describe "Builder" $ do
          text "baz"
        elDynAttr "span" (pure mempty) $ pure unit
 
-    ioSync (outerHTML node) `shouldReturn`
-      """<div><div class="content">foo<span>bar</span>baz</div><span></span></div>"""
+    ioSync (innerHTML node) `shouldReturn`
+      """<div class="content">foo<span>bar</span>baz</div><span></span>"""
 
   it "updates attributes" $ do
     Tuple dyn updateDyn <- ioSync $ newDynamic $
@@ -35,26 +35,26 @@ spec = describe "Builder" $ do
     Tuple node result <- runBuilderInDiv $ do
        elDynAttr "div" (weaken dyn) $ pure unit
 
-    ioSync (outerHTML node) `shouldReturn`
-      """<div><div k1="v1" k2="v2"></div></div>"""
+    ioSync (innerHTML node) `shouldReturn`
+      """<div k1="v1" k2="v2"></div>"""
 
     ioSync $ updateDyn $ SM.fromFoldable [ Tuple "k1" "v1.1", Tuple "k3" "v3" ]
 
-    ioSync (outerHTML node) `shouldReturn`
-      """<div><div k1="v1.1" k3="v3"></div></div>"""
+    ioSync (innerHTML node) `shouldReturn`
+      """<div k1="v1.1" k3="v3"></div>"""
 
   describe "dynamic_" $ do
     it "simple" $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
       Tuple node result <- runBuilderInDiv $ dynamic_ dyn
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>foo</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """foo"""
 
       ioSync $ updateDyn $ text "bar"
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>bar</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """bar"""
 
     it "surrounded by other elements" $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
@@ -63,13 +63,13 @@ spec = describe "Builder" $ do
          dynamic_ dyn
          elDynAttr "span" (pure mempty) $ pure unit
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div><span></span>foo<span></span></div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """<span></span>foo<span></span>"""
 
       ioSync $ updateDyn $ text "bar"
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div><span></span>bar<span></span></div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """<span></span>bar<span></span>"""
 
     it "two subscriptions to the same Dynamic" $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
@@ -77,26 +77,26 @@ spec = describe "Builder" $ do
          dynamic_ dyn
          dynamic_ dyn
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>foofoo</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """foofoo"""
 
       ioSync $ updateDyn $ text "bar"
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>barbar</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """barbar"""
 
     it "nested, same Dynamic" $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
       Tuple node result <- runBuilderInDiv $ do
          dynamic_ $ dyn $> dynamic_ dyn
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>foo</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """foo"""
 
       ioSync $ updateDyn $ text "bar"
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>bar</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """bar"""
 
     it "nested, different Dynamics" $ do
       Tuple dyn1 updateDyn1 <- ioSync $ newDynamic $ text "foo1"
@@ -104,18 +104,18 @@ spec = describe "Builder" $ do
       Tuple node result <- runBuilderInDiv $ do
          dynamic_ $ map (\x -> x *> dynamic_ dyn2) dyn1
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>foo1foo2</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """foo1foo2"""
 
       ioSync $ updateDyn1 $ text "bar1"
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>bar1foo2</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """bar1foo2"""
 
       ioSync $ updateDyn2 $ text "bar2"
 
-      ioSync (outerHTML node) `shouldReturn`
-        """<div>bar1bar2</div>"""
+      ioSync (innerHTML node) `shouldReturn`
+        """bar1bar2"""
 
   describe "domEventWithSample" $ do
     it "dispatches DOM events and handles unsubscribe" $ do
