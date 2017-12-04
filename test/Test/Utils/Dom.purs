@@ -23,3 +23,6 @@ foreign import querySelector :: String -> Node -> IOSync Node
 -- | Dispatch an Event with the given type and no additional information
 -- | on the node.
 foreign import dispatchTrivialEvent :: Node -> EventType -> IOSync Unit
+
+-- | Set input value and dispatch "change" event.
+foreign import setInputValueWithChange :: String -> Node -> IOSync Unit

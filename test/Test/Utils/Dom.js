@@ -19,3 +19,13 @@ exports.querySelector = function(selector) {
     };
   };
 };
+
+// setInputValueWithChange :: String -> Node -> IOSync Unit
+exports.setInputValueWithChange = function(value) {
+  return function(node) {
+    return function() {
+      node.value = value;
+      node.dispatchEvent(new Event('change'));
+    };
+  };
+};
