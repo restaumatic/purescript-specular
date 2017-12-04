@@ -1,4 +1,4 @@
-module Specular.Dom.Widget (
+module Specular.Dom.Builder (
     Builder
   , runBuilder
 

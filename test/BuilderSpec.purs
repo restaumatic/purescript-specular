@@ -11,7 +11,7 @@ import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node, outerHTML)
 import Specular.Dom.Node.Class (createElement)
-import Specular.Dom.Widget (Builder, domEventWithSample, dynamic_, elDynAttr, elDynAttr', runBuilder, text)
+import Specular.Dom.Builder (Builder, domEventWithSample, dynamic_, elDynAttr, elDynAttr', runBuilder, text)
 import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
