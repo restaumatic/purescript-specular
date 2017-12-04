@@ -2,20 +2,19 @@ module BuilderSpec where
 
 import Prelude hiding (append)
 
-import Control.Monad.Aff (Aff)
 import Control.Monad.Cleanup (runCleanupT)
 import Control.Monad.IOSync (IOSync)
 import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node, outerHTML)
-import Specular.Dom.Builder (Builder, domEventWithSample, dynamic_, elDynAttr, elDynAttr', runBuilder, text)
-import Specular.Dom.Node.Class (createElement)
+import Specular.Dom.Browser (outerHTML)
+import Specular.Dom.Builder (domEventWithSample, dynamic_, elDynAttr, elDynAttr', text)
 import Specular.FRP (Dynamic, holdDyn, newEvent, subscribeEvent_, weaken)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, dispatchTrivialEvent, ioSync, shouldHaveValue, shouldReturn)
+import Test.Utils.Dom (runBuilderInDiv)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Builder" $ do
@@ -136,9 +135,3 @@ newDynamic initial = do
   {event,fire} <- newEvent
   Tuple dyn _ <- runCleanupT $ holdDyn initial event
   pure (Tuple dyn fire)
-
-runBuilderInDiv :: forall r a. Builder Node a -> Aff r (Tuple Node a)
-runBuilderInDiv builder = ioSync $ do
-  parent <- createElement "div"
-  Tuple result _ <- runBuilder {parent} builder
-  pure (Tuple parent result)
