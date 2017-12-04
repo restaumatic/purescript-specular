@@ -1,4 +1,4 @@
-module Examples.RegistrationForm (spec, mainWidget, buttonOnClick) where
+module Examples.RegistrationForm (spec, mainWidget) where
 
 import Prelude hiding (append)
 
@@ -10,6 +10,7 @@ import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node, innerHTML)
 import Specular.Dom.Builder (Builder, domEventWithSample, el, elDynAttr', text, weakDynamic_)
 import Specular.Dom.Node.Class (Attrs, (:=))
+import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.Dom.Widgets.Input (textInputOnChange)
 import Specular.FRP (Dynamic, Event, never, tagDyn)
 import Specular.FRP.Base (sampleAt, subscribeEvent_)
@@ -147,8 +148,3 @@ control {login,password,repeatPassword,register: registerButtonClicked} = do
   pure $ Tuple
     {loginIsTaken, passwordsMatch}
     register
-
-buttonOnClick :: WeakDynamic Attrs -> Builder Node Unit -> Builder Node (Event Unit)
-buttonOnClick attrs inner = do
-  Tuple node _ <- elDynAttr' "button" attrs inner
-  domEventWithSample (\_ -> pure unit) "click" node
