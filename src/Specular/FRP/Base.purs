@@ -20,6 +20,7 @@ module Specular.FRP.Base (
   , foldDyn
   , subscribeDyn_
   , switch
+  , tagDyn
 ) where
 
 import Prelude
@@ -455,3 +456,6 @@ subscribeDyn_ ::
 subscribeDyn_ handler (Dynamic {value, change}) = do
   liftIOSync $ runNextFrame (readBehavior value) >>= handler
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
+
+tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
+tagDyn dyn event = sampleAt (id <$ event) (current dyn)
