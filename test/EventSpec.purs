@@ -5,7 +5,7 @@ import Prelude hiding (append)
 import Control.Monad.Cleanup (execCleanupT)
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
-import Specular.FRP (filterMapEvent, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
+import Specular.FRP (filterMapEvent, leftmost, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue)
@@ -84,3 +84,31 @@ spec = describe "Event" $ do
     ioSync $ root.fire 3
     ioSync $ root.fire 4
     log `shouldHaveValue` [2, 6, 8]
+
+  describe "leftmost" $ do
+    it "different root events" $ do
+      root1 <- ioSync newEvent
+      root2 <- ioSync newEvent
+      log <- ioSync $ newIORef []
+
+      let event = leftmost [ root1.event, root2.event ]
+      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+
+      clear log
+      ioSync $ root1.fire "left"
+      log `shouldHaveValue` ["left"]
+
+      clear log
+      ioSync $ root1.fire "right"
+      log `shouldHaveValue` ["right"]
+
+    it "coincidence chooses leftmost" $ do
+      root <- ioSync newEvent
+      log <- ioSync $ newIORef []
+
+      let event = leftmost [ 1 <$ root.event, 2 <$ root.event, 3 <$ root.event ]
+
+      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+
+      ioSync $ root.fire unit
+      log `shouldHaveValue` [ 1 ]

@@ -3,6 +3,7 @@ module Specular.FRP.Base (
   , newEvent
   , subscribeEvent_
   , never
+  , leftmost
 
   , Behavior
   , newBehavior
@@ -31,9 +32,10 @@ import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Data.Foldable (for_, sequence_)
 import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
-import Data.Traversable (sequence)
+import Data.Traversable (sequence, traverse)
 import Data.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
+import Data.Array as Array
 
 type FrameEnv = { currentTime :: Time, effectsRef :: IORef (IOSync Unit) }
 
@@ -171,6 +173,8 @@ instance bindBehavior :: Bind Behavior where
     value <- read
     readBehavior (k value)
 
+instance monadBehavior :: Monad Behavior
+
 -------------------------------------------------------------
 
 type Listener = Frame Unit
@@ -284,6 +288,32 @@ subscribeEvent_ handler (Event {occurence,subscribe}) = do
     for_ m_value $ \value ->
       effect $ handler value
   onCleanup unsub
+
+-- | An Event that occurs when any of the events occur.
+-- | If some of them occur simultaneously, the occurence value is that of the
+-- | leftmost one.
+leftmost :: forall a. Array (Event a) -> Event a
+leftmost events =
+  Event
+    { occurence: findFirstM (\(Event event) -> event.occurence) events
+    , subscribe: \l -> do
+       onceListener <- oncePerFrame_ l
+       unsubs <- traverse (\(Event event) -> event.subscribe onceListener) events
+       pure $ sequence_ unsubs
+    }
+
+findFirstM :: forall m a b. Monad m => (a -> m (Maybe b)) -> Array a -> m (Maybe b)
+findFirstM f array =
+  case Array.uncons array of
+
+    Just {head,tail} -> do
+      m_value <- f head
+      case m_value of
+        Just x -> pure (Just x)
+        Nothing -> findFirstM f tail
+
+    Nothing ->
+      pure Nothing
 
 -----------------------------------------------------------------
 
