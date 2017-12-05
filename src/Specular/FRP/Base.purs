@@ -31,7 +31,8 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Reader (ask, runReaderT)
+import Control.Monad.Reader.Trans (ReaderT(..))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Array as Array
@@ -45,10 +46,13 @@ import Partial.Unsafe (unsafeCrashWith)
 
 -------------------------------------------------
 
-newtype Pull a = Pull (ReaderT Time IOSync a)
+-- | Pull is a computation that reads a value given current time.
+-- |
+-- | Invariant: Pull computations are always idempotent (`forall x :: Pull a. x *> x = x`).
+newtype Pull a = MkPull (ReaderT Time IOSync a)
 
 runPull :: forall a. Time -> Pull a -> IOSync a
-runPull time (Pull x) = runReaderT x time
+runPull time (MkPull x) = runReaderT x time
 
 derive newtype instance functorPull :: Functor Pull
 derive newtype instance applyPull :: Apply Pull
@@ -57,13 +61,51 @@ derive newtype instance bindPull :: Bind Pull
 derive newtype instance monadPull :: Monad Pull
 
 getTime :: Pull Time
-getTime = Pull ask
+getTime =
+  -- ask is idempotent
+  MkPull ask
 
 pullReadIORef :: forall a. IORef a -> Pull a
-pullReadIORef ref = Pull $ lift $ readIORef ref
+pullReadIORef ref =
+  -- readIORef is idempotent
+  MkPull $ lift $ readIORef ref
 
-pullWriteIORef :: forall a. IORef a -> a -> Pull Unit
-pullWriteIORef ref value = Pull $ lift $ writeIORef ref value
+data CacheState a =
+    Fresh
+  | Cached Time a
+  | BlackHole
+
+-- | Create a computation that will run the given action at most once during
+-- | each frame.
+-- |
+-- | It is an error to run the computation returned from `oncePerFrame` inside
+-- | the passed action.
+oncePerFramePull :: forall a. Pull a -> IOSync (Pull a)
+oncePerFramePull action = oncePerFramePullWithIO action pure
+
+-- | Create a computation that will run the given Pull action and chain it to
+-- | the given IO action, at most once per frame. This makes the returned Pull
+-- | idempotent by construction.
+-- |
+-- | It is an error to run the computation returned from `oncePerFrame` inside
+-- | the passed action.
+oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
+oncePerFramePullWithIO action io = do
+  ref <- newIORef Fresh
+  pure $ MkPull $ ReaderT $ \time -> do
+    cache <- readIORef ref
+    case cache of
+      Cached lastTime value | lastTime == time ->
+        pure value
+
+      BlackHole ->
+        unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
+
+      _ -> do
+        writeIORef ref BlackHole
+        value <- runPull time action >>= io
+        writeIORef ref (Cached time value)
+        pure value
 
 -------------------------------------------------
 
@@ -78,6 +120,12 @@ newtype Frame a = Frame (WriterT (IOSync Unit) Pull a)
 
 framePull :: forall a. Pull a -> Frame a
 framePull = Frame <<< lift
+
+frameWriteIORef :: forall a. IORef a -> a -> Frame Unit
+frameWriteIORef ref value =
+  -- HACK: briefly creating a Pull that is not idempotent;
+  -- But it's immediately lifted to Frame, so it's OK
+  Frame $ lift $ MkPull $ lift $ writeIORef ref value
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: IOSync Unit -> Frame Unit
@@ -109,7 +157,7 @@ runNextFrame frame = do
   runFrame time frame
 
 -- | Create a computation that will run the given action at most once during
--- each Frame. if `x <- oncePerFrame action`, then `x *> x = x`.
+-- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
 oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
 oncePerFrame_ action = do
   ref <- newIORef Nothing
@@ -120,36 +168,8 @@ oncePerFrame_ action = do
       Just lastTime | lastTime == time ->
         pure unit
       _ -> do
-        framePull $ pullWriteIORef ref (Just time)
+        frameWriteIORef ref (Just time)
         action
-
-data CacheState a =
-    Fresh
-  | Cached Time a
-  | BlackHole
-
--- | Create a computation that will run the given action at most once during
--- each Frame. if `x <- oncePerFrame action`, then `x *> x = x`.
---
--- It is an error to run the computation returned from `oncePerFrame` inside
--- the passed action.
-oncePerFrame :: forall a. Pull a -> IOSync (Pull a)
-oncePerFrame action = do
-  ref <- newIORef Fresh
-  pure $ do
-    time <- getTime
-    cache <- pullReadIORef ref
-    case cache of
-      Cached lastTime value | lastTime == time ->
-        pure value
-
-      BlackHole ->
-        unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
-
-      _ -> do
-        value <- action
-        pullWriteIORef ref (Cached time value)
-        pure value
 
 -------------------------------------------------------------
 
@@ -374,16 +394,16 @@ foldDyn ::
   -> m (Dynamic b)
 foldDyn f initial (Event event) = do
   ref <- liftIOSync $ newIORef initial
-  updateOrReadValue :: Pull b <- liftIOSync $ oncePerFrame $ do
-    m_newValue <- readBehavior event.occurence
-    oldValue <- pullReadIORef ref
-    case m_newValue of
-      Just occurence -> do
-        let newValue = f occurence oldValue
-        pullWriteIORef ref newValue
-        pure newValue
-      Nothing ->
-        pure oldValue
+  updateOrReadValue <- liftIOSync $
+    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+      oldValue <- readIORef ref
+      case m_newValue of
+        Just occurence -> do
+          let newValue = f occurence oldValue
+          writeIORef ref newValue
+          pure newValue
+        Nothing ->
+          pure oldValue
 
   unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
