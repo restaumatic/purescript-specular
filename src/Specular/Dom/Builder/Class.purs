@@ -63,7 +63,3 @@ domEventWithSample sample eventType node = do
   unsub <- hostEffect $ addEventListener eventType (sample >=> fire) node
   onCleanup unsub
   pure event
-
--- A handy alias
-class (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m) <= MonadWidget m
-instance monadWidget :: (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m) => MonadWidget m

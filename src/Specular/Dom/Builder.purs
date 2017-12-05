@@ -1,9 +1,6 @@
 module Specular.Dom.Builder (
     BuilderT
   , runBuilderT
-
-  , Builder
-  , runBuilder
 ) where
 
 import Prelude

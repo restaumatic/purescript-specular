@@ -8,8 +8,9 @@ import Prelude
 import Control.Monad.IOSync (IOSync)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder.Class (class MonadWidget, domEventWithSample, elDynAttr')
+import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Node.Class (Attrs, (:=))
+import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (Dynamic, holdDyn)
 
 textInputOnChange :: forall m. MonadWidget m => String -> Attrs -> m (Dynamic String)

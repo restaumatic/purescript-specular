@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Monad.Eff (Eff)
 import Control.Monad.IO.Effect (INFINITY)
-import Control.Monad.IOSync (IOSync, runIOSync)
+import Control.Monad.IOSync (runIOSync)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.Traversable (traverse)
@@ -12,14 +12,11 @@ import Data.Tuple (Tuple(..))
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
 import Examples.RegistrationForm as RegistrationForm
-import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder (runBuilder)
-import Specular.Dom.Builder.Class (class MonadWidget, el, text)
+import Specular.Dom.Builder.Class (el, text)
+import Specular.Dom.Widget (class MonadWidget, runMainWidgetInBody)
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (Event, for, holdDyn, leftmost, weakDynamic_)
 import Specular.FRP.Fix (fixFRP)
-
-foreign import documentBody :: IOSync Node
 
 newtype Demo = Demo
   { name :: String
@@ -41,11 +38,6 @@ demoButton demo@(Demo {name}) = do
   clicked <- buttonOnClick (pure mempty) (text name)
   pure $ demo <$ clicked
 
-main :: Eff (infinity :: INFINITY) Unit
-main = runIOSync $ do
-  body <- documentBody
-  void $ runBuilder { parent: body } mainWidget
-
 mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = fixFRP $ \view -> do
   weakDynamic_ $ for view.currentDemo $ \m_demo ->
@@ -63,3 +55,6 @@ mainWidget = fixFRP $ \view -> do
   currentDemo <- holdDyn Nothing (map Just changeDemo)
 
   pure (Tuple {currentDemo} unit)
+
+main :: Eff (infinity :: INFINITY) Unit
+main = runIOSync $ runMainWidgetInBody mainWidget

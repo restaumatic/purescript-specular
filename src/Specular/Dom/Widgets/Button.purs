@@ -5,8 +5,9 @@ module Specular.Dom.Widgets.Button (
 import Prelude
 
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Builder.Class (class MonadWidget, domEventWithSample, elDynAttr')
+import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Node.Class (Attrs)
+import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (Event, WeakDynamic)
 
 -- | `buttonOnClick attrs body` - Creates a HTML `<button>` element with the
