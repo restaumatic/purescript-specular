@@ -20,7 +20,7 @@ module Specular.Dom.Builder (
 import Prelude
 
 import Control.Monad.Aff (killFiber, launchAff, launchAff_)
-import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, onCleanup, runCleanupT)
 import Control.Monad.Eff.Class (class MonadEff, liftEff)
 import Control.Monad.Eff.Exception (error)
 import Control.Monad.IO (IO, runIO)
@@ -36,7 +36,7 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..), snd)
 import Specular.Dom.Node.Class (class DOM, class EventDOM, Attrs, EventType, addEventListener, appendChild, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
-import Specular.FRP (Dynamic, Event, WeakDynamic, newEvent, subscribeDyn_, subscribeWeakDyn_)
+import Specular.FRP (class MonadHold, Dynamic, Event, WeakDynamic, foldDyn, newEvent, subscribeDyn_, subscribeWeakDyn_)
 
 newtype Builder node a = Builder (ReaderT (BuilderEnv node) (WriterT (IOSync Unit) IOSync) a)
 
@@ -101,6 +101,12 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
     onCleanup $ join $ readIORef cleanupRef
 
     pure { replace: replaceWith }
+
+instance monadHoldBuilder :: MonadHold (Builder node) where
+  foldDyn f x0 e = do
+    Tuple dyn cleanup <- liftIOSync $ runCleanupT $ foldDyn f x0 e
+    onCleanup cleanup
+    pure dyn
 
 dynamic_ :: forall m. MonadReplace m => MonadIOSync m => Dynamic (m Unit) -> m Unit
 dynamic_ dyn = do

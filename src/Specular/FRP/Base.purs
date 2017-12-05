@@ -18,16 +18,22 @@ module Specular.FRP.Base (
   , Dynamic
   , current
   , changed
-  , holdDyn
-  , foldDyn
-  , subscribeDyn_
   , switch
   , tagDyn
+
+  , class MonadHold
+  , holdDyn
+  , foldDyn
+
+  , class MonadSubscribe
+  , subscribeDyn_
+
+  , class MonadFRP
 ) where
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
@@ -375,47 +381,12 @@ newtype Dynamic a = Dynamic
   , change :: Event Unit
   }
 
-holdDyn ::
-     forall m a
-   . MonadCleanup m
-  => MonadIOSync m
-  => a
-  -> Event a
-  -> m (Dynamic a)
-holdDyn = foldDyn (\x _ -> x)
-
-foldDyn ::
-     forall m a b
-   . MonadCleanup m
-  => MonadIOSync m
-  => (a -> b -> b)
-  -> b
-  -> Event a
-  -> m (Dynamic b)
-foldDyn f initial (Event event) = do
-  ref <- liftIOSync $ newIORef initial
-  updateOrReadValue <- liftIOSync $
-    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readIORef ref
-      case m_newValue of
-        Just occurence -> do
-          let newValue = f occurence oldValue
-          writeIORef ref newValue
-          pure newValue
-        Nothing ->
-          pure oldValue
-
-  unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
-  onCleanup unsub
-
-  pure $ Dynamic
-    { value: Behavior updateOrReadValue
-    , change: map (\_ -> unit) (Event event)
-    }
-
+-- | The Behavior representing the current value of the Dynamic.
+-- | When it is changing (the change event occurs), it has the new value.
 current :: forall a. Dynamic a -> Behavior a
 current (Dynamic {value}) = value
 
+-- | An Event that fires with the new value every time the Dynamic changes.
 changed :: forall a. Dynamic a -> Event a
 changed (Dynamic {value, change}) = mapEventB (\_ -> value) change
 
@@ -430,6 +401,39 @@ instance applyDynamic :: Apply Dynamic where
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
+
+class MonadCleanup m <= MonadHold m where
+  -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
+  -- | and every time `e` fires, its value will update by applying `f` to the
+  -- | event occurence value and the old value.
+  -- |
+  -- | On cleanup, the Dynamic will stop updating in response to the event.
+  foldDyn :: forall a b. (a -> b -> b) -> b -> Event a -> m (Dynamic b)
+
+instance monadHoldCleanupT :: MonadHold (CleanupT IOSync) where
+  foldDyn f initial (Event event) = do
+    ref <- liftIOSync $ newIORef initial
+    updateOrReadValue <- liftIOSync $
+      oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+        oldValue <- readIORef ref
+        case m_newValue of
+          Just occurence -> do
+            let newValue = f occurence oldValue
+            writeIORef ref newValue
+            pure newValue
+          Nothing ->
+            pure oldValue
+
+    unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
+    onCleanup unsub
+
+    pure $ Dynamic
+      { value: Behavior updateOrReadValue
+      , change: map (\_ -> unit) (Event event)
+      }
+
+holdDyn :: forall m a. MonadHold m => a -> Event a -> m (Dynamic a)
+holdDyn = foldDyn (\x _ -> x)
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
@@ -499,8 +503,7 @@ instance monadDynamic :: Monad Dynamic
 
 subscribeDyn_ ::
      forall m a
-   . MonadCleanup m
-  => MonadIOSync m
+   . MonadSubscribe m
   => (a -> IOSync Unit)
   -> Dynamic a
   -> m Unit
@@ -510,3 +513,9 @@ subscribeDyn_ handler (Dynamic {value, change}) = do
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (id <$ event) (current dyn)
+
+class (MonadCleanup m, MonadIOSync m) <= MonadSubscribe m
+instance monadSubscribe :: (MonadCleanup m, MonadIOSync m) => MonadSubscribe m
+
+class (MonadHold m, MonadSubscribe m) <= MonadFRP m
+instance monadFRP :: (MonadHold m, MonadSubscribe m) => MonadFRP m

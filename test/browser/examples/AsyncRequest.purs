@@ -19,7 +19,7 @@ import Specular.Dom.Browser (Node, innerHTML)
 import Specular.Dom.Builder (Builder, dynamic_, el, startIO, text, weakDynamic_)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Input (textInputOnInput)
-import Specular.FRP (Dynamic, current, newEvent, readBehaviorIO)
+import Specular.FRP (class MonadHold, Dynamic, current, newEvent, readBehaviorIO)
 import Specular.FRP.Base (holdDyn)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
@@ -131,6 +131,7 @@ control ::
      forall m
    . MonadIOSync m
   => MonadReplace m
+  => MonadHold m
   => Backend
   -> { query :: Dynamic String
      }

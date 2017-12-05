@@ -8,7 +8,7 @@ import Control.Monad.Writer (WriterT, tell)
 import Control.Monad.Writer.Trans (execWriterT, runWriterT)
 import Data.Tuple (Tuple)
 
-class MonadCleanup m where
+class Monad m <= MonadCleanup m where
   -- | Add a cleanup action.
   onCleanup :: IOSync Unit -> m Unit
 

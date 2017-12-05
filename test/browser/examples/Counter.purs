@@ -2,15 +2,12 @@ module Examples.Counter (spec, mainWidget) where
 
 import Prelude hiding (append)
 
-import Control.Monad.Cleanup (class MonadCleanup)
-import Control.Monad.IOSync.Class (class MonadIOSync)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.Dom.Browser (Node, innerHTML)
-import Specular.Dom.Builder (Builder, domEventWithSample, dynText, el, elDynAttr', text)
-import Specular.Dom.Node.Class (Attrs)
-import Specular.FRP (Dynamic, Event, foldDyn, leftmost)
+import Specular.Dom.Builder (Builder, dynText, el, text)
+import Specular.Dom.Widgets.Button (buttonOnClick)
+import Specular.FRP (class MonadHold, Dynamic, Event, foldDyn, leftmost)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
 import Test.Spec (Spec, describe, it)
@@ -72,8 +69,7 @@ view {value} = do
 
 control ::
      forall m
-   . MonadIOSync m
-  => MonadCleanup m
+   . MonadHold m
   => { increment :: Event Unit
      , decrement :: Event Unit
      }
