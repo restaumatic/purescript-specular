@@ -2,10 +2,10 @@ module Examples.Counter (spec, mainWidget) where
 
 import Prelude hiding (append)
 
-import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (class MonadWidget, dynText, el, text)
+import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (class MonadHold, Dynamic, Event, foldDyn, leftmost)
 import Specular.FRP.Fix (fixFRP)
@@ -62,14 +62,12 @@ view :: forall m. MonadWidget m
 view {value} = do
   el "p" $ dynText (show <$> value)
 
-  increment <- buttonOnClick (pure $ SM.singleton "class" "increment") $ text "Increment"
-  decrement <- buttonOnClick (pure $ SM.singleton "class" "decrement") $ text "Decrement"
+  increment <- buttonOnClick (pure $ "class" := "increment") $ text "Increment"
+  decrement <- buttonOnClick (pure $ "class" := "decrement") $ text "Decrement"
 
   pure { increment, decrement }
 
-control ::
-     forall m
-   . MonadHold m
+control :: forall m. MonadHold m
   => { increment :: Event Unit
      , decrement :: Event Unit
      }

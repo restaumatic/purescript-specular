@@ -128,11 +128,9 @@ view {result} = do
 
 control :: forall m. MonadWidget m
   => Backend
-  -> { query :: Dynamic String
-     }
+  -> { query :: Dynamic String }
   -> m (Tuple
-    { result :: Dynamic (Loading String)
-    }
+    { result :: Dynamic (Loading String) }
     Unit
     )
 control backend {query} = do
