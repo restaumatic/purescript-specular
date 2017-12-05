@@ -1,19 +1,18 @@
 module Specular.FRP.Base (
     Event
-  , newEvent
-  , subscribeEvent_
   , never
   , leftmost
-
-  , Behavior
-  , newBehavior
-
   , mergeEvents
-  , sampleAt
 
   , filterMapEvent
 
-  , readBehaviorIO
+  , Pull
+  , class MonadPull
+  , pull
+
+  , Behavior
+  , sampleAt
+  , readBehavior
 
   , Dynamic
   , current
@@ -25,18 +24,24 @@ module Specular.FRP.Base (
   , holdDyn
   , foldDyn
 
-  , class MonadSubscribe
+  , class MonadHostCreate
+  , newEvent
+  , newBehavior
+
+  , class MonadHost
+  , subscribeEvent_
   , subscribeDyn_
+  , hostEffect
 
   , class MonadFRP
 ) where
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, CleanupT(..), onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
-import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
+import Control.Monad.IOSync.Class (liftIOSync)
 import Control.Monad.Reader (ask, runReaderT)
 import Control.Monad.Reader.Trans (ReaderT(..))
 import Control.Monad.Trans.Class (lift)
@@ -112,6 +117,17 @@ oncePerFramePullWithIO action io = do
         value <- runPull time action >>= io
         writeIORef ref (Cached time value)
         pure value
+
+class Monad m <= MonadPull m where
+  pull :: forall a. Pull a -> m a
+
+instance monadPullIOSync :: MonadPull IOSync where
+  pull p = do
+    time <- freshTime
+    runPull time p
+
+instance monadPullCleanupT :: MonadPull m => MonadPull (CleanupT m) where
+  pull = CleanupT <<< lift <<< pull
 
 -------------------------------------------------
 
@@ -199,15 +215,6 @@ nextTimeRef = unsafePerformEff $ runIOSync $ newIORef (Time 0)
 newtype Behavior a = Behavior (Pull a)
 -- Behavior is represented by a computation that reads its value.
 
--- | Create a new Behavior whose value can be modified outside a frame.
-newBehavior :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
-newBehavior initialValue = do
-  ref <- newIORef initialValue
-  pure
-    { behavior: Behavior $ pullReadIORef ref
-    , set: writeIORef ref
-    }
-
 -- | Read a value of a Behavior.
 readBehavior :: forall a. Behavior a -> Pull a
 readBehavior (Behavior read) = read
@@ -227,12 +234,6 @@ instance bindBehavior :: Bind Behavior where
     readBehavior (k value)
 
 instance monadBehavior :: Monad Behavior
-
--- | Run a frame which reads the given Behavior.
-readBehaviorIO :: forall a. Behavior a -> IOSync a
-readBehaviorIO b = do
-  time <- freshTime
-  runPull time $ readBehavior b
 
 -------------------------------------------------------------
 
@@ -255,29 +256,6 @@ newtype Event a = Event
 --  - a Behavior that tells whether this Event occurs during a given frame,
 --    and if so, its occurence value,
 --  - subscription function.
-
--- | Create an Event that can be triggered externally.
--- | Each `fire` will run a frame where the event occurs.
-newEvent :: forall a. IOSync { event :: Event a, fire :: a -> IOSync Unit }
-newEvent = do
-  occurence <- newBehavior Nothing
-  listenerMap <- UMM.new
-  let
-    fire value = do
-      occurence.set (Just value)
-      listeners <- UMM.values listenerMap
-      runNextFrame $ sequence_ listeners
-      occurence.set Nothing -- FIXME: this should occur before effects of the frame,
-                            -- because they may run other frames
-
-    subscribe l = do
-      key <- UMM.insert l listenerMap
-      pure $ UMM.delete key listenerMap
-
-  pure
-    { event: Event { occurence: occurence.behavior, subscribe }
-    , fire
-    }
 
 instance functorEvent :: Functor Event where
   map f (Event {occurence, subscribe}) = Event { occurence: map (map f) occurence, subscribe }
@@ -334,19 +312,65 @@ mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
 mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
-subscribeEvent_ ::
-     forall m a
-   . MonadCleanup m
-  => MonadIOSync m
-  => (a -> IOSync Unit)
-  -> Event a
-  -> m Unit
-subscribeEvent_ handler (Event {occurence,subscribe}) = do
-  unsub <- liftIOSync $ subscribe $ do
-    m_value <- framePull $ readBehavior occurence
-    for_ m_value $ \value ->
-      effect $ handler value
-  onCleanup unsub
+class MonadHostCreate io m | m -> io where
+  -- | Create an Event that can be triggered externally.
+  -- | Each `fire` will run a frame where the event occurs.
+  newEvent :: forall a. m { event :: Event a, fire :: a -> io Unit }
+
+  -- | Create a new Behavior whose value can be modified outside a frame.
+  newBehavior :: forall a. a -> m { behavior :: Behavior a, set :: a -> io Unit }
+
+
+class (Monad io, MonadPull m, MonadCleanup m, MonadHostCreate io m) <= MonadHost io m | m -> io where
+  subscribeEvent_ :: forall a. (a -> io Unit) -> Event a -> m Unit
+
+  hostEffect :: forall a. io a -> m a
+
+instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
+  newEvent = do
+    occurence <- newBehaviorIOSync Nothing
+    listenerMap <- UMM.new
+    let
+      fire value = do
+        occurence.set (Just value)
+        listeners <- UMM.values listenerMap
+        runNextFrame $ sequence_ listeners
+        occurence.set Nothing -- FIXME: this should occur before effects of the frame,
+                              -- because they may run other frames
+
+      subscribe l = do
+        key <- UMM.insert l listenerMap
+        pure $ UMM.delete key listenerMap
+
+    pure
+      { event: Event { occurence: occurence.behavior, subscribe }
+      , fire
+      }
+
+  newBehavior initialValue = newBehaviorIOSync initialValue
+
+
+instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate io m) => MonadHostCreate io (CleanupT m) where
+  newEvent = CleanupT $ lift newEvent
+  newBehavior = CleanupT <<< lift <<< newBehavior
+
+instance monadHostCleanupT :: MonadHost IOSync (CleanupT IOSync) where
+  subscribeEvent_ handler (Event {occurence,subscribe}) = do
+    unsub <- liftIOSync $ subscribe $ do
+      m_value <- framePull $ readBehavior occurence
+      for_ m_value $ \value ->
+        effect $ handler value
+    onCleanup unsub
+
+  hostEffect = liftIOSync
+
+newBehaviorIOSync :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
+newBehaviorIOSync initialValue = do
+  ref <- newIORef initialValue
+  pure
+    { behavior: Behavior $ pullReadIORef ref
+    , set: writeIORef ref
+    }
 
 -- | An Event that occurs when any of the events occur.
 -- | If some of them occur simultaneously, the occurence value is that of the
@@ -502,20 +526,18 @@ instance bindDynamic :: Bind Dynamic where
 instance monadDynamic :: Monad Dynamic
 
 subscribeDyn_ ::
-     forall m a
-   . MonadSubscribe m
-  => (a -> IOSync Unit)
+     forall io m a
+   . MonadHost io m
+  => (a -> io Unit)
   -> Dynamic a
   -> m Unit
 subscribeDyn_ handler (Dynamic {value, change}) = do
-  liftIOSync $ readBehaviorIO value >>= handler
+  currentValue <- pull $ readBehavior value
+  hostEffect $ handler currentValue
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (id <$ event) (current dyn)
 
-class (MonadCleanup m, MonadIOSync m) <= MonadSubscribe m
-instance monadSubscribe :: (MonadCleanup m, MonadIOSync m) => MonadSubscribe m
-
-class (MonadHold m, MonadSubscribe m) <= MonadFRP m
-instance monadFRP :: (MonadHold m, MonadSubscribe m) => MonadFRP m
+class (MonadHold m, MonadHost IOSync m) <= MonadFRP m
+instance monadFRP :: (MonadHold m, MonadHost IOSync m) => MonadFRP m

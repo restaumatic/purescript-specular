@@ -9,42 +9,42 @@ module Specular.FRP.Fix (
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup)
-import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Data.Record (delete, get, insert)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..), snd)
-import Specular.FRP.Base (class MonadFRP, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
+import Specular.FRP (class MonadHold, class MonadHost)
+import Specular.FRP.Base (Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn)
 import Type.Equality (class TypeEquals, to)
 import Type.Prelude (class IsSymbol, class RowLacks)
 import Type.Row (class RowToList, Cons, Nil, RLProxy(..))
 
 fixEvent ::
-     forall m a b
-   . MonadFRP m
+     forall m io a b
+   . MonadHost io m
   => (Event a -> m (Tuple (Event a) b))
   -> m b
 fixEvent f = do
-  {event,fire} <- liftIOSync newEvent
+  {event,fire} <- newEvent
   Tuple event' result <- f event
   subscribeEvent_ fire event'
   pure result
 
 fixDyn ::
-     forall m a b
-   . MonadFRP m
+     forall m io a b
+   . MonadHost io m
+  => MonadHold m
   => (WeakDynamic a -> m (Tuple (Dynamic a) b))
   -> m b
 fixDyn f = do
-  {event,fire} <- liftIOSync newEvent
+  {event,fire} <- newEvent
   wdyn <- holdWeakDyn event
   Tuple dyn result <- f wdyn
   subscribeDyn_ fire dyn
   pure result
 
 class FixFRP input output | output -> input, input -> output where
-  fixFRP :: forall m b. MonadFRP m => (input -> m (Tuple output b)) -> m b
+  fixFRP :: forall m io b. MonadHost io m => MonadHold m => (input -> m (Tuple output b)) -> m b
 
 instance fixFRPEvent :: FixFRP (Event a) (Event a) where
   fixFRP = fixEvent
@@ -56,8 +56,9 @@ instance fixFRPRecord :: (FixFRPRecord ro_list ri ro, RowToList ro ro_list) => F
   fixFRP = fixRecord (RLProxy :: RLProxy ro_list)
 
 class FixFRPRecord ro_list ri ro | ro_list -> ri ro where
-  fixRecord :: forall m b
-     . MonadFRP m
+  fixRecord :: forall m io b
+     . MonadHost io m
+    => MonadHold m
     => RLProxy ro_list
     -> (Record ri -> m (Tuple (Record ro) b))
     -> m b

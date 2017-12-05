@@ -8,14 +8,11 @@ module Specular.FRP.WeakDynamic (
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup)
-import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (class MonadIOSync)
 import Data.Foldable (traverse_)
 import Data.Functor.Compose (Compose(..))
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
-import Specular.FRP.Base (class MonadHold, Dynamic, Event, changed, filterMapEvent, holdDyn, subscribeDyn_)
+import Specular.FRP.Base (class MonadHold, class MonadHost, Dynamic, Event, changed, filterMapEvent, holdDyn, subscribeDyn_)
 
 -- | A primitive similar to Dynamic. The difference is: while Dynamic always
 -- | has a value, WeakDynamic has a value always after some point, but for
@@ -55,10 +52,10 @@ holdWeakDyn change = WeakDynamic <<< Compose <$> holdDyn Nothing (Just <$> chang
 -- | Invoke the handler immediately if the WeakDynamic has a value currently,
 -- | and invoke it every time it changes, until cleanup.
 subscribeWeakDyn_ ::
-     forall m a
-   . MonadCleanup m
-  => MonadIOSync m
-  => (a -> IOSync Unit)
+     forall io m a
+   . MonadHost io m
+  => Applicative io
+  => (a -> io Unit)
   -> WeakDynamic a
   -> m Unit
 subscribeWeakDyn_ handler (WeakDynamic (Compose mdyn)) =

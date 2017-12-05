@@ -9,6 +9,7 @@ import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log)
 import Control.Monad.IO (IO)
+import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Replace (class MonadReplace)
 import Data.IORef (newIORef, readIORef, writeIORef)
@@ -19,7 +20,7 @@ import Specular.Dom.Browser (Node, innerHTML)
 import Specular.Dom.Builder (Builder, dynamic_, el, startIO, text, weakDynamic_)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Input (textInputOnInput)
-import Specular.FRP (class MonadHold, Dynamic, current, newEvent, readBehaviorIO)
+import Specular.FRP (class MonadHold, class MonadHost, Dynamic, current, hostEffect, newEvent, pull, readBehavior)
 import Specular.FRP.Base (holdDyn)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
@@ -45,13 +46,13 @@ spec = describe "AsyncRequest" $ do
       Tuple query setQuery <- ioSync $ newDynamic ""
 
       Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
-      ioSync (readBehaviorIO $ current result) `shouldReturn` NotRequested
+      ioSync (pull $ readBehavior $ current result) `shouldReturn` NotRequested
 
       ioSync $ setQuery "foo"
-      ioSync (readBehaviorIO $ current result) `shouldReturn` Loading
+      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loading
 
       putVar "FOO" avar
-      ioSync (readBehaviorIO $ current result) `shouldReturn` Loaded "FOO"
+      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loaded "FOO"
 
     it "always displays the latest request" $ do
       firstRequest <- makeEmptyVar
@@ -70,10 +71,10 @@ spec = describe "AsyncRequest" $ do
       ioSync $ setQuery "bar"
 
       putVar "FOO" firstRequest
-      ioSync (readBehaviorIO $ current result) `shouldReturn` Loading
+      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loading
 
       putVar "BAR" secondRequest
-      ioSync (readBehaviorIO $ current result) `shouldReturn` Loaded "BAR"
+      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loaded "BAR"
 
 
 instantBackend :: Backend
@@ -129,7 +130,8 @@ view {result} = do
 
 control ::
      forall m
-   . MonadIOSync m
+   . MonadHost IOSync m
+  => MonadIOSync m
   => MonadReplace m
   => MonadHold m
   => Backend
@@ -141,12 +143,12 @@ control ::
     Unit
     )
 control backend {query} = do
-  loadStateChanged <- liftIOSync newEvent
+  loadStateChanged <- newEvent
 
   dynamic_ $ flip map query $ \queryValue ->
     if queryValue == ""
       then
-        liftIOSync $ loadStateChanged.fire NotRequested
+        hostEffect $ loadStateChanged.fire NotRequested
       else
         startIO $ do
           liftIOSync $ loadStateChanged.fire Loading
