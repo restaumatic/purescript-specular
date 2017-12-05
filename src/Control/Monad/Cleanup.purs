@@ -4,6 +4,8 @@ import Prelude
 
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync)
+import Control.Monad.Reader (ReaderT)
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Writer (WriterT, tell)
 import Control.Monad.Writer.Trans (execWriterT, runWriterT)
 import Data.Tuple (Tuple)
@@ -29,3 +31,6 @@ execCleanupT (CleanupT w) = execWriterT w
 
 instance monadCleanupCleanupT :: Monad m => MonadCleanup (CleanupT m) where
   onCleanup = CleanupT <<< tell
+
+instance monadCleanupReaderT :: MonadCleanup m => MonadCleanup (ReaderT r m) where
+  onCleanup = lift <<< onCleanup

@@ -314,7 +314,7 @@ mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
 mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
-class MonadHostCreate io m | m -> io where
+class Monad m <= MonadHostCreate io m | m -> io where
   -- | Create an Event that can be triggered externally.
   -- | Each `fire` will run a frame where the event occurs.
   newEvent :: forall a. m { event :: Event a, fire :: a -> io Unit }
@@ -323,7 +323,7 @@ class MonadHostCreate io m | m -> io where
   newBehavior :: forall a. a -> m { behavior :: Behavior a, set :: a -> io Unit }
 
 
-class (Monad io, MonadPull m, MonadCleanup m, MonadHostCreate io m) <= MonadHost io m | m -> io where
+class (Monad io, Monad m, MonadPull m, MonadCleanup m, MonadHostCreate io m) <= MonadHost io m | m -> io where
   subscribeEvent_ :: forall a. (a -> io Unit) -> Event a -> m Unit
 
   hostEffect :: forall a. io a -> m a
@@ -530,6 +530,7 @@ instance monadDynamic :: Monad Dynamic
 subscribeDyn_ ::
      forall io m a
    . MonadHost io m
+  => Monad m -- FIXME: why is this needed?
   => (a -> io Unit)
   -> Dynamic a
   -> m Unit

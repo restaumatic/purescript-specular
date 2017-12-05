@@ -1,72 +1,81 @@
 module Specular.Dom.Builder (
-    Builder
+    BuilderT
+  , runBuilderT
+
+  , Builder
   , runBuilder
 ) where
 
 import Prelude
 
-import Control.Monad.Aff (killFiber, launchAff, launchAff_)
 import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup, runCleanupT)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Exception (error)
-import Control.Monad.IO (IO, runIO)
+import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Replace (class MonadReplace, runReplaceable)
-import Control.Monad.Writer (WriterT, runWriterT, tell)
+import Control.Monad.Trans.Class (class MonadTrans, lift)
 import Data.Array as A
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
-import Data.Tuple (Tuple(..), snd)
+import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDomBuilder)
-import Specular.Dom.Node.Class (class DOM, class EventDOM, Attrs, EventType, addEventListener, appendChild, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
-import Specular.FRP (class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, Dynamic, Event, WeakDynamic, foldDyn, newBehavior, newEvent, pull, subscribeDyn_, subscribeEvent_, subscribeWeakDyn_)
+import Specular.Dom.Node.Class (class DOM, appendChild, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
+import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_, subscribeWeakDyn_)
 
-newtype Builder node a = Builder (ReaderT (BuilderEnv node) (WriterT (IOSync Unit) IOSync) a)
+newtype BuilderT node m a = BuilderT (ReaderT (BuilderEnv node) m a)
 
-derive newtype instance functorBuilder :: Functor (Builder node)
-derive newtype instance applyBuilder :: Apply (Builder node)
-derive newtype instance applicativeBuilder :: Applicative (Builder node)
-derive newtype instance bindBuilder :: Bind (Builder node)
-derive newtype instance monadBuilder :: Monad (Builder node)
-derive newtype instance monadEffBuilder :: MonadEff eff (Builder node)
-derive newtype instance monadIOSyncBuilder :: MonadIOSync (Builder node)
+type Builder node = BuilderT node (CleanupT IOSync)
 
-unBuilder :: forall node a. Builder node a -> ReaderT (BuilderEnv node) (WriterT (IOSync Unit) IOSync) a
-unBuilder (Builder f) = f
+derive newtype instance functorBuilderT :: Functor m => Functor (BuilderT node m)
+derive newtype instance applyBuilderT :: Apply m => Apply (BuilderT node m)
+derive newtype instance applicativeBuilderT :: Applicative m => Applicative (BuilderT node m)
+derive newtype instance bindBuilderT :: Bind m => Bind (BuilderT node m)
+derive newtype instance monadBuilderT :: Monad m => Monad (BuilderT node m)
+derive newtype instance monadEffBuilderT :: MonadEff eff m => MonadEff eff (BuilderT node m)
+derive newtype instance monadIOSyncBuilderT :: MonadIOSync m => MonadIOSync (BuilderT node m)
+derive newtype instance monadCleanupBuilderT :: MonadCleanup m => MonadCleanup (BuilderT node m)
+derive newtype instance monadTransBuilderT :: MonadTrans (BuilderT node)
+
+unBuilderT :: forall node m a. BuilderT node m a -> ReaderT (BuilderEnv node) m a
+unBuilderT (BuilderT f) = f
 
 runBuilder :: forall node a. BuilderEnv node -> Builder node a -> IOSync (Tuple a (IOSync Unit))
-runBuilder env (Builder f) = runWriterT $ runReaderT f env
+runBuilder env (BuilderT f) = runCleanupT $ runReaderT f env
+
+runBuilderT :: forall node m a. BuilderEnv node -> BuilderT node m a -> m a
+runBuilderT env (BuilderT f) = runReaderT f env
 
 type BuilderEnv node = { parent :: node }
 
-getEnv :: forall node. Builder node (BuilderEnv node)
-getEnv = Builder ask
+getEnv :: forall node m. Monad m => BuilderT node m (BuilderEnv node)
+getEnv = BuilderT ask
 
 setParent :: forall node. node -> BuilderEnv node -> BuilderEnv node
 setParent parent env = env { parent = parent }
 
-instance monadCleanupBuilder :: MonadCleanup (Builder node) where
-  onCleanup action = Builder $ tell action
+instance monadReplaceBuilderT :: (Monad m, MonadIOSync m, MonadReplace m, DOM node)
+    => MonadReplace (BuilderT node m) where
 
-instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
   runReplaceable initial = do
     env <- getEnv
+
+    {replace: innerReplace} <- lift $ runReplaceable (pure unit)
 
     placeholderAfter <- liftIOSync $ createTextNode ""
     liftIOSync $ appendChild placeholderAfter env.parent
 
-    cleanupRef <- liftIOSync $ newIORef mempty
+    cleanupRef <- liftIOSync $ newIORef (mempty :: IOSync Unit)
 
     let
+      replaceWith :: BuilderT node m Unit -> IOSync Unit
       replaceWith inner = do
-        join $ readIORef cleanupRef
-
         fragment <- createDocumentFragment
-        Tuple _ innerCleanup <- runBuilder { parent: fragment } inner
+        liftIOSync $ innerReplace $ runBuilderT { parent: fragment } inner
+
+        join $ readIORef cleanupRef
 
         m_parent <- parentNode placeholderAfter
 
@@ -77,40 +86,38 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
             insertBefore fragment placeholderAfter parent
 
             writeIORef cleanupRef $ do
-              innerCleanup
               removeAllBetween placeholderBefore placeholderAfter
               writeIORef cleanupRef mempty -- TODO: explain this
 
           Nothing ->
             -- we've been removed from the DOM
-            writeIORef cleanupRef innerCleanup
+            writeIORef cleanupRef mempty
+
+    liftIOSync $ replaceWith initial
 
     onCleanup $ join $ readIORef cleanupRef
 
     pure { replace: replaceWith }
 
+instance monadHoldBuilderT :: MonadHold m => MonadHold (BuilderT node m) where
+  foldDyn f x0 e = lift $ foldDyn f x0 e
 
-liftCleanupT :: forall node a. CleanupT IOSync a -> Builder node a
-liftCleanupT action = do
-  Tuple result cleanup <- liftIOSync $ runCleanupT action
-  onCleanup cleanup
-  pure result
+instance monadPullBuilderT :: MonadPull m => MonadPull (BuilderT node m) where
+  pull = lift <<< pull
 
-instance monadHoldBuilder :: MonadHold (Builder node) where
-  foldDyn f x0 e = liftCleanupT $ foldDyn f x0 e
+instance monadHostCreateBuilderT :: (Monad m, MonadHostCreate io m)
+    => MonadHostCreate io (BuilderT node m) where
+  newEvent = lift newEvent
+  newBehavior = lift <<< newBehavior
 
-instance monadPullBuilder :: MonadPull (Builder node) where
-  pull = liftIOSync <<< pull
+instance monadHostBuilder :: (Monad io, MonadHost io m)
+    => MonadHost io (BuilderT node m) where
+  subscribeEvent_ handler e = lift $ subscribeEvent_ handler e
+  hostEffect = lift <<< hostEffect
 
-instance monadHostCreateBuilder :: MonadHostCreate IOSync (Builder node) where
-  newEvent = liftIOSync newEvent
-  newBehavior = liftIOSync <<< newBehavior
+instance monadDomBuilderBuilder :: (MonadIOSync m, MonadFRP m, DOM node)
+    => MonadDomBuilder node (BuilderT node m) where
 
-instance monadHostBuilder :: MonadHost IOSync (Builder node) where
-  subscribeEvent_ handler e = liftCleanupT $ subscribeEvent_ handler e
-  hostEffect = liftIOSync
-
-instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder node) where
   text str = do
     env <- getEnv
     liftIOSync $ do
@@ -134,6 +141,6 @@ instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder nod
         setAttributes node changed
 
     subscribeWeakDyn_ resetAttributes dynAttrs
-    result <- Builder $ local (setParent node) (unBuilder inner)
+    result <- BuilderT $ local (setParent node) (unBuilderT inner)
     liftIOSync $ appendChild node env.parent
     pure (Tuple node result)
