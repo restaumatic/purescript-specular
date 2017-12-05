@@ -13,6 +13,14 @@ plenty of material about Reflex-Dom. See
 for a good introduction to the programming model. It should be adapted to
 PureScript and Specular in the near future.
 
+There are some [examples](test/browser/examples) that are also integration
+tests. They can be viewed in a Web browser:
+
+```
+npm run build-demo
+$WWW_BROWSER test/demo.html
+```
+
 ## Why not just use Reflex and GHCJS?
 
 In short: code size. Specular demos are 212K unminified (with DCE - `pulp build
