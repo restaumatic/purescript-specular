@@ -5,8 +5,7 @@ module Specular.Dom.Widgets.Button (
 import Prelude
 
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder (Builder, domEventWithSample, elDynAttr')
+import Specular.Dom.Builder.Class (class MonadWidget, domEventWithSample, elDynAttr')
 import Specular.Dom.Node.Class (Attrs)
 import Specular.FRP (Event, WeakDynamic)
 
@@ -14,7 +13,7 @@ import Specular.FRP (Event, WeakDynamic)
 -- | specified dynamic attributes and body.
 -- |
 -- | Returns an Event that occurs when the button is clicked.
-buttonOnClick :: WeakDynamic Attrs -> Builder Node Unit -> Builder Node (Event Unit)
+buttonOnClick :: forall m. MonadWidget m => WeakDynamic Attrs -> m Unit -> m (Event Unit)
 buttonOnClick attrs inner = do
   Tuple node _ <- elDynAttr' "button" attrs inner
   domEventWithSample (\_ -> pure unit) "click" node

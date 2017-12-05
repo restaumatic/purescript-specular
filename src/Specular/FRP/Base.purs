@@ -34,6 +34,8 @@ module Specular.FRP.Base (
   , hostEffect
 
   , class MonadFRP
+
+  , for
 ) where
 
 import Prelude
@@ -541,3 +543,6 @@ tagDyn dyn event = sampleAt (id <$ event) (current dyn)
 
 class (MonadHold m, MonadHost IOSync m) <= MonadFRP m
 instance monadFRP :: (MonadHold m, MonadHost IOSync m) => MonadFRP m
+
+for :: forall f a b. Functor f => f a -> (a -> b) -> f b
+for = flip map

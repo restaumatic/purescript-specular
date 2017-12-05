@@ -4,8 +4,8 @@ import Prelude hiding (append)
 
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node, innerHTML)
-import Specular.Dom.Builder (Builder, dynText, el, text)
+import Specular.Dom.Browser (innerHTML)
+import Specular.Dom.Builder.Class (class MonadWidget, dynText, el, text)
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (class MonadHold, Dynamic, Event, foldDyn, leftmost)
 import Specular.FRP.Fix (fixFRP)
@@ -50,12 +50,12 @@ spec = describe "Counter" $ do
         """<button class="decrement">Decrement</button>"""
       )
 
-mainWidget :: Builder Node Unit
+mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = fixFRP $ view >=> control
 
-view ::
-     { value :: WeakDynamic Int }
-  -> Builder Node
+view :: forall m. MonadWidget m
+  => { value :: WeakDynamic Int }
+  -> m
     { increment :: Event Unit
     , decrement :: Event Unit
     }

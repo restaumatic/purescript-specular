@@ -17,10 +17,11 @@ import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node, innerHTML)
-import Specular.Dom.Builder (Builder, dynamic_, el, startIO, text, weakDynamic_)
+import Specular.Dom.Builder.Class (class MonadWidget, el, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Input (textInputOnInput)
-import Specular.FRP (class MonadHold, class MonadHost, Dynamic, current, hostEffect, newEvent, pull, readBehavior)
+import Specular.FRP (class MonadHold, class MonadHost, Dynamic, current, dynamic_, hostEffect, newEvent, pull, readBehavior, weakDynamic_)
+import Specular.FRP.Async (startIO)
 import Specular.FRP.Base (holdDyn)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
@@ -93,10 +94,10 @@ type Backend =
   { toUpper :: String -> IO String
   }
 
-mainWidget :: Builder Node Unit
+mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = mainWidgetWith slowBackend
 
-mainWidgetWith :: Backend -> Builder Node Unit
+mainWidgetWith :: forall m. MonadWidget m => Backend -> m Unit
 mainWidgetWith backend = fixFRP $ view >=> control backend
 
 data Loading a = NotRequested | Loading | Loaded a
@@ -108,12 +109,9 @@ instance showLoading :: Show a => Show (Loading a) where
   show Loading = "Loading"
   show (Loaded x) = "(Loaded " <> show x <> ")"
 
-view ::
-    { result :: WeakDynamic (Loading String)
-    }
-  -> Builder Node
-    { query :: Dynamic String
-    }
+view :: forall m. MonadWidget m
+  => { result :: WeakDynamic (Loading String) }
+  -> m { query :: Dynamic String }
 view {result} = do
   query <- el "div" $ do
     el "label" $ text "Input: "
@@ -128,12 +126,7 @@ view {result} = do
 
   pure { query }
 
-control ::
-     forall m
-   . MonadHost IOSync m
-  => MonadIOSync m
-  => MonadReplace m
-  => MonadHold m
+control :: forall m. MonadWidget m
   => Backend
   -> { query :: Dynamic String
      }

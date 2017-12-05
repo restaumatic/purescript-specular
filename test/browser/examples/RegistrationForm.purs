@@ -7,16 +7,16 @@ import Control.Monad.IOSync.Class (class MonadIOSync)
 import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node, innerHTML)
-import Specular.Dom.Builder (Builder, domEventWithSample, el, elDynAttr', text, weakDynamic_)
-import Specular.Dom.Node.Class (Attrs, (:=))
+import Specular.Dom.Browser (innerHTML)
+import Specular.Dom.Builder.Class (class MonadWidget, el, text)
+import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.Dom.Widgets.Input (textInputOnChange)
-import Specular.FRP (Dynamic, Event, never, tagDyn)
-import Specular.FRP.Base (sampleAt, subscribeEvent_)
+import Specular.FRP (Dynamic, Event, tagDyn, weakDynamic_)
+import Specular.FRP.Base (subscribeEvent_)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
-import Test.Spec (Spec, describe, it, pending')
+import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (dispatchTrivialEvent, querySelector, runBuilderInDiv, setInputValueWithChange)
@@ -78,14 +78,14 @@ type FormResult =
 -- | Renders a registration form.
 -- | Returns an Event that fires on "Register" button,
 -- | with the form data.
-mainWidget :: Builder Node (Event FormResult)
+mainWidget :: forall m. MonadWidget m => m (Event FormResult)
 mainWidget = fixFRP $ view >=> control
 
-view ::
-    { loginIsTaken :: WeakDynamic Boolean
-    , passwordsMatch :: WeakDynamic Boolean
-    }
-  -> Builder Node
+view :: forall m. MonadWidget m
+  => { loginIsTaken :: WeakDynamic Boolean
+     , passwordsMatch :: WeakDynamic Boolean
+     }
+  -> m
     { login :: Dynamic String
     , password :: Dynamic String
     , repeatPassword :: Dynamic String

@@ -5,24 +5,39 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.IO.Effect (INFINITY)
 import Control.Monad.IOSync (IOSync, runIOSync)
+import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder (Builder, el, runBuilder, text, weakDynamic_)
-import Specular.Dom.Widgets.Button (buttonOnClick)
-import Specular.FRP (Event, holdDyn, leftmost)
-import Specular.FRP.Fix (fixFRP)
-
+import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
 import Examples.RegistrationForm as RegistrationForm
-import Examples.AsyncRequest as AsyncRequest
+import Specular.Dom.Browser (Node)
+import Specular.Dom.Builder (runBuilder)
+import Specular.Dom.Builder.Class (class MonadWidget, el, text)
+import Specular.Dom.Widgets.Button (buttonOnClick)
+import Specular.FRP (Event, for, holdDyn, leftmost, weakDynamic_)
+import Specular.FRP.Fix (fixFRP)
 
 foreign import documentBody :: IOSync Node
 
-type Demo = Builder Node Unit
+newtype Demo = Demo
+  { name :: String
+  , run :: forall m. MonadWidget m => Unit -> m Unit
+  }
 
-demoButton :: String -> Builder Node Unit -> Builder Node (Event Demo)
-demoButton name demo = do
+runDemo :: forall m. MonadWidget m => Demo -> m Unit
+runDemo (Demo {run}) = run unit
+
+demos :: Array Demo
+demos =
+  [ Demo { name: "Counter", run: \_ -> Counter.mainWidget }
+  , Demo { name: "RegistrationForm", run: \_ -> void RegistrationForm.mainWidget }
+  , Demo { name: "AsyncRequest", run: \_ -> AsyncRequest.mainWidget }
+  ]
+
+demoButton :: forall m. MonadWidget m => Demo -> m (Event Demo)
+demoButton demo@(Demo {name}) = do
   clicked <- buttonOnClick (pure mempty) (text name)
   pure $ demo <$ clicked
 
@@ -31,21 +46,20 @@ main = runIOSync $ do
   body <- documentBody
   void $ runBuilder { parent: body } mainWidget
 
-mainWidget :: Builder Node Unit
+mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = fixFRP $ \view -> do
-  el "h2" $ text "Current demo:"
-  weakDynamic_ view.currentDemo 
+  weakDynamic_ $ for view.currentDemo $ \m_demo ->
+    case m_demo of
+      Nothing -> text "(no demo chosen)"
+
+      Just (Demo {name, run}) -> do
+        el "h2" $ text $ "Current demo: " <> name
+        run unit
+
 
   el "h2" $ text "Choose another demo:"
-  chooseCounter <- demoButton "Counter" Counter.mainWidget
-  chooseRegistrationForm <- demoButton "RegistrationForm" (void RegistrationForm.mainWidget)
-  chooseAsyncRequest <- demoButton "AsyncRequest" AsyncRequest.mainWidget
+  changeDemo <- leftmost <$> traverse demoButton demos
 
-  let changeDemo = leftmost
-        [ chooseCounter
-        , chooseRegistrationForm
-        , chooseAsyncRequest
-        ]
-  currentDemo <- holdDyn (text "(no demo chosen)") changeDemo
+  currentDemo <- holdDyn Nothing (map Just changeDemo)
 
   pure (Tuple {currentDemo} unit)
