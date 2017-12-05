@@ -35,7 +35,14 @@ There are also other reasons, of course.
 
 See [Motivation](doc/Motivation.md).
 
-## Disadvantages
+## Warning
+
+This library uses [purescript-io](https://github.com/slamdata/purescript-io)
+instead of the usual `Eff` for imperative code. This is not a popular choice,
+but it made designing the library easier. It may change in the future, once I
+find a good way to wrangle effects in the FRP primitives.
+
+## Limitations
 
 Some of the cons of Specular:
 
@@ -51,6 +58,11 @@ Some of the cons of Specular:
 
 - Programs written with Specular may be harder to understand for some people who
   prefer the single state variable approach.
+
+- Compared to Reflex, it has way less FRP combinators.
+
+- Creating recursive data flows is more cumbersome than in Reflex, because
+  PureScript has eager evaluation and no `RecursiveDo`.
 
 - It's immature and not popular, and may have bugs.
 
