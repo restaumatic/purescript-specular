@@ -35,5 +35,26 @@ There are also other reasons, of course.
 
 See [Motivation](doc/Motivation.md).
 
+## Disadvantages
+
+Some of the cons of Specular:
+
+- No good way to do server-side rendering. Local state complicates this.
+
+- Performance may be sometimes bad, because it does not use any Virtual DOM -
+  the element placement instructions you write translate pretty much directly to
+  `createElement`/`appendChild`. There are no benchmarks yet.
+
+- Time travel debugging, as known from Elm, is not possible.
+
+- Currently no way to bind to React Native.
+
+- Programs written with Specular may be harder to understand for some people who
+  prefer the single state variable approach.
+
+- It's immature and not popular, and may have bugs.
+
+If you think there are more, please open an issue. They should be listed.
+
 [reflex]: https://github.com/reflex-frp/reflex
 [reflex-dom]: https://github.com/reflex-frp/reflex-dom
