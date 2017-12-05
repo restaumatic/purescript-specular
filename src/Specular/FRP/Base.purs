@@ -31,16 +31,41 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Control.Monad.Reader (ReaderT, asks, runReaderT)
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Writer (WriterT, runWriterT, tell)
+import Data.Array as Array
 import Data.Foldable (for_, sequence_)
-import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (sequence, traverse)
+import Data.Tuple (Tuple(..))
 import Data.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
-import Data.Array as Array
 
-type FrameEnv = { currentTime :: Time, effectsRef :: IORef (IOSync Unit) }
+-------------------------------------------------
+
+newtype Pull a = Pull (ReaderT Time IOSync a)
+
+runPull :: forall a. Time -> Pull a -> IOSync a
+runPull time (Pull x) = runReaderT x time
+
+derive newtype instance functorPull :: Functor Pull
+derive newtype instance applyPull :: Apply Pull
+derive newtype instance applicativePull :: Applicative Pull
+derive newtype instance bindPull :: Bind Pull
+derive newtype instance monadPull :: Monad Pull
+
+getTime :: Pull Time
+getTime = Pull ask
+
+pullReadIORef :: forall a. IORef a -> Pull a
+pullReadIORef ref = Pull $ lift $ readIORef ref
+
+pullWriteIORef :: forall a. IORef a -> a -> Pull Unit
+pullWriteIORef ref value = Pull $ lift $ writeIORef ref value
+
+-------------------------------------------------
 
 -- | Computations that occur during a Frame.
 --
@@ -49,16 +74,14 @@ type FrameEnv = { currentTime :: Time, effectsRef :: IORef (IOSync Unit) }
 --
 -- Frame computations have access to current logical time. See `oncePerFrame`
 -- for why this is needed.
-newtype Frame a = Frame (ReaderT FrameEnv IOSync a)
+newtype Frame a = Frame (WriterT (IOSync Unit) Pull a)
 
-getTime :: Frame Time
-getTime = Frame $ asks _.currentTime
+framePull :: forall a. Pull a -> Frame a
+framePull = Frame <<< lift
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: IOSync Unit -> Frame Unit
-effect action = Frame $ do
-  effectsRef <- asks _.effectsRef
-  liftIOSync $ modifyIORef effectsRef (_ *> action)
+effect action = Frame $ tell action
 
 derive newtype instance functorFrame :: Functor Frame
 derive newtype instance applyFrame :: Apply Frame
@@ -66,22 +89,23 @@ derive newtype instance applicativeFrame :: Applicative Frame
 derive newtype instance bindFrame :: Bind Frame
 derive newtype instance monadFrame :: Monad Frame
 
-internalFrameIOSync :: forall a. IOSync a -> Frame a
-internalFrameIOSync = Frame <<< liftIOSync
-
 -- | Run a Frame computation and then run its effects.
 runFrame :: forall a. Time -> Frame a -> IOSync a
 runFrame currentTime (Frame x) = do
-  effectsRef <- newIORef (pure unit)
-  value <- runReaderT x { currentTime, effectsRef }
-  join $ readIORef effectsRef
+  Tuple value effects <- runPull currentTime $ runWriterT x
+  effects
   pure value
+
+freshTime :: IOSync Time
+freshTime = do
+  time <- readIORef nextTimeRef
+  writeIORef nextTimeRef (case time of Time t -> Time (t + 1))
+  pure time
 
 -- | Run a Frame computation with a fresh time value and then run its effects.
 runNextFrame :: forall a. Frame a -> IOSync a
 runNextFrame frame = do
-  time <- readIORef nextTimeRef
-  writeIORef nextTimeRef (case time of Time t -> Time (t + 1))
+  time <- freshTime
   runFrame time frame
 
 -- | Create a computation that will run the given action at most once during
@@ -90,13 +114,13 @@ oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
 oncePerFrame_ action = do
   ref <- newIORef Nothing
   pure $ do
-    time <- getTime
-    m_lastTime <- internalFrameIOSync $ readIORef ref
+    time <- framePull $ getTime
+    m_lastTime <- framePull $ pullReadIORef ref
     case m_lastTime of
       Just lastTime | lastTime == time ->
         pure unit
       _ -> do
-        internalFrameIOSync $ writeIORef ref (Just time)
+        framePull $ pullWriteIORef ref (Just time)
         action
 
 data CacheState a =
@@ -109,12 +133,12 @@ data CacheState a =
 --
 -- It is an error to run the computation returned from `oncePerFrame` inside
 -- the passed action.
-oncePerFrame :: forall a. Frame a -> IOSync (Frame a)
+oncePerFrame :: forall a. Pull a -> IOSync (Pull a)
 oncePerFrame action = do
   ref <- newIORef Fresh
   pure $ do
     time <- getTime
-    cache <- internalFrameIOSync $ readIORef ref
+    cache <- pullReadIORef ref
     case cache of
       Cached lastTime value | lastTime == time ->
         pure value
@@ -124,7 +148,7 @@ oncePerFrame action = do
 
       _ -> do
         value <- action
-        internalFrameIOSync $ writeIORef ref (Cached time value)
+        pullWriteIORef ref (Cached time value)
         pure value
 
 -------------------------------------------------------------
@@ -146,7 +170,7 @@ nextTimeRef = unsafePerformEff $ runIOSync $ newIORef (Time 0)
 -- A Behavior should never change during a frame.
 --
 -- Can be composed using Monad instance.
-newtype Behavior a = Behavior (Frame a)
+newtype Behavior a = Behavior (Pull a)
 -- Behavior is represented by a computation that reads its value.
 
 -- | Create a new Behavior whose value can be modified outside a frame.
@@ -154,12 +178,12 @@ newBehavior :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSyn
 newBehavior initialValue = do
   ref <- newIORef initialValue
   pure
-    { behavior: Behavior $ internalFrameIOSync $ readIORef ref
+    { behavior: Behavior $ pullReadIORef ref
     , set: writeIORef ref
     }
 
 -- | Read a value of a Behavior.
-readBehavior :: forall a. Behavior a -> Frame a
+readBehavior :: forall a. Behavior a -> Pull a
 readBehavior (Behavior read) = read
 
 instance functorBehavior :: Functor Behavior where
@@ -180,7 +204,9 @@ instance monadBehavior :: Monad Behavior
 
 -- | Run a frame which reads the given Behavior.
 readBehaviorIO :: forall a. Behavior a -> IOSync a
-readBehaviorIO = runNextFrame <<< readBehavior
+readBehaviorIO b = do
+  time <- freshTime
+  runPull time $ readBehavior b
 
 -------------------------------------------------------------
 
@@ -291,7 +317,7 @@ subscribeEvent_ ::
   -> m Unit
 subscribeEvent_ handler (Event {occurence,subscribe}) = do
   unsub <- liftIOSync $ subscribe $ do
-    m_value <- readBehavior occurence
+    m_value <- framePull $ readBehavior occurence
     for_ m_value $ \value ->
       effect $ handler value
   onCleanup unsub
@@ -348,19 +374,18 @@ foldDyn ::
   -> m (Dynamic b)
 foldDyn f initial (Event event) = do
   ref <- liftIOSync $ newIORef initial
-  updateOrReadValue <- liftIOSync $ oncePerFrame $ do
+  updateOrReadValue :: Pull b <- liftIOSync $ oncePerFrame $ do
     m_newValue <- readBehavior event.occurence
-    internalFrameIOSync $ do
-      oldValue <- readIORef ref
-      case m_newValue of
-        Just occurence -> do
-          let newValue = f occurence oldValue
-          writeIORef ref newValue
-          pure newValue
-        Nothing ->
-          pure oldValue
+    oldValue <- pullReadIORef ref
+    case m_newValue of
+      Just occurence -> do
+        let newValue = f occurence oldValue
+        pullWriteIORef ref newValue
+        pure newValue
+      Nothing ->
+        pure oldValue
 
-  unsub <- liftIOSync $ event.subscribe $ void $ updateOrReadValue
+  unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
 
   pure $ Dynamic
@@ -395,7 +420,7 @@ switch (Dynamic { value, change: Event change }) = Event
       innerEvent.occurence
 
   , subscribe: \l -> do
-      onceListener <- oncePerFrame l
+      onceListener <- oncePerFrame_ l
       -- oncePerFrame guards us against the case of coincidence
       -- of the inner Event and outer Dynamic change
 
@@ -415,7 +440,7 @@ switch (Dynamic { value, change: Event change }) = Event
         -- Unsubscribe from the previous change event (if any)
         -- and subscribe to the current one.
         updateListener :: Frame Unit
-        updateListener = readBehavior value >>= replaceWith
+        updateListener = framePull (readBehavior value) >>= replaceWith
 
       -- First, we subscribe to the current inner Dynamic
       runNextFrame updateListener
@@ -460,7 +485,7 @@ subscribeDyn_ ::
   -> Dynamic a
   -> m Unit
 subscribeDyn_ handler (Dynamic {value, change}) = do
-  liftIOSync $ runNextFrame (readBehavior value) >>= handler
+  liftIOSync $ readBehaviorIO value >>= handler
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
