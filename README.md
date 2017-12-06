@@ -23,8 +23,8 @@ $WWW_BROWSER test/demo.html
 
 ## Why not just use Reflex and GHCJS?
 
-In short: code size. Specular demos are 212K unminified (with DCE - `pulp build
--O`), or 23K minified with uglifyjs and gzipped. In contrast, a a GHCJS
+In short: code size. Specular demos are 240K unminified (with DCE - `pulp build
+-O`), or 19K minified with `uglifyjs -c -m` and gzipped. In contrast, a a GHCJS
 (`0.2.1.9007019`) program that prints `Hello World` (no DOM bindings included,
 just `base`) weighs `1.1M` unminified, or 62K minified with Closure Compiler's
 `ADVANCED_OPTIMIZATIONS` and gzipped. Supporting Haskell semantics has a cost.
