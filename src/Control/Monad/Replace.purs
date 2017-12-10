@@ -6,21 +6,22 @@ import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup, runCleanu
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (liftIOSync)
 import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
 
 class (Monad m, MonadCleanup m) <= MonadReplace m where
-  runReplaceable :: m Unit -> m { replace :: m Unit -> IOSync Unit }
+  runReplaceable :: forall a. m { replace :: m a -> IOSync a }
 
 instance monadReplaceCleanupTIOSync :: MonadReplace (CleanupT IOSync) where
-  runReplaceable initial = do
-    Tuple _ cleanup <- liftIOSync $ runCleanupT initial
-    cleanupRef <- liftIOSync $ newIORef cleanup
+  runReplaceable = do
+    cleanupRef <- liftIOSync $ newIORef (mempty :: IOSync Unit)
 
     let
       replace inner = do
         join $ readIORef cleanupRef
-        Tuple _ cleanup <- runCleanupT inner
+        Tuple result cleanup <- runCleanupT inner
         writeIORef cleanupRef cleanup
+        pure result
 
     onCleanup $ join $ readIORef cleanupRef
 

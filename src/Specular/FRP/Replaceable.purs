@@ -9,10 +9,10 @@ import Specular.FRP.WeakDynamic (WeakDynamic, subscribeWeakDyn_)
 
 dynamic_ :: forall m. MonadReplace m => MonadHost IOSync m => Dynamic (m Unit) -> m Unit
 dynamic_ dyn = do
-  {replace} <- runReplaceable (pure unit)
+  {replace} <- runReplaceable
   subscribeDyn_ replace dyn
 
 weakDynamic_ :: forall m. MonadReplace m => MonadHost IOSync m => WeakDynamic (m Unit) -> m Unit
 weakDynamic_ dyn = do
-  {replace} <- runReplaceable (pure unit)
+  {replace} <- runReplaceable
   subscribeWeakDyn_ replace dyn

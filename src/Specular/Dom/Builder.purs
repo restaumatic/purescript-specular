@@ -56,10 +56,10 @@ setParent parent env = env { parent = parent }
 instance monadReplaceBuilderT :: (Monad m, MonadIOSync m, MonadReplace m, DOM node)
     => MonadReplace (BuilderT node m) where
 
-  runReplaceable initial = do
+  runReplaceable = do
     env <- getEnv
 
-    {replace: innerReplace} <- lift $ runReplaceable (pure unit)
+    {replace: innerReplace} <- lift runReplaceable
 
     placeholderAfter <- liftIOSync $ createTextNode ""
     liftIOSync $ appendChild placeholderAfter env.parent
@@ -67,10 +67,9 @@ instance monadReplaceBuilderT :: (Monad m, MonadIOSync m, MonadReplace m, DOM no
     cleanupRef <- liftIOSync $ newIORef (mempty :: IOSync Unit)
 
     let
-      replaceWith :: BuilderT node m Unit -> IOSync Unit
       replaceWith inner = do
         fragment <- createDocumentFragment
-        liftIOSync $ innerReplace $ runBuilderT { parent: fragment } inner
+        result <- liftIOSync $ innerReplace $ runBuilderT { parent: fragment } inner
 
         join $ readIORef cleanupRef
 
@@ -90,7 +89,7 @@ instance monadReplaceBuilderT :: (Monad m, MonadIOSync m, MonadReplace m, DOM no
             -- we've been removed from the DOM
             writeIORef cleanupRef mempty
 
-    liftIOSync $ replaceWith initial
+        pure result
 
     onCleanup $ join $ readIORef cleanupRef
 
