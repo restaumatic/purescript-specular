@@ -3,6 +3,7 @@ module Specular.FRP.Fix (
   , fixEvent
   , class FixFRP
   , fixFRP
+  , fixFRP_
   , class FixFRPRecord
   , fixRecord
 ) where
@@ -11,7 +12,7 @@ import Prelude
 
 import Data.Record (delete, get, insert)
 import Data.Symbol (SProxy(..))
-import Data.Tuple (Tuple(..), snd)
+import Data.Tuple (Tuple(Tuple), snd)
 import Specular.FRP.Base (class MonadHold, class MonadHost, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn)
 import Type.Equality (class TypeEquals, to)
@@ -41,6 +42,9 @@ fixDyn f = do
   Tuple dyn result <- f wdyn
   subscribeDyn_ fire dyn
   pure result
+
+fixFRP_ :: forall input output m io. FixFRP input output => MonadHost io m => MonadHold m => (input -> m output) -> m Unit
+fixFRP_ f = fixFRP (\input -> (\x -> Tuple x unit) <$> f input)
 
 class FixFRP input output | output -> input, input -> output where
   fixFRP :: forall m io b. MonadHost io m => MonadHold m => (input -> m (Tuple output b)) -> m b
