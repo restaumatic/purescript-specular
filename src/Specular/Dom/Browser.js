@@ -114,3 +114,30 @@ exports.addEventListenerImpl = function(eventType) {
     };
   };
 };
+
+// appendRawHtmlImpl :: String -> Node -> IOSync Unit
+exports.appendRawHtmlImpl = function(html) {
+  return function(parent) {
+    return function() {
+      // According to https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
+      // this should work:
+      //   parent.insertAdjacentHTML('beforeend', html);
+      // But it doesn't, at least in PhantomJS. Hence the following hack:
+
+      // This also should work, but doesn't:
+      //   var dummyElement = document.createElement('div');
+      //   parent.appendChild(dummyElement);
+      //   dummyElement.outerHTML = html;
+
+      var dummyElement = document.createElement('div');
+      dummyElement.innerHTML = html;
+
+      var node = dummyElement.firstChild;
+      while(node !== null) {
+        var next = node.nextSibling;
+        parent.appendChild(node); // moves the node from dummyElement to parent
+        node = next;
+      }
+    };
+  };
+};

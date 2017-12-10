@@ -9,7 +9,7 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr, elDynAttr', text)
+import Specular.Dom.Builder.Class (domEventWithSample, el, elDynAttr, elDynAttr', rawHtml, text)
 import Specular.FRP (Dynamic, dynamic_, holdDyn, newEvent, subscribeEvent_, weaken)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
@@ -23,11 +23,12 @@ spec = describe "Builder" $ do
        elDynAttr "div" (pure $ SM.singleton "class" "content") $ do
          text "foo"
          elDynAttr "span" (pure mempty) $ text "bar"
+         rawHtml """<p class="foo">Raw</p>"""
          text "baz"
        elDynAttr "span" (pure mempty) $ pure unit
 
     ioSync (innerHTML node) `shouldReturn`
-      """<div class="content">foo<span>bar</span>baz</div><span></span>"""
+      """<div class="content">foo<span>bar</span><p class="foo">Raw</p>baz</div><span></span>"""
 
   it "updates attributes" $ do
     Tuple dyn updateDyn <- ioSync $ newDynamic $
@@ -116,6 +117,21 @@ spec = describe "Builder" $ do
 
       ioSync (innerHTML node) `shouldReturn`
         """bar1bar2"""
+
+    it "with rawHtml" $ do
+      Tuple dyn updateDyn <- ioSync $ newDynamic $ rawHtml "<p>raw</p>"
+      Tuple node result <- runBuilderInDiv $ do
+        el "br" $ pure unit
+        dynamic_ dyn
+        el "br" $ pure unit
+
+      ioSync (innerHTML node) `shouldReturn`
+        """<br><p>raw</p><br>"""
+
+      ioSync $ updateDyn $ rawHtml "<input>"
+
+      ioSync (innerHTML node) `shouldReturn`
+        """<br><input><br>"""
 
   describe "domEventWithSample" $ do
     it "dispatches DOM events and handles unsubscribe" $ do

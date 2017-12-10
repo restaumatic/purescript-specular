@@ -27,6 +27,8 @@ instance domNode :: DOM Node where
   appendChild = appendChildImpl
   removeAllBetween = removeAllBetweenImpl
 
+  appendRawHtml = appendRawHtmlImpl
+
 foreign import createTextNodeImpl :: String -> IOSync Node
 foreign import createDocumentFragmentImpl :: IOSync Node
 foreign import createElementImpl :: TagName -> IOSync Node
@@ -36,6 +38,7 @@ foreign import parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> I
 foreign import insertBeforeImpl :: Node -> Node -> Node -> IOSync Unit
 foreign import appendChildImpl :: Node -> Node -> IOSync Unit
 foreign import removeAllBetweenImpl :: Node -> Node -> IOSync Unit
+foreign import appendRawHtmlImpl :: String -> Node -> IOSync Unit
 
 foreign import innerHTML :: Node -> IOSync String
 

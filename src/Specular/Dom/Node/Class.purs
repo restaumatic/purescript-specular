@@ -33,6 +33,9 @@ class DOM node where
   -- | `appendChild newNode parent`
   appendChild :: node -> node -> IOSync Unit
 
+  -- | Append a chunk of raw HTML to the end of the node.
+  appendRawHtml :: String -> node -> IOSync Unit
+
   -- | `removeAllBetween from to`
   -- |
   -- | Remove `from` and all nodes after `from` and before `to` from their

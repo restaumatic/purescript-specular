@@ -15,6 +15,7 @@ import Specular.FRP (class MonadHold, class MonadHost, Event, WeakDynamic, hostE
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
   elDynAttr' :: forall a . String -> WeakDynamic Attrs -> m a -> m (Tuple node a)
+  rawHtml :: String -> m Unit
 
 elDynAttr ::
      forall node m a
