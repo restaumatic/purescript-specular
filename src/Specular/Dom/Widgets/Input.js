@@ -4,3 +4,10 @@ exports.getTextInputValue = function(node) {
     return node.value;
   };
 };
+
+// getCheckboxChecked :: Node -> IOSync Boolean
+exports.getCheckboxChecked = function(node) {
+  return function() {
+    return node.checked;
+  };
+};
