@@ -3,9 +3,12 @@ module DynamicSpec where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
+import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Tuple (Tuple(..))
+import Partial.Unsafe (unsafeCrashWith)
 import Specular.FRP (foldDyn, holdDyn, newEvent, subscribeDyn_)
+import Specular.FRP.Base (subscribeDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue)
@@ -131,3 +134,21 @@ spec = describe "Dynamic" $ do
       ioSync $ ev1.fire 15
       ioSync $ ev2.fire rootDynInner
       log `shouldHaveValue` [15, 15]
+
+  describe "subscribeDyn" $ do
+    it "updates the resulting Dynamic" $ do
+      {event,fire} <- ioSync newEvent
+      log <- ioSync $ newIORef []
+      Tuple dyn _ <- ioSync $ runCleanupT $ holdDyn 1 event
+
+      Tuple derivedDyn _ <- ioSync $ runCleanupT $ subscribeDyn (\x ->
+        do
+          append log (Left x)
+          pure (2 * x)
+        ) dyn
+
+      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log (Right x)) derivedDyn
+
+      ioSync $ fire 5
+
+      log `shouldHaveValue` [Left 1, Right 2, Left 5, Right 10]

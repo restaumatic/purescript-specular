@@ -31,6 +31,7 @@ module Specular.FRP.Base (
   , class MonadHost
   , subscribeEvent_
   , subscribeDyn_
+  , subscribeDyn
   , hostEffect
 
   , class MonadFRP
@@ -538,6 +539,21 @@ subscribeDyn_ handler (Dynamic {value, change}) = do
   currentValue <- pull $ readBehavior value
   hostEffect $ handler currentValue
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
+
+subscribeDyn ::
+     forall io m a b
+   . MonadHost io m
+  => MonadHold m
+  => Monad io -- FIXME: why is this needed?
+  => (a -> io b)
+  -> Dynamic a
+  -> m (Dynamic b)
+subscribeDyn handler dyn = do
+  {event,fire} <- newEvent
+  currentValue <- pull $ readBehavior $ current dyn
+  initialResult <- hostEffect $ handler currentValue
+  subscribeEvent_ (handler >=> fire) $ changed dyn
+  holdDyn initialResult event
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (id <$ event) (current dyn)

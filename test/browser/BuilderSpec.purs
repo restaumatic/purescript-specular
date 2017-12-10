@@ -8,13 +8,17 @@ import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
+import Partial.Unsafe (unsafeCrashWith)
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (domEventWithSample, el, elDynAttr, elDynAttr', rawHtml, text)
-import Specular.FRP (Dynamic, dynamic_, holdDyn, newEvent, subscribeEvent_, weaken)
+import Specular.Dom.Widgets.Button (buttonOnClick)
+import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, for, holdDyn, never, newEvent, subscribeEvent_, switch, weaken)
+import Specular.FRP.Replaceable (dynamic, weakDynamic)
+import Specular.FRP.WeakDynamic (switchWeakDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
-import Test.Utils.Dom (runBuilderInDiv, dispatchTrivialEvent)
+import Test.Utils.Dom (runBuilderInDiv, dispatchTrivialEvent, querySelector)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Builder" $ do
@@ -143,6 +147,65 @@ spec = describe "Builder" $ do
       log <- ioSync $ newIORef []
       _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
 
+      ioSync $ dispatchTrivialEvent button "click"
+      log `shouldHaveValue` [unit]
+
+  describe "integration test - `dynamic`/`weakDynamic` and flattening" $ do
+    it "clearCompletedButton from TodoMVC, using Dynamic" $ do
+      Tuple dyn updateDyn <- ioSync $ newDynamic false
+      let
+        anyCompletedTasks :: Dynamic Boolean
+        anyCompletedTasks = dyn
+
+      Tuple node (result :: Dynamic (Event Unit)) <- runBuilderInDiv $
+        dynamic $ for anyCompletedTasks $ \anyCompletedTasks' ->
+          if anyCompletedTasks'
+            then buttonOnClick (pure mempty) (text "Clear")
+            else pure never
+
+      let
+        event :: Event Unit
+        event = switch result
+
+      log <- ioSync $ newIORef []
+      _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
+
+      ioSync (innerHTML node) `shouldReturn` ""
+
+      ioSync $ updateDyn true
+      ioSync (innerHTML node) `shouldReturn`
+        """<button>Clear</button>"""
+
+      button <- ioSync $ querySelector "button" node
+      ioSync $ dispatchTrivialEvent button "click"
+      log `shouldHaveValue` [unit]
+
+    it "clearCompletedButton from TodoMVC, using WeakDynamic" $ do
+      Tuple dyn updateDyn <- ioSync $ newDynamic false
+      let
+        anyCompletedTasks :: WeakDynamic Boolean
+        anyCompletedTasks = weaken dyn
+
+      Tuple node (result :: WeakDynamic (Event Unit)) <- runBuilderInDiv $
+        weakDynamic $ for anyCompletedTasks $ \anyCompletedTasks' ->
+          if anyCompletedTasks'
+            then buttonOnClick (pure mempty) (text "Clear")
+            else pure never
+
+      let
+        event :: Event Unit
+        event = switchWeakDyn result
+
+      log <- ioSync $ newIORef []
+      _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
+
+      ioSync (innerHTML node) `shouldReturn` ""
+
+      ioSync $ updateDyn true
+      ioSync (innerHTML node) `shouldReturn`
+        """<button>Clear</button>"""
+
+      button <- ioSync $ querySelector "button" node
       ioSync $ dispatchTrivialEvent button "click"
       log `shouldHaveValue` [unit]
 
