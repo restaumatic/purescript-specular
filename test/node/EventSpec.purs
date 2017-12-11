@@ -3,9 +3,11 @@ module EventSpec where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (execCleanupT)
+import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
-import Specular.FRP (filterMapEvent, leftmost, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
+import Specular.FRP (filterMapEvent, holdDyn, leftmost, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
+import Specular.FRP.Base (subscribeDyn_)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue)
@@ -112,3 +114,16 @@ spec = describe "Event" $ do
 
       ioSync $ root.fire unit
       log `shouldHaveValue` [ 1 ]
+
+  it "does not occur during frames started by firing listeners" $ do
+    root <- ioSync newEvent
+    log <- ioSync $ newIORef []
+
+    _ <- ioSync $ execCleanupT $ subscribeEvent_ (\_ ->
+      void $ execCleanupT $ do
+         dyn <- holdDyn 0 root.event
+         subscribeDyn_ (append log) dyn
+      ) root.event
+
+    ioSync $ root.fire 1
+    log `shouldHaveValue` [ 0 ]

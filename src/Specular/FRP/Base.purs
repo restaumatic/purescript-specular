@@ -331,22 +331,22 @@ class (Monad io, Monad m, MonadPull m, MonadCleanup m, MonadHostCreate io m) <= 
 
 instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
   newEvent = do
-    occurence <- newBehaviorIOSync Nothing
+    occurenceRef <- newIORef Nothing
     listenerMap <- UMM.new
     let
       fire value = do
-        occurence.set (Just value)
+        writeIORef occurenceRef (Just value)
         listeners <- UMM.values listenerMap
-        runNextFrame $ sequence_ listeners
-        occurence.set Nothing -- FIXME: this should occur before effects of the frame,
-                              -- because they may run other frames
+        runNextFrame $ do
+          sequence_ listeners
+          frameWriteIORef occurenceRef Nothing
 
       subscribe l = do
         key <- UMM.insert l listenerMap
         pure $ UMM.delete key listenerMap
 
     pure
-      { event: Event { occurence: occurence.behavior, subscribe }
+      { event: Event { occurence: Behavior $ pullReadIORef occurenceRef, subscribe }
       , fire
       }
 
