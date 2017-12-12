@@ -9,19 +9,17 @@ import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log)
 import Control.Monad.IO (IO)
-import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Control.Monad.Replace (class MonadReplace)
+import Control.Monad.IOSync.Class (liftIOSync)
 import Data.IORef (newIORef, readIORef, writeIORef)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node, innerHTML)
+import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (el, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.Dom.Widgets.Input (textInputOnInput)
-import Specular.FRP (class MonadHold, class MonadHost, Dynamic, current, dynamic_, hostEffect, newEvent, pull, readBehavior, weakDynamic_)
+import Specular.FRP (Dynamic, current, dynamic_, hostEffect, newEvent, pull, readBehavior, weakDynamic_)
 import Specular.FRP.Async (startIO)
 import Specular.FRP.Base (holdDyn)
 import Specular.FRP.Fix (fixFRP)
@@ -37,7 +35,7 @@ spec = describe "AsyncRequest" $ do
     Tuple node _ <- runBuilderInDiv (mainWidgetWith instantBackend)
 
     ioSync (innerHTML node) `shouldReturn`
-      ( """<div><label>Input: </label><input value="" class="login"></div>""" <>
+      ( """<div><label>Input: </label><input class="login"></div>""" <>
         """<div></div>"""
       )
 

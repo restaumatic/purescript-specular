@@ -1,8 +1,10 @@
-// dispatchTrivialEvent :: Node -> EventType -> IOSync Unit
-exports.dispatchTrivialEvent = function(node) {
+// dispatchEvent :: Node -> EventType -> Foreign -> IOSync Unit
+exports.dispatchEvent = function(node) {
   return function(eventType) {
-    return function() {
-      node.dispatchEvent(new Event(eventType));
+    return function(options) {
+      return function() {
+        node.dispatchEvent(new Event(eventType, options));
+      };
     };
   };
 };

@@ -28,9 +28,9 @@ spec = describe "RegistrationForm" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
 
     ioSync (innerHTML node) `shouldReturn`
-      ( """<div><label>Login: </label><input value="" class="login"></div>""" <>
-        """<div><label>Password: </label><input value="" class="password" type="password"></div>""" <>
-        """<div><label>Repeat password: </label><input value="" class="repeat-password" type="password"></div>""" <>
+      ( """<div><label>Login: </label><input class="login"></div>""" <>
+        """<div><label>Password: </label><input class="password" type="password"></div>""" <>
+        """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>""" <>
         """<button>Register</button>"""
       )
 
@@ -42,9 +42,9 @@ spec = describe "RegistrationForm" $ do
 
     -- NB: Input values are not present in innerHTML
     ioSync (innerHTML node) `shouldReturn`
-      ( """<div><label>Login: </label><input value="" class="login"></div>""" <>
-        """<div><label>Password: </label><input value="" class="password" type="password"></div>""" <>
-        """<div><label>Repeat password: </label><input value="" class="repeat-password" type="password"></div>""" <>
+      ( """<div><label>Login: </label><input class="login"></div>""" <>
+        """<div><label>Password: </label><input class="password" type="password"></div>""" <>
+        """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>""" <>
         """<div>Passwords do not match</div>""" <>
         """<button>Register</button>"""
       )

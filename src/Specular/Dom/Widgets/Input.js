@@ -5,6 +5,15 @@ exports.getTextInputValue = function(node) {
   };
 };
 
+// setTextInputValue :: Node -> String -> IOSync String
+exports.setTextInputValue = function(node) {
+  return function(value) {
+    return function() {
+      node.value = value;
+    };
+  };
+};
+
 // getCheckboxChecked :: Node -> IOSync Boolean
 exports.getCheckboxChecked = function(node) {
   return function() {
