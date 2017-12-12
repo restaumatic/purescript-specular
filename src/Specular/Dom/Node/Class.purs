@@ -10,7 +10,7 @@ import Data.StrMap as StrMap
 type Attrs = StrMap String
 
 -- | Convenient syntax for building Attrs
-infix 5 StrMap.singleton as :=
+infix 8 StrMap.singleton as :=
 
 type TagName = String
 
