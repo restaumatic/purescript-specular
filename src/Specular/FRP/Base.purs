@@ -4,6 +4,7 @@ module Specular.FRP.Base (
   , leftmost
   , mergeEvents
 
+  , filterEvent
   , filterMapEvent
 
   , Pull
@@ -286,6 +287,9 @@ sampleAt event behavior = mapEventB (\f -> f <$> behavior) event
 
 filterMapEvent :: forall a b. (a -> Maybe b) -> Event a -> Event b
 filterMapEvent f = filterMapEventB (pure <<< f)
+
+filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
+filterEvent f = filterMapEvent (\x -> if f x then Just x else Nothing)
 
 mergeEvents ::
      forall a b c
