@@ -6,6 +6,7 @@ module Specular.FRP.WeakDynamic (
   , switchWeakDyn
   , subscribeWeakDyn
   , subscribeWeakDyn_
+  , attachWeakDynWith
 ) where
 
 import Prelude
@@ -14,7 +15,7 @@ import Data.Foldable (traverse_)
 import Data.Functor.Compose (Compose(..))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (traverse)
-import Specular.FRP.Base (class MonadHold, class MonadHost, Dynamic, Event, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch)
+import Specular.FRP.Base (class MonadHold, class MonadHost, Dynamic, Event, attachDynWith, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch)
 
 -- | A primitive similar to Dynamic. The difference is: while Dynamic always
 -- | has a value, WeakDynamic has a value always after some point, but for
@@ -84,3 +85,7 @@ subscribeWeakDyn handler wdyn = do
   result <- holdWeakDyn event
   subscribeWeakDyn_ (handler >=> fire) wdyn
   pure result
+
+attachWeakDynWith :: forall a b c. (a -> b -> c) -> WeakDynamic a -> Event b -> Event c
+attachWeakDynWith f wdyn event =
+  filterMapEvent id $ attachDynWith (\a b -> f <$> a <*> pure b) (unWeakDynamic wdyn) event
