@@ -20,6 +20,7 @@ module Specular.FRP.Base (
   , changed
   , switch
   , tagDyn
+  , attachDynWith
 
   , class MonadHold
   , holdDyn
@@ -53,7 +54,7 @@ import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Array as Array
 import Data.Foldable (for_, sequence_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..))
 import Data.UniqueMap.Mutable as UMM
@@ -269,17 +270,27 @@ never :: forall a. Event a
 never = Event { occurence: pure Nothing, subscribe: \_ -> pure (pure unit) }
 
 filterMapEventB :: forall a b. (a -> Behavior (Maybe b)) -> Event a -> Event b
-filterMapEventB f (Event {occurence, subscribe}) =
+filterMapEventB f (Event {occurence, subscribe}) = gated $
   Event
     { occurence: (map join <<< join <<< map sequence) (map (map f) occurence)
     , subscribe
     }
 
 mapEventB :: forall a b. (a -> Behavior b) -> Event a -> Event b
-mapEventB f (Event {occurence, subscribe}) =
+mapEventB f (Event {occurence, subscribe}) = gated $
   Event
     { occurence: (join <<< map sequence) (map (map f) occurence)
     , subscribe
+    }
+
+gated :: forall a. Event a -> Event a
+gated (Event {occurence, subscribe}) =
+  Event
+    { occurence
+    , subscribe: \l ->
+        subscribe $ do
+          occ <- framePull $ readBehavior occurence
+          when (isJust occ) l
     }
 
 sampleAt :: forall a b. Event (a -> b) -> Behavior a -> Event b
@@ -561,6 +572,9 @@ subscribeDyn handler dyn = do
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (id <$ event) (current dyn)
+
+attachDynWith :: forall a b c. (a -> b -> c) -> Dynamic a -> Event b -> Event c
+attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
 
 class (MonadHold m, MonadHost IOSync m) <= MonadFRP m
 instance monadFRP :: (MonadHold m, MonadHost IOSync m) => MonadFRP m
