@@ -8,7 +8,6 @@ import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Partial.Unsafe (unsafeCrashWith)
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (domEventWithSample, el, elDynAttr, elDynAttr', rawHtml, text)
 import Specular.Dom.Widgets.Button (buttonOnClick)

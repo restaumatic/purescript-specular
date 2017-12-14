@@ -367,7 +367,6 @@ instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
 
   newBehavior initialValue = newBehaviorIOSync initialValue
 
-
 instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate io m) => MonadHostCreate io (CleanupT m) where
   newEvent = CleanupT $ lift newEvent
   newBehavior = CleanupT <<< lift <<< newBehavior

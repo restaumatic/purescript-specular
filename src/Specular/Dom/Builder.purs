@@ -6,14 +6,15 @@ module Specular.Dom.Builder (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup, runCleanupT)
-import Control.Monad.Eff.Class (class MonadEff)
+import Control.Monad.Eff.Class (class MonadEff, liftEff)
+import Control.Monad.Eff.Console (log)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
-import Control.Monad.Replace (class MonadReplace, runReplaceable)
+import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Control.Monad.Trans.Class (class MonadTrans, lift)
 import Data.Array as A
-import Data.IORef (newIORef, readIORef, writeIORef)
+import Data.IORef (modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
@@ -53,24 +54,23 @@ getEnv = BuilderT ask
 setParent :: forall node. node -> BuilderEnv node -> BuilderEnv node
 setParent parent env = env { parent = parent }
 
-instance monadReplaceBuilderT :: (Monad m, MonadIOSync m, MonadReplace m, DOM node)
-    => MonadReplace (BuilderT node m) where
+instance monadReplaceBuilderT :: DOM node
+    => MonadReplace (BuilderT node (CleanupT IOSync)) where
 
-  runReplaceable = do
+  newSlot = do
     env <- getEnv
-
-    {replace: innerReplace} <- lift runReplaceable
 
     placeholderAfter <- liftIOSync $ createTextNode ""
     liftIOSync $ appendChild placeholderAfter env.parent
+    -- FIXME: placeholderAfter leaks if replace is never called
 
     cleanupRef <- liftIOSync $ newIORef (mempty :: IOSync Unit)
 
     let
-      replaceWith inner = do
+      replace :: forall a. BuilderT node (CleanupT IOSync) a -> IOSync a
+      replace inner = do
         fragment <- createDocumentFragment
-        result <- liftIOSync $ innerReplace $ runBuilderT { parent: fragment } inner
-
+        Tuple result cleanup <- runCleanupT $ runBuilderT { parent: fragment } inner
         join $ readIORef cleanupRef
 
         m_parent <- parentNode placeholderAfter
@@ -82,18 +82,39 @@ instance monadReplaceBuilderT :: (Monad m, MonadIOSync m, MonadReplace m, DOM no
             insertBefore fragment placeholderAfter parent
 
             writeIORef cleanupRef $ do
+              cleanup
               removeAllBetween placeholderBefore placeholderAfter
               writeIORef cleanupRef mempty -- TODO: explain this
 
           Nothing ->
             -- we've been removed from the DOM
-            writeIORef cleanupRef mempty
+            writeIORef cleanupRef cleanup
 
         pure result
 
+      destroy :: IOSync Unit
+      destroy = do
+        join $ readIORef cleanupRef
+
+      append :: IOSync (Slot (BuilderT node (CleanupT IOSync)))
+      append = do
+        fragment <- createDocumentFragment
+        Tuple slot cleanup <- runCleanupT $ runBuilderT { parent: fragment } newSlot
+        modifyIORef cleanupRef (_ *> cleanup) -- FIXME: memory leak if the inner slot is destroyed
+
+        m_parent <- parentNode placeholderAfter
+
+        case m_parent of
+          Just parent -> do
+            insertBefore fragment placeholderAfter parent
+          Nothing ->
+            pure unit -- FIXME
+
+        pure slot
+
     onCleanup $ join $ readIORef cleanupRef
 
-    pure { replace: replaceWith }
+    pure $ Slot { replace, destroy, append }
 
 instance monadHoldBuilderT :: MonadHold m => MonadHold (BuilderT node m) where
   foldDyn f x0 e = lift $ foldDyn f x0 e
