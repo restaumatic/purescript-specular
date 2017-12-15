@@ -16,6 +16,8 @@ type TagName = String
 
 class DOM node where
   createTextNode :: String -> IOSync node
+  setText :: node -> String -> IOSync Unit
+
   createDocumentFragment :: IOSync node
   createElement :: TagName -> IOSync node
 

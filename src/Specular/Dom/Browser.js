@@ -7,6 +7,15 @@ exports.createTextNodeImpl = function(text) {
   };
 };
 
+// setTextImpl :: Node -> String -> IOSync Node
+exports.setTextImpl = function(node) {
+  return function(text) {
+    return function() {
+      node.textContent = text;
+    };
+  };
+};
+
 // createDocumentFragmentImpl :: IOSync Node
 exports.createDocumentFragmentImpl = function() {
   return document.createDocumentFragment();

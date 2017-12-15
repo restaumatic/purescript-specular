@@ -14,6 +14,7 @@ import Specular.FRP (class MonadHold, class MonadHost, Event, WeakDynamic, hostE
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
+  dynText :: WeakDynamic String -> m Unit
   elDynAttr' :: forall a . String -> WeakDynamic Attrs -> m a -> m (Tuple node a)
   rawHtml :: String -> m Unit
 
@@ -42,14 +43,6 @@ el ::
   -> m a
   -> m a
 el tagName inner = elAttr tagName mempty inner
-
-dynText :: forall node m
-  . MonadDomBuilder node m
- => MonadHost IOSync m
- => MonadReplace m
- => WeakDynamic String
- -> m Unit
-dynText = weakDynamic_ <<< map text
 
 domEventWithSample ::
      forall event node m a

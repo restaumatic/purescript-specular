@@ -6,8 +6,7 @@ module Specular.Dom.Builder (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup, runCleanupT)
-import Control.Monad.Eff.Class (class MonadEff, liftEff)
-import Control.Monad.Eff.Console (log)
+import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
@@ -20,8 +19,9 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDomBuilder)
-import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes)
-import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_, subscribeWeakDyn_)
+import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
+import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_)
+import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 
 newtype BuilderT node m a = BuilderT (ReaderT (BuilderEnv node) m a)
 
@@ -140,6 +140,14 @@ instance monadDomBuilderBuilder :: (MonadIOSync m, MonadFRP m, DOM node)
     liftIOSync $ do
       node <- createTextNode str
       appendChild node env.parent
+
+  dynText dstr = do
+    env <- getEnv
+    node <- liftIOSync $ do
+      node <- createTextNode ""
+      appendChild node env.parent
+      pure node
+    subscribeWeakDyn_ (setText node) dstr
 
   rawHtml html = do
     env <- getEnv

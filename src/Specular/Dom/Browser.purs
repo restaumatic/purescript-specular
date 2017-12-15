@@ -13,6 +13,7 @@ foreign import data Node :: Type
 
 instance domNode :: DOM Node where
   createTextNode = createTextNodeImpl
+  setText = setTextImpl
   createDocumentFragment = createDocumentFragmentImpl
   createElement = createElementImpl
 
@@ -30,6 +31,7 @@ instance domNode :: DOM Node where
   appendRawHtml = appendRawHtmlImpl
 
 foreign import createTextNodeImpl :: String -> IOSync Node
+foreign import setTextImpl :: Node -> String -> IOSync Unit
 foreign import createDocumentFragmentImpl :: IOSync Node
 foreign import createElementImpl :: TagName -> IOSync Node
 foreign import setAttributeImpl :: Node -> String -> String -> IOSync Unit
