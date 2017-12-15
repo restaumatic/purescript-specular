@@ -21,6 +21,7 @@ import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDomBuilder)
 import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_)
+import Specular.FRP.Base (foldDynMaybe)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 
 newtype BuilderT node m a = BuilderT (ReaderT (BuilderEnv node) m a)
@@ -118,6 +119,7 @@ instance monadReplaceBuilderT :: DOM node
 
 instance monadHoldBuilderT :: MonadHold m => MonadHold (BuilderT node m) where
   foldDyn f x0 e = lift $ foldDyn f x0 e
+  foldDynMaybe f x0 e = lift $ foldDynMaybe f x0 e
 
 instance monadPullBuilderT :: MonadPull m => MonadPull (BuilderT node m) where
   pull = lift <<< pull

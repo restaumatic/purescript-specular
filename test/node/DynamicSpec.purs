@@ -6,8 +6,7 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Tuple (Tuple(..))
-import Partial.Unsafe (unsafeCrashWith)
-import Specular.FRP (foldDyn, holdDyn, newEvent, subscribeDyn_)
+import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
 import Specular.FRP.Base (subscribeDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
@@ -42,6 +41,23 @@ spec = describe "Dynamic" $ do
       _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       log `shouldHaveValue` [2]
+
+  describe "holdUniqDynBy" $ do
+    it "updates value only when it changes" $ do
+      {event,fire} <- ioSync newEvent
+      log <- ioSync $ newIORef []
+      Tuple dyn _ <- ioSync $ runCleanupT $ holdUniqDynBy eq 0 event
+
+      unsub <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      log `shouldHaveValue` [0]
+
+      clear log
+      ioSync $ fire 0
+      ioSync $ fire 1
+      ioSync $ fire 2
+      ioSync $ fire 2
+
+      log `shouldHaveValue` [1,2]
 
   describe "foldDyn" $ do
     it "updates value correctly" $ do

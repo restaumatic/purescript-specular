@@ -25,6 +25,8 @@ module Specular.FRP.Base (
   , class MonadHold
   , holdDyn
   , foldDyn
+  , foldDynMaybe
+  , holdUniqDynBy
 
   , class MonadHostCreate
   , newEvent
@@ -462,6 +464,10 @@ class MonadCleanup m <= MonadHold m where
   -- | On cleanup, the Dynamic will stop updating in response to the event.
   foldDyn :: forall a b. (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 
+  -- | Like `foldDyn`, but the Dynamic will not update if the folding function
+  -- | returns Nothing.
+  foldDynMaybe :: forall a b. (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
+
 instance monadHoldCleanupT :: MonadHold (CleanupT IOSync) where
   foldDyn f initial (Event event) = do
     ref <- liftIOSync $ newIORef initial
@@ -484,8 +490,38 @@ instance monadHoldCleanupT :: MonadHold (CleanupT IOSync) where
       , change: map (\_ -> unit) (Event event)
       }
 
+  foldDynMaybe = foldDynMaybeImpl
+
+foldDynMaybeImpl :: forall a b. (a -> b -> Maybe b) -> b -> Event a -> CleanupT IOSync (Dynamic b)
+foldDynMaybeImpl f initial (Event event) = do
+  ref <- liftIOSync $ newIORef initial
+  (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftIOSync $
+    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+      oldValue <- readIORef ref
+      case m_newValue of
+        Just occurence | Just newValue <- f occurence oldValue -> do
+          writeIORef ref newValue
+          pure { changing: true, value: newValue }
+        _ ->
+          pure { changing: false, value: oldValue }
+
+  unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
+  onCleanup unsub
+
+  pure $ Dynamic
+    { value: Behavior $ map _.value updateOrReadValue
+    , change: filterMapEventB (\_ ->
+                                 map (\{changing} ->
+                                        if changing then Just unit else Nothing)
+                                     (Behavior updateOrReadValue))
+                              (Event event)
+    }
+
 holdDyn :: forall m a. MonadHold m => a -> Event a -> m (Dynamic a)
 holdDyn = foldDyn (\x _ -> x)
+
+holdUniqDynBy :: forall m a. MonadHold m => (a -> a -> Boolean) -> a -> Event a -> m (Dynamic a)
+holdUniqDynBy eq = foldDynMaybe (\new old -> if eq new old then Nothing else Just new)
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
