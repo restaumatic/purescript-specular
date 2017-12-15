@@ -44,14 +44,18 @@ module Specular.FRP.Base (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, CleanupT(..), onCleanup)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (liftIOSync)
-import Control.Monad.Reader (ask, runReaderT)
+import Control.Monad.Reader (ask, runReader, runReaderT)
 import Control.Monad.Reader.Trans (ReaderT(..))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Array as Array
+import Data.Array.ST (STArray, emptySTArray, pushSTArray, unsafeFreeze)
+import Data.DelayedEffects (DelayedEffects, sequenceEffects)
+import Data.DelayedEffects as DE
 import Data.Foldable (for_, sequence_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..), isJust)
@@ -132,7 +136,7 @@ instance monadPullIOSync :: MonadPull IOSync where
     runPull time p
 
 instance monadPullCleanupT :: MonadPull m => MonadPull (CleanupT m) where
-  pull = CleanupT <<< lift <<< pull
+  pull = lift <<< pull
 
 -------------------------------------------------
 
@@ -143,7 +147,7 @@ instance monadPullCleanupT :: MonadPull m => MonadPull (CleanupT m) where
 --
 -- Frame computations have access to current logical time. See `oncePerFrame`
 -- for why this is needed.
-newtype Frame a = Frame (WriterT (IOSync Unit) Pull a)
+newtype Frame a = Frame (ReaderT DelayedEffects Pull a)
 
 framePull :: forall a. Pull a -> Frame a
 framePull = Frame <<< lift
@@ -152,11 +156,14 @@ frameWriteIORef :: forall a. IORef a -> a -> Frame Unit
 frameWriteIORef ref value =
   -- HACK: briefly creating a Pull that is not idempotent;
   -- But it's immediately lifted to Frame, so it's OK
-  Frame $ lift $ MkPull $ lift $ writeIORef ref value
+  framePull $ MkPull $ lift $ writeIORef ref value
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: IOSync Unit -> Frame Unit
-effect action = Frame $ tell action
+effect action = Frame $ ReaderT $ \effects ->
+  -- HACK: briefly creating a Pull that is not idempotent;
+  -- But it's immediately lifted to Frame, so it's OK
+  void $ MkPull $ lift $ DE.push effects action
 
 derive newtype instance functorFrame :: Functor Frame
 derive newtype instance applyFrame :: Apply Frame
@@ -167,8 +174,10 @@ derive newtype instance monadFrame :: Monad Frame
 -- | Run a Frame computation and then run its effects.
 runFrame :: forall a. Time -> Frame a -> IOSync a
 runFrame currentTime (Frame x) = do
-  Tuple value effects <- runPull currentTime $ runWriterT x
-  effects
+  effectsMutable <- DE.empty
+  value <- runPull currentTime $ runReaderT x effectsMutable
+  effects <- DE.unsafeFreeze effectsMutable
+  DE.sequenceEffects effects
   pure value
 
 freshTime :: IOSync Time
@@ -353,7 +362,7 @@ instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
         writeIORef occurenceRef (Just value)
         listeners <- UMM.values listenerMap
         runNextFrame $ do
-          sequence_ listeners
+          sequenceFrame_ listeners
           frameWriteIORef occurenceRef Nothing
 
       subscribe l = do
@@ -367,9 +376,11 @@ instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
 
   newBehavior initialValue = newBehaviorIOSync initialValue
 
+foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
+
 instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate io m) => MonadHostCreate io (CleanupT m) where
-  newEvent = CleanupT $ lift newEvent
-  newBehavior = CleanupT <<< lift <<< newBehavior
+  newEvent = lift newEvent
+  newBehavior = lift <<< newBehavior
 
 instance monadHostCleanupT :: MonadHost IOSync (CleanupT IOSync) where
   subscribeEvent_ handler (Event {occurence,subscribe}) = do
