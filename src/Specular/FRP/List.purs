@@ -2,16 +2,15 @@ module Specular.FRP.List where
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync(..))
-import Control.Monad.IOSync.Class (liftIOSync)
-import Control.Monad.Replace (class MonadReplace, Slot(..), newSlot, unSlot)
+import Control.Monad.IOSync (IOSync)
+import Control.Monad.Replace (class MonadReplace, Slot, newSlot, unSlot)
 import Data.Array as Array
-import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
-import Specular.FRP.Base (class MonadFRP, holdDyn, hostEffect, newEvent)
-import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn, subscribeWeakDyn_, weaken)
+import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, hostEffect, newEvent)
+import Specular.FRP.WeakDynamic (WeakDynamic, subscribeWeakDyn_, weaken)
+import Unsafe.Reference (unsafeRefEq)
 
 weakDynamicList_ :: forall m a
    . MonadFRP m
@@ -40,7 +39,7 @@ weakDynamicList_ dynArray handler = do
             slot <- (unSlot mainSlot).append
             {event, fire} <- newEvent
             (unSlot slot).replace $ do
-              wdyn <- weaken <$> holdDyn x event
+              wdyn <- weaken <$> holdUniqDynBy unsafeRefEq x event
               handler wdyn
             pure [{slot, fire}]
           Nothing,     Nothing ->
