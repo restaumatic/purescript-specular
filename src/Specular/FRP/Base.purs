@@ -412,7 +412,7 @@ leftmost events =
     , subscribe: \l -> do
        onceListener <- oncePerFrame_ l
        unsubs <- traverse (\(Event event) -> event.subscribe onceListener) events
-       pure $ sequence_ unsubs
+       pure $ sequenceEffects unsubs
     }
 
 findFirstM :: forall m a b. Monad m => (a -> m (Maybe b)) -> Array a -> m (Maybe b)
