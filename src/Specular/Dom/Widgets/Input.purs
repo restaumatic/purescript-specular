@@ -3,6 +3,7 @@ module Specular.Dom.Widgets.Input (
   , textInputOnInput
   , textareaOnChange
   , checkbox
+  , checkboxView
 
   , TextInput
   , TextInputConfig
@@ -18,6 +19,7 @@ module Specular.Dom.Widgets.Input (
 
 import Prelude
 
+import Control.Apply (lift2)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (liftIOSync)
 import Data.Monoid (mempty)
@@ -55,6 +57,19 @@ checkbox initial attrs = do
   Tuple node _ <- elDynAttr' "input" (pure attrs') (pure unit)
   changed <- domEventWithSample (\_ -> getCheckboxChecked node) "change" node
   holdDyn initial changed
+
+checkboxView :: forall m. MonadWidget m
+  => WeakDynamic Boolean
+  -> WeakDynamic Attrs
+  -> m (Event Boolean)
+checkboxView dchecked dattrs = do
+  let dattrs' = lift2 (\attrs checked -> attrs <>
+                        ("type" := "checkbox") <>
+                        (if checked then "checked" := "checked" else mempty)
+                     ) dattrs dchecked
+
+  Tuple node _ <- elDynAttr' "input" dattrs' (pure unit)
+  domEventWithSample (\_ -> getCheckboxChecked node) "change" node
 
 foreign import getCheckboxChecked :: Node -> IOSync Boolean
 
