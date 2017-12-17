@@ -7,6 +7,7 @@ module Specular.FRP.WeakDynamic (
   , subscribeWeakDyn
   , subscribeWeakDyn_
   , attachWeakDynWith
+  , tagWeakDyn
 ) where
 
 import Prelude
@@ -89,3 +90,7 @@ subscribeWeakDyn handler wdyn = do
 attachWeakDynWith :: forall a b c. (a -> b -> c) -> WeakDynamic a -> Event b -> Event c
 attachWeakDynWith f wdyn event =
   filterMapEvent id $ attachDynWith (\a b -> f <$> a <*> pure b) (unWeakDynamic wdyn) event
+
+tagWeakDyn :: forall a. WeakDynamic a -> Event Unit -> Event a
+tagWeakDyn wdyn event =
+  filterMapEvent id $ attachDynWith (\a b -> a) (unWeakDynamic wdyn) event
