@@ -2,12 +2,9 @@ module Control.Monad.Replace where
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup, runCleanupT)
+import Control.Monad.Cleanup (class MonadCleanup)
 import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (liftIOSync)
-import Data.IORef (modifyIORef, newIORef, readIORef, writeIORef)
-import Data.Monoid (mempty)
-import Data.Tuple (Tuple(..))
+import Control.Monad.Reader (ReaderT(..), runReaderT)
 
 newtype Slot m = Slot (SlotInternal m)
 
@@ -22,3 +19,13 @@ unSlot (Slot x) = x
 
 class (Monad m, MonadCleanup m) <= MonadReplace m where
   newSlot :: m (Slot m)
+
+instance monadReplaceReaderT :: MonadReplace m => MonadReplace (ReaderT r m) where
+  newSlot = ReaderT $ \env -> slotWith env <$> newSlot
+    where
+      slotWith :: r -> Slot m -> Slot (ReaderT r m)
+      slotWith env (Slot slot) = Slot
+        { replace: \m -> slot.replace (runReaderT m env)
+        , destroy: slot.destroy
+        , append: map (slotWith env) slot.append
+        }

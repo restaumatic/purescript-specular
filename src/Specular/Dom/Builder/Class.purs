@@ -4,13 +4,12 @@ import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (class MonadIOSync)
-import Control.Monad.Replace (class MonadReplace)
+import Control.Monad.Reader (ReaderT(..), runReaderT)
+import Control.Monad.Trans.Class (lift)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
-import Specular.Dom.Browser (Node)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, addEventListener)
-import Specular.FRP (class MonadHold, class MonadHost, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
+import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent)
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
@@ -57,3 +56,9 @@ domEventWithSample sample eventType node = do
   unsub <- hostEffect $ addEventListener eventType (sample >=> fire) node
   onCleanup unsub
   pure event
+
+instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder node (ReaderT r m) where
+  text = lift <<< text
+  dynText = lift <<< dynText
+  elDynAttr' tag attrs body = ReaderT $ \env -> elDynAttr' tag attrs $ runReaderT body env
+  rawHtml = lift <<< rawHtml

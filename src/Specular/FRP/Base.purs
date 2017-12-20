@@ -45,24 +45,20 @@ module Specular.FRP.Base (
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup, CleanupT(..), onCleanup)
-import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (liftIOSync)
-import Control.Monad.Reader (ask, runReader, runReaderT)
+import Control.Monad.Reader (ask, runReaderT)
 import Control.Monad.Reader.Trans (ReaderT(..))
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Array as Array
-import Data.Array.ST (STArray, emptySTArray, pushSTArray, unsafeFreeze)
 import Data.DelayedEffects (DelayedEffects, sequenceEffects)
 import Data.DelayedEffects as DE
-import Data.Foldable (for_, sequence_)
+import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
-import Data.Tuple (Tuple(..))
 import Data.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
 
@@ -138,6 +134,9 @@ instance monadPullIOSync :: MonadPull IOSync where
     runPull time p
 
 instance monadPullCleanupT :: MonadPull m => MonadPull (CleanupT m) where
+  pull = lift <<< pull
+
+instance monadPullReaderT :: MonadPull m => MonadPull (ReaderT r m) where
   pull = lift <<< pull
 
 -------------------------------------------------
@@ -349,11 +348,18 @@ class Monad m <= MonadHostCreate io m | m -> io where
   -- | Create a new Behavior whose value can be modified outside a frame.
   newBehavior :: forall a. a -> m { behavior :: Behavior a, set :: a -> io Unit }
 
+instance monadHostCreateReaderT :: MonadHostCreate io m => MonadHostCreate io (ReaderT r m) where
+  newEvent = lift newEvent
+  newBehavior = lift <<< newBehavior
 
 class (Monad io, Monad m, MonadPull m, MonadCleanup m, MonadHostCreate io m) <= MonadHost io m | m -> io where
   subscribeEvent_ :: forall a. (a -> io Unit) -> Event a -> m Unit
 
   hostEffect :: forall a. io a -> m a
+
+instance monadHostReaderT :: (Monad io, MonadHost io m) => MonadHost io (ReaderT r m) where
+  subscribeEvent_ f event = lift (subscribeEvent_ f event)
+  hostEffect = lift <<< hostEffect
 
 instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
   newEvent = do
@@ -467,6 +473,10 @@ class MonadCleanup m <= MonadHold m where
   -- | Like `foldDyn`, but the Dynamic will not update if the folding function
   -- | returns Nothing.
   foldDynMaybe :: forall a b. (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
+
+instance monadHoldReaderT :: MonadHold m => MonadHold (ReaderT r m) where
+  foldDyn f x0 e = lift (foldDyn f x0 e)
+  foldDynMaybe f x0 e = lift (foldDynMaybe f x0 e)
 
 instance monadHoldCleanupT :: MonadHold (CleanupT IOSync) where
   foldDyn f initial (Event event) = do
