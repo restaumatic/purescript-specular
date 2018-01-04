@@ -48,7 +48,7 @@ import Prelude
 import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
-import Control.Monad.IOSync.Class (liftIOSync)
+import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ask, runReaderT)
 import Control.Monad.Reader.Trans (ReaderT(..))
 import Control.Monad.Trans.Class (lift)
@@ -632,8 +632,8 @@ tagDyn dyn event = sampleAt (id <$ event) (current dyn)
 attachDynWith :: forall a b c. (a -> b -> c) -> Dynamic a -> Event b -> Event c
 attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
 
-class (MonadHold m, MonadHost IOSync m) <= MonadFRP m
-instance monadFRP :: (MonadHold m, MonadHost IOSync m) => MonadFRP m
+class (MonadHold m, MonadHost IOSync m, MonadIOSync m) <= MonadFRP m
+instance monadFRP :: (MonadHold m, MonadHost IOSync m, MonadIOSync m) => MonadFRP m
 
 for :: forall f a b. Functor f => f a -> (a -> b) -> f b
 for = flip map
