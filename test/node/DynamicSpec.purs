@@ -5,9 +5,10 @@ import Prelude hiding (append)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.IORef (newIORef)
+import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
-import Specular.FRP.Base (subscribeDyn)
+import Specular.FRP.Base (latestJust, subscribeDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue)
@@ -168,3 +169,18 @@ spec = describe "Dynamic" $ do
       ioSync $ fire 5
 
       log `shouldHaveValue` [Left 1, Right 2, Left 5, Right 10]
+
+  describe "latestJust" $ do
+    it "updates value only when it changes to Just" $ do
+      {event,fire} <- ioSync newEvent
+      log <- ioSync $ newIORef []
+      Tuple dyn _ <- ioSync $ runCleanupT $ holdDyn Nothing event >>= latestJust
+
+      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+
+      ioSync $ fire Nothing
+      ioSync $ fire (Just 1)
+      ioSync $ fire Nothing
+      ioSync $ fire (Just 2)
+
+      log `shouldHaveValue` [Nothing, Just 1, Just 2]
