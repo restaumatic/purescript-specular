@@ -633,8 +633,12 @@ tagDyn dyn event = sampleAt (id <$ event) (current dyn)
 attachDynWith :: forall a b c. (a -> b -> c) -> Dynamic a -> Event b -> Event c
 attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
 
--- | Returns a Dynamic that holds the latest `Just` value of the input Dynamic,
--- | or Nothing until the input Dynamic changes to a `Just`.
+-- | Returns a Dynamic that holds the latest `Just` value of the input Dynamic
+-- | after execution of this function. If the input currently has value `Nothing`, the resulting
+-- | Dynamic will have the value `Nothing` until the input changes to a `Just`.
+-- |
+-- | The resulting Dynamic changes when the input changes to a value that is a `Just`,
+-- | and doesn't change when the input changes to `Nothing`.
 latestJust :: forall m a. MonadPull m => MonadHold m => Dynamic (Maybe a) -> m (Dynamic (Maybe a))
 latestJust dyn = do
   currentValue <- pull $ readBehavior $ current dyn
@@ -643,5 +647,10 @@ latestJust dyn = do
 class (MonadHold m, MonadHost IOSync m, MonadIOSync m) <= MonadFRP m
 instance monadFRP :: (MonadHold m, MonadHost IOSync m, MonadIOSync m) => MonadFRP m
 
+-- | Flipped `map`.
+-- |
+-- | Useful in conjunction with `dynamic`: Instead of `dynamic $ map (\x -> longExpression x) dyn`,
+-- | you can write `dynamic $ for dyn $ \x -> longExpression x`.
+-- TODO: This should be moved somewhere
 for :: forall f a b. Functor f => f a -> (a -> b) -> f b
 for = flip map
