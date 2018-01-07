@@ -633,6 +633,8 @@ tagDyn dyn event = sampleAt (id <$ event) (current dyn)
 attachDynWith :: forall a b c. (a -> b -> c) -> Dynamic a -> Event b -> Event c
 attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
 
+-- | Returns a Dynamic that holds the latest `Just` value of the input Dynamic,
+-- | or Nothing until the input Dynamic changes to a `Just`.
 latestJust :: forall m a. MonadPull m => MonadHold m => Dynamic (Maybe a) -> m (Dynamic (Maybe a))
 latestJust dyn = do
   currentValue <- pull $ readBehavior $ current dyn
