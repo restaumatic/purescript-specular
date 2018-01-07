@@ -42,6 +42,12 @@ fromLoaded _ = Nothing
 -- |   using IO's (Aff's) cancellation mechanism. This ensures that the value of the resulting Dynamic
 -- |   will eventually be that of the most recent value of the input Dynamic,
 -- |   independent of the order of arrival of the responses.
+-- |
+-- | FIXME: The resulting Dynamic does not change to Loading in the same frame as the input Dynamic changes value.
+-- |
+-- | FIXME: What is the behavior of IO with nonCanceler? Will the result be
+-- | suppressed? If not, we need additional mechanism here to prevent
+-- | out-of-order responses.
 asyncRequestMaybe :: forall m a
    . MonadIOSync m
   => MonadFRP m
