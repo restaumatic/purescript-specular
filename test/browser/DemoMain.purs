@@ -12,6 +12,7 @@ import Data.Tuple (Tuple(..))
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
 import Examples.RegistrationForm as RegistrationForm
+import Examples.Radio as Radio
 import Specular.Dom.Builder.Class (el, text)
 import Specular.Dom.Widget (class MonadWidget, runMainWidgetInBody)
 import Specular.Dom.Widgets.Button (buttonOnClick)
@@ -31,6 +32,7 @@ demos =
   [ Demo { name: "Counter", run: \_ -> Counter.mainWidget }
   , Demo { name: "RegistrationForm", run: \_ -> void RegistrationForm.mainWidget }
   , Demo { name: "AsyncRequest", run: \_ -> AsyncRequest.mainWidget }
+  , Demo { name: "Radio", run: \_ -> Radio.mainWidget }
   ]
 
 demoButton :: forall m. MonadWidget m => Demo -> m (Event Demo)

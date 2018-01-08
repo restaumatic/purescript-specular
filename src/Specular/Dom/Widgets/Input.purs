@@ -2,8 +2,6 @@ module Specular.Dom.Widgets.Input (
     textInputOnChange  
   , textInputOnInput
   , textareaOnChange
-  , checkbox
-  , checkboxView
 
   , TextInput
   , TextInputConfig
@@ -11,6 +9,11 @@ module Specular.Dom.Widgets.Input (
   , textInputValue
   , textInputValueOnChange
   , textInputValueEventOnEnter
+
+  , checkbox
+  , checkboxView
+  , BooleanInputType(..)
+  , booleanInputView
   
   -- TODO: move to Internal
   , getTextInputValue
@@ -62,9 +65,24 @@ checkboxView :: forall m. MonadWidget m
   => WeakDynamic Boolean
   -> WeakDynamic Attrs
   -> m (Event Boolean)
-checkboxView dchecked dattrs = do
+checkboxView = booleanInputView Checkbox
+
+data BooleanInputType = Checkbox | Radio
+
+booleanInputTypeToAttributeValue :: BooleanInputType -> String
+booleanInputTypeToAttributeValue =
+  case _ of
+    Checkbox -> "checkbox"
+    Radio    -> "radio"
+
+booleanInputView :: forall m. MonadWidget m
+  => BooleanInputType
+  -> WeakDynamic Boolean
+  -> WeakDynamic Attrs
+  -> m (Event Boolean)
+booleanInputView type_ dchecked dattrs = do
   let dattrs' = lift2 (\attrs checked -> attrs <>
-                        ("type" := "checkbox") <>
+                        ("type" := booleanInputTypeToAttributeValue type_) <>
                         (if checked then "checked" := "checked" else mempty)
                      ) dattrs dchecked
 
