@@ -12,7 +12,8 @@
     "purescript-io": "^5.0.0",
     "purescript-typelevel-prelude": "^2.5.0",
     "purescript-record": "^0.2.5",
-    "purescript-unsafe-reference": "^2.0.0"
+    "purescript-unsafe-reference": "^2.0.0",
+    "purescript-random": "^3.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",
