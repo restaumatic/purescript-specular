@@ -2,6 +2,7 @@ module Examples.Radio (mainWidget) where
 
 import Prelude hiding (append)
 
+import Data.Monoid (mempty)
 import Specular.Dom.Builder.Class (dynText, el, elAttr, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (class MonadWidget)
@@ -15,7 +16,7 @@ mainWidget = do
     , initialValueIndex: 0
     , render: \name value input ->
         el "div" $
-          input
+          input (pure mempty)
           <* elAttr "label" ("for" := name) (text value)
     }
   el "br" (pure unit)

@@ -2,20 +2,15 @@ module RadioGroupSpec where
 
 import Prelude hiding (append)
 
-import Control.Monad.Cleanup (runCleanupT)
-import Data.Foreign (toForeign)
 import Data.IORef (newIORef)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter)
 import Specular.Dom.Widgets.RadioGroup (radioGroup)
-import Specular.FRP (never, newEvent)
-import Specular.FRP.Base (subscribeDyn_, subscribeEvent_)
-import Test.Spec (Spec, describe, it, pending')
+import Specular.FRP.Base (subscribeDyn_)
+import Test.Spec (Spec, describe, pending')
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue, shouldReturn)
-import Test.Utils.Dom (dispatchEvent, dispatchTrivialEvent, querySelector, runBuilderInDiv)
+import Test.Utils (append, clear, ioSync, shouldHaveValue)
+import Test.Utils.Dom (dispatchTrivialEvent, querySelector, runBuilderInDiv)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "radioGroup" $ do
@@ -25,7 +20,7 @@ spec = describe "radioGroup" $ do
       dyn <- radioGroup 
         { options: ["foo", "bar"]
         , initialValueIndex: 0
-        , render: \_ _ input -> input
+        , render: \_ _ input -> input (pure mempty)
         }
       subscribeDyn_ (append log) dyn
 
