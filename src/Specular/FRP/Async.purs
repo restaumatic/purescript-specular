@@ -6,6 +6,8 @@ module Specular.FRP.Async
 
   , asyncRequestMaybe
   , asyncRequest
+
+  , performEvent
   ) where
 
 import Prelude
@@ -15,10 +17,12 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (error)
 import Control.Monad.IO (IO, runIO)
+import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Replace (class MonadReplace)
 import Data.Maybe (Maybe(..))
-import Specular.FRP (class MonadFRP, Dynamic, dynamic_, holdDyn, newEvent)
+import Specular.FRP (class MonadFRP, class MonadHost, Dynamic, Event, dynamic_, holdDyn, newEvent)
+import Specular.FRP.Base (subscribeEvent_)
 
 -- | Start an asynchronous IO computation. It will be cancelled on cleanup.
 startIO :: forall m. MonadIOSync m => MonadCleanup m => IO Unit -> m Unit
@@ -82,3 +86,22 @@ asyncRequest :: forall m a
   => Dynamic (IO a)
   -> m (Dynamic (RequestState a))
 asyncRequest dquery = asyncRequestMaybe (map Just dquery)
+
+-- | Run asynchronous action when an Event occurs.
+-- | The returned Event will fire when such an action completes.
+-- |
+-- | Note: the results may arrive in a different order than the requests.
+-- FIXME: Does not cancel running actions on cleanup
+performEvent
+  :: forall m a
+   . MonadHost IOSync m
+  => Event (IO a)
+  -> m (Event a)
+performEvent event = do
+  output <- newEvent
+  subscribeEvent_ (\action ->
+    void $ liftEff $ launchAff $ runIO $ do
+      x <- action
+      liftIOSync $ output.fire x
+    ) event
+  pure output.event

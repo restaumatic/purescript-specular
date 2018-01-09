@@ -1,11 +1,9 @@
 module EventSpec where
 
-import Prelude hiding (append)
-
 import Control.Monad.Cleanup (execCleanupT)
-import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
+import Prelude hiding (append)
 import Specular.FRP (filterMapEvent, holdDyn, leftmost, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Specular.FRP.Base (subscribeDyn_)
 import Test.Spec (Spec, describe, it)

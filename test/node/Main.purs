@@ -10,6 +10,7 @@ import EventSpec as EventSpec
 import DynamicSpec as DynamicSpec
 import FixSpec as FixSpec
 import WeakDynamicSpec as WeakDynamicSpec
+import AsyncSpec as AsyncSpec
 
 main :: Eff (RunnerEffects ()) Unit
 main = run [consoleReporter] do
@@ -18,3 +19,4 @@ main = run [consoleReporter] do
   EventSpec.spec
   UniqueMapMutableSpec.spec
   WeakDynamicSpec.spec
+  AsyncSpec.spec
