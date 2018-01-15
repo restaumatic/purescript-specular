@@ -128,8 +128,9 @@ Output is returned by the monadic computation when it finishes.
 This means that on each interaction with the outside, a widget's internal state
 is destroyed.
 
-In my opinion, this makes the local state feature unusable, and you basically
-just write Elm. I'll exclude Concur from the examples.
+This makes the local state feature less usable, because you often need to avoid
+it when there are complex interactions with the outside. I'll exclude Concur
+from the examples.
 
 #### [Flare](https://github.com/sharkdp/purescript-flare)
 
@@ -224,4 +225,159 @@ dynamic_ $ map routeWidget currentRoute
 
 The page state will be reset on each change of `currentRoute`.
 
-#### TODO: more examples
+#### Instant Search
+
+User types some text in a text field, and the application should fetch data
+based on the input and display it to the user.
+
+The requests may take a while, so we will display `Loading...` while it's
+loading.
+
+Note that the responses may arrive in a different order than the requests. We
+want to maintain the property that if the user stops typing, eventually the
+displayed response will match the input text (responses to earlier requests
+should not override later ones).
+
+We'll ignore errors for the purpose of this example; assume they are handled the
+same way as success responses (i.e. displayed).
+
+##### Elm
+
+Naively:
+
+```
+data Msg =
+    SearchStarted String
+  | SearchFinished Response
+
+type alias Model =
+  { query : String
+  , response : RemoteData Error Response
+  }
+
+render : Model -> Html Msg
+render model =
+  div []
+    [ input [ type_ "text", onInput SearchStarted ] []
+    , case model.response of
+
+        Loading ->
+          text "Loading..."
+
+        Success x ->
+          displayResponse x
+
+        _ -> text ""
+    ]
+
+update :: Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+  case msg of
+
+    SearchStarted query ->
+      ( { model | query = query, response = Loading }
+      , Backend.query query SearchFinished
+      )
+
+    SearchFinished response ->
+      ( { model | response = Success response }
+      , noCmd
+      )
+      
+```
+
+The code looks relatively straightforward, but suffers from the flaw mentioned
+in the introduction: responses arriving out of order.
+
+To fix this, we'll need to thread the query value with the response:
+
+```
+data Msg =
+    SearchStarted String
+  | SearchFinished String Response -- query, response
+```
+
+and when it arrives, we'll need to check if it's for the current query:
+
+```
+    SearchFinished query response ->
+      ( if query == model.query
+          then { model | response = Success response }
+          else model
+      , noCmd
+      )
+```
+
+Ideally we'd like to cancel the currently running request as soon as we know
+that we'll ignore the response - that is, when the query value changes. But that
+would complicate things.
+
+##### Halogen
+
+In Halogen the solution would be similar to Elm, with one important difference:
+we don't need the `ResponseFinished` action. The action handling functions in
+Halogen can be asynchronous. So the `eval` would look like:
+
+```
+eval = case _ of
+  SearchStarted query next ->
+    H.modify (_ { query = query, response = Loading })
+    response <- liftAff $ Backend.query query
+    currentQuery <- H.asks _.query
+    when (query == currentQuery) $
+      H.modify { response = Success response }
+```
+
+Note that after `Backend.query` we still need to check whether another request
+wasn't started in the meantime. That's because there can be several action
+handlers running concurrently.
+
+##### Specular
+
+Assuming we have a Dynamic representing the input:
+
+```
+(query :: Dynamic String) <- textInputOnInput "" mempty
+```
+
+and a function to perform the query (again, ignoring errors):
+
+```
+Backend.query :: String -> IO Response
+```
+
+we can use the `asyncRequest` combinator to perform a request every time the
+query changes. The previous request will be automatically cancelled (using Aff's
+cancellation semantics) so that the responses won't arrive out of order (in
+fact the cancelled response shouldn't arrive at all).
+
+```
+(response :: Dynamic (RequestState Response)) <- asyncRequest $ map Backend.query query
+```
+
+The response can be then displayed:
+
+```
+dynamic_ $ for response $ \response' ->
+  case response' of
+    Loading ->
+      text "Loading..."
+
+    Loaded x ->
+      displayResponse x
+
+    _ -> text ""
+```
+
+The implementation of `asyncRequest` can be more complicated than the previous
+cases, but it can be done once and reused quite easily.
+
+#### Instant Search with throttling
+
+NOTE: This is currently an exercise for the reader.
+
+Consider how would you add throttling to the previous example. Requirements:
+
+1. The application will send no more that one request per 300 milliseconds.
+2. After input changes stop, eventually the displayed response will reflect the
+   current value.
