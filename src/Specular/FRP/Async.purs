@@ -20,9 +20,11 @@ import Control.Monad.IO (IO, runIO)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Replace (class MonadReplace)
-import Data.Maybe (Maybe(..))
-import Specular.FRP (class MonadFRP, class MonadHost, Dynamic, Event, dynamic_, holdDyn, newEvent)
-import Specular.FRP.Base (subscribeEvent_)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
+import Data.Maybe (Maybe(Just, Nothing))
+import Specular.FRP (class MonadFRP, class MonadHost, Dynamic, Event, changed, current, dynamic_, holdDyn, leftmost, newEvent, pull)
+import Specular.FRP.Base (readBehavior, subscribeEvent_)
 
 -- | Start an asynchronous IO computation. It will be cancelled on cleanup.
 startIO :: forall m. MonadIOSync m => MonadCleanup m => IO Unit -> m Unit
@@ -31,6 +33,12 @@ startIO action = do
   onCleanup $ liftEff $ launchAff_ $ killFiber (error "Cancelled") fiber
 
 data RequestState a = NotRequested | Loading | Loaded a
+
+derive instance eqRequestState :: Eq a => Eq (RequestState a)
+derive instance genericRequestState :: Generic (RequestState a) _
+
+instance showRequestState :: Show a => Show (RequestState a) where
+  show = genericShow
 
 fromLoaded :: forall a. RequestState a -> Maybe a
 fromLoaded (Loaded x) = Just x

@@ -10,6 +10,7 @@ import Examples.RegistrationForm as RegistrationForm
 import InputWidgetsSpec as InputWidgetsSpec
 import ListSpec as ListSpec
 import RadioGroupSpec as RadioGroupSpec
+import AsyncSpec as AsyncSpec
 import Test.Spec (describe)
 import Test.Spec.Reporter (consoleReporter)
 import Test.Spec.Runner (RunnerEffects, run)
@@ -20,6 +21,7 @@ main = run [consoleReporter] do
   InputWidgetsSpec.spec
   ListSpec.spec
   RadioGroupSpec.spec
+  AsyncSpec.spec
 
   describe "example apps" $ do
     Counter.spec
