@@ -8,14 +8,15 @@ import BuilderSpec (newDynamic)
 import Control.Monad.Aff.AVar (makeEmptyVar, putVar, takeVar)
 import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Cleanup (runCleanupT)
+import Control.Monad.IO (IO)
 import Control.Monad.IOSync.Class (liftIOSync)
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst, snd)
 import Specular.FRP (newEvent, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
 import Specular.FRP.Base (subscribeDyn_)
-import Test.Spec (Spec, describe, it, pending)
+import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue)
 import Test.Utils.Dom (runBuilderInDiv)
@@ -108,6 +109,49 @@ spec = do
       clear log
       putVar "result1" avar1
       log `shouldHaveValue` [] -- should be ignored, as this request was replaced by avar2
+
+    it "request dynamic and status dynamic are consistent" $ do
+      -- `do status <- asyncRequestMaybe request`
+      -- Some relations must hold between the values of `status` and `request`:
+      --
+      -- - If `request == Nothing`, then `status == NotRequested`
+      -- - If `request` is `Just x`, then `status` is either `Loading` or `Loaded y`,
+      --   where `y` is the result of running `x`.
+      --
+      -- A naive implementation would expose intermediate states where these
+      -- invariants don't hold. This test checks for this.
+
+      avar <- makeEmptyVar
+
+      -- In `dyn` we'll store pairs of (String, IO String).
+      -- The first string is a description, and goes to the log;
+      -- the action is the request.
+      Tuple dyn setDyn <- ioSync $ newDynamic $ Tuple "Nothing" (Nothing :: Maybe (IO String))
+
+      -- In `log` we'll have pairs of (String, String)
+      -- The first String is the request description, the second is the result.
+      log <- ioSync $ newIORef []
+
+      _ <- runBuilderInDiv $ do
+        result <- asyncRequestMaybe $ map snd dyn
+        subscribeDyn_ (append log) $ Tuple <$> map fst dyn <*> result
+
+      log `shouldHaveValue` [Tuple "Nothing" NotRequested]
+
+      -- Test with immediately executed action
+      clear log
+      ioSync $ setDyn $ Tuple "pure A" $ Just $ pure "A"
+      log `shouldHaveValue` [Tuple "pure A" (Loaded "A")]
+
+      -- Test with asynchronous action
+      clear log
+      ioSync $ setDyn $ Tuple "async B" $ Just $ liftAff $ takeVar avar
+      log `shouldHaveValue` [Tuple "async B" Loading]
+
+      -- Test with change to Nothing
+      clear log
+      ioSync $ setDyn $ Tuple "Nothing again" Nothing
+      log `shouldHaveValue` [Tuple "Nothing again" NotRequested]
 
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
