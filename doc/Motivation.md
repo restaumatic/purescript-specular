@@ -128,8 +128,8 @@ Output is returned by the monadic computation when it finishes.
 This means that on each interaction with the outside, a widget's internal state
 is destroyed.
 
-In my opinion, this makes the local state feature unusable, and you basically
-just write Elm. I'll exclude Concur from the examples.
+In my opinion, this makes the local state feature harder to use. I'll exclude
+Concur from the examples.
 
 #### [Flare](https://github.com/sharkdp/purescript-flare)
 
