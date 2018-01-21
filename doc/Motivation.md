@@ -209,9 +209,10 @@ You can define a component per page. In the main component, you can reuse the
 `Route` as `Slot`. Components have local state, so you don't have to know about
 what's happening in the subpages at the top level.
 
-As far as I know, there's no such thing as "initial effect" - you have to send
-the pages some kind of `Init` message on route change to let them fetch their
-data.
+Initialization (including effects such as sending requests) can be performed
+using the `initializer` lifecycle hook (this would be described in section 6
+"Component lifecycle hooks" in the Halogen guide, but this section is not yet
+written).
 
 ##### Specular
 
