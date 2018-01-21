@@ -54,12 +54,6 @@ fromLoaded _ = Nothing
 -- |   using IO's (Aff's) cancellation mechanism. This ensures that the value of the resulting Dynamic
 -- |   will eventually be that of the most recent value of the input Dynamic,
 -- |   independent of the order of arrival of the responses.
--- |
--- | FIXME: The resulting Dynamic does not change to Loading in the same frame as the input Dynamic changes value.
--- |
--- | FIXME: What is the behavior of IO with nonCanceler? Will the result be
--- | suppressed? If not, we need additional mechanism here to prevent
--- | out-of-order responses.
 asyncRequestMaybe :: forall m a
    . MonadIOSync m
   => MonadFRP m
@@ -69,20 +63,26 @@ asyncRequestMaybe :: forall m a
 asyncRequestMaybe dquery = do
   loadStateChanged <- newEvent
 
-  -- NB: It's important that `holdDyn` is before `dynamic_`.
-  -- If the initial value is a Query, the resulting Dynamic should
-  -- have value Loading, not NotRequested.
-  dyn <- holdDyn NotRequested loadStateChanged.event
-
   dynamic_ $ flip map dquery $ \mquery ->
     case mquery of
       Nothing ->
-        liftIOSync $ loadStateChanged.fire NotRequested
+        pure unit
       Just query ->
         startIO $ do
-          liftIOSync $ loadStateChanged.fire Loading
           value <- query
           liftIOSync $ loadStateChanged.fire (Loaded value)
+
+  let
+    -- Status when the request starts.
+    initialStatus (Just _) = Loading
+    initialStatus Nothing  = NotRequested
+
+  initialValue <- pull $ readBehavior $ current dquery
+  dyn <- holdDyn (initialStatus initialValue) $
+    leftmost
+      [ initialStatus <$> changed dquery
+      , loadStateChanged.event
+      ]
 
   pure dyn
 

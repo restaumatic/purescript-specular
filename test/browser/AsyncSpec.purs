@@ -13,12 +13,12 @@ import Control.Monad.IOSync.Class (liftIOSync)
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
-import Specular.FRP (newEvent, subscribeEvent_)
+import Specular.FRP (current, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
-import Specular.FRP.Base (subscribeDyn_)
-import Test.Spec (Spec, describe, it)
+import Specular.FRP.Base (readBehavior, subscribeDyn_)
+import Test.Spec (Spec, describe, it, pending)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue)
+import Test.Utils (append, clear, ioSync, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (runBuilderInDiv)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
@@ -128,30 +128,56 @@ spec = do
       -- the action is the request.
       Tuple dyn setDyn <- ioSync $ newDynamic $ Tuple "Nothing" (Nothing :: Maybe (IO String))
 
+      let readDyn = ioSync <<< pull <<< readBehavior <<< current
+
       -- In `log` we'll have pairs of (String, String)
       -- The first String is the request description, the second is the result.
       log <- ioSync $ newIORef []
 
-      _ <- runBuilderInDiv $ do
-        result <- asyncRequestMaybe $ map snd dyn
-        subscribeDyn_ (append log) $ Tuple <$> map fst dyn <*> result
+      Tuple _ result <- runBuilderInDiv $ do
+        status <- asyncRequestMaybe $ map snd dyn
+        let result = Tuple <$> map fst dyn <*> status
+        subscribeDyn_ (append log) $ result
+        pure result
 
       log `shouldHaveValue` [Tuple "Nothing" NotRequested]
+      readDyn result `shouldReturn` Tuple "Nothing" NotRequested
 
       -- Test with immediately executed action
       clear log
       ioSync $ setDyn $ Tuple "pure A" $ Just $ pure "A"
-      log `shouldHaveValue` [Tuple "pure A" (Loaded "A")]
+      -- FIXME: The following should be true:
+      --
+      -- log `shouldHaveValue` [Tuple "pure A" Loading, Tuple "pure A" (Loaded "A")]
+      --
+      -- But it isn't. The log is in reverse order.
+      --
+      -- Fixing this would require some more thought - the problem is that
+      -- frame effects can execute new frames, and this can cause
+      -- effects of a later frame to be executed before the effects of the
+      -- previous frame are done!
+      -- This is what we observe here: When the result changes to Loaded, the
+      -- notification of Loading is still scheduled for execution.
+      readDyn result `shouldReturn` Tuple "pure A" (Loaded "A")
 
       -- Test with asynchronous action
       clear log
       ioSync $ setDyn $ Tuple "async B" $ Just $ liftAff $ takeVar avar
       log `shouldHaveValue` [Tuple "async B" Loading]
+      readDyn result `shouldReturn` Tuple "async B" Loading
+
+      clear log
+      putVar "B" avar
+      log `shouldHaveValue` [Tuple "async B" (Loaded "B")]
+      readDyn result `shouldReturn` Tuple "async B" (Loaded "B")
 
       -- Test with change to Nothing
       clear log
       ioSync $ setDyn $ Tuple "Nothing again" Nothing
       log `shouldHaveValue` [Tuple "Nothing again" NotRequested]
+      readDyn result `shouldReturn` Tuple "Nothing again" NotRequested
+
+    pending """FIXME: sometimes Dynamic changes arrive out of order, see comment in "request dynamic and status dynamic are consistent" """
 
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
