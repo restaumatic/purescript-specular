@@ -16,7 +16,7 @@ import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (BuilderT, runBuilderT)
-import Specular.Dom.Builder.Class (class MonadDomBuilder)
+import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.FRP (class MonadHold, class MonadHost)
 
 type Widget = BuilderT Node (CleanupT IOSync)
@@ -38,5 +38,5 @@ runMainWidgetInBody widget = do
 foreign import documentBody :: IOSync Node
 
 -- A handy alias for all the typeclasses you'll need
-class (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m) <= MonadWidget m
-instance monadWidget :: (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m) => MonadWidget m
+class (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m, MonadDetach m) <= MonadWidget m
+instance monadWidget :: (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m, MonadDetach m) => MonadWidget m
