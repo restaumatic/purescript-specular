@@ -70,3 +70,8 @@ class MonadDetach m where
   -- | When the `widget` computation is executed twice, the result is undefined.
   -- TODO: in case of DOM, only the first result has effect. Maybe make that the specification?
   detach :: forall a. m a -> m { value :: a, widget :: m Unit }
+
+instance monadDetachReaderT :: (Monad m, MonadDetach m) => MonadDetach (ReaderT r m) where
+  detach inner = ReaderT $ \env -> do
+    { value, widget } <- detach $ runReaderT inner env
+    pure { value, widget: lift widget }
