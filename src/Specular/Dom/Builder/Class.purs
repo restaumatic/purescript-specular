@@ -62,3 +62,11 @@ instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder nod
   dynText = lift <<< dynText
   elDynAttr' tag attrs body = ReaderT $ \env -> elDynAttr' tag attrs $ runReaderT body env
   rawHtml = lift <<< rawHtml
+
+class MonadDetach m where
+  -- | Initialize a widget without displaying it immediately.
+  -- | Returns the `value` and a monadic action (`widget`) to display the widget.
+  -- |
+  -- | When the `widget` computation is executed twice, the result is undefined.
+  -- TODO: in case of DOM, only the first result has effect. Maybe make that the specification?
+  detach :: forall a. m a -> m { value :: a, widget :: m Unit }

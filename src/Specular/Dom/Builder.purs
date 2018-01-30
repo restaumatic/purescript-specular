@@ -18,7 +18,7 @@ import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(Tuple))
-import Specular.Dom.Builder.Class (class MonadDomBuilder)
+import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Base (foldDynMaybe)
@@ -175,3 +175,14 @@ instance monadDomBuilderBuilder :: (MonadIOSync m, MonadFRP m, DOM node)
     result <- BuilderT $ local (setParent node) (unBuilderT inner)
     liftIOSync $ appendChild node env.parent
     pure (Tuple node result)
+
+instance monadDetachBuilder :: (MonadIOSync m, DOM node) => MonadDetach (BuilderT node m) where
+  detach inner = do
+    fragment <- liftIOSync createDocumentFragment
+    result <- lift $ runBuilderT { parent: fragment } inner
+    let
+      attach = do
+        env <- getEnv
+        liftIOSync $ appendChild fragment env.parent
+
+    pure { value: result, widget: attach }

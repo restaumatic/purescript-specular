@@ -9,12 +9,13 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Builder.Class (domEventWithSample, el, elDynAttr, elDynAttr', rawHtml, text)
+import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elDynAttr, elDynAttr', rawHtml, text)
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, for, holdDyn, never, newEvent, subscribeEvent_, switch, weaken)
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
 import Test.Spec (Spec, describe, it)
+import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (runBuilderInDiv, dispatchTrivialEvent, querySelector)
@@ -207,6 +208,18 @@ spec = describe "Builder" $ do
       button <- ioSync $ querySelector "button" node
       ioSync $ dispatchTrivialEvent button "click"
       log `shouldHaveValue` [unit]
+
+  it "detach" $ do
+    Tuple node result <- runBuilderInDiv $ do
+       { value, widget } <- detach $ text "foo" *> pure 7
+       text "bar"
+       widget
+       pure value
+
+    result `shouldEqual` 7
+
+    ioSync (innerHTML node) `shouldReturn`
+      """barfoo"""
 
 newDynamic :: forall a. a -> IOSync (Tuple (Dynamic a) (a -> IOSync Unit))
 newDynamic initial = do
