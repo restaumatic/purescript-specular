@@ -30,6 +30,8 @@ instance domNode :: DOM Node where
 
   appendRawHtml = appendRawHtmlImpl
 
+  childNodes = childNodesImpl
+
 foreign import createTextNodeImpl :: String -> IOSync Node
 foreign import setTextImpl :: Node -> String -> IOSync Unit
 foreign import createDocumentFragmentImpl :: IOSync Node
@@ -41,6 +43,7 @@ foreign import insertBeforeImpl :: Node -> Node -> Node -> IOSync Unit
 foreign import appendChildImpl :: Node -> Node -> IOSync Unit
 foreign import removeAllBetweenImpl :: Node -> Node -> IOSync Unit
 foreign import appendRawHtmlImpl :: String -> Node -> IOSync Unit
+foreign import childNodesImpl :: Node -> IOSync (Array Node)
 
 foreign import innerHTML :: Node -> IOSync String
 

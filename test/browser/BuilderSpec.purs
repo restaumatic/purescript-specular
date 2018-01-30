@@ -209,17 +209,32 @@ spec = describe "Builder" $ do
       ioSync $ dispatchTrivialEvent button "click"
       log `shouldHaveValue` [unit]
 
-  it "detach" $ do
-    Tuple node result <- runBuilderInDiv $ do
-       { value, widget } <- detach $ text "foo" *> pure 7
-       text "bar"
-       widget
-       pure value
+  describe "detach" $ do
+    it "simple case" $ do
+      Tuple dyn updateDyn <- ioSync $ newDynamic unit
+      Tuple node _ <- runBuilderInDiv $ do
+         { value, widget } <- detach $ text "foo"
+         dynamic_ $ map (\_ -> widget) dyn
 
-    result `shouldEqual` 7
+      ioSync (innerHTML node) `shouldReturn`
+        """foo"""
 
-    ioSync (innerHTML node) `shouldReturn`
-      """barfoo"""
+      ioSync $ updateDyn unit
+
+      ioSync (innerHTML node) `shouldReturn`
+        """foo"""
+
+    it "works inside dynamic_" $ do
+      Tuple node result <- runBuilderInDiv $ do
+         { value, widget } <- detach $ text "foo" *> pure 7
+         text "bar"
+         widget
+         pure value
+
+      result `shouldEqual` 7
+
+      ioSync (innerHTML node) `shouldReturn`
+        """barfoo"""
 
 newDynamic :: forall a. a -> IOSync (Tuple (Dynamic a) (a -> IOSync Unit))
 newDynamic initial = do

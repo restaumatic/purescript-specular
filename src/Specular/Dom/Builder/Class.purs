@@ -67,8 +67,8 @@ class MonadDetach m where
   -- | Initialize a widget without displaying it immediately.
   -- | Returns the `value` and a monadic action (`widget`) to display the widget.
   -- |
-  -- | When the `widget` computation is executed twice, the result is undefined.
-  -- TODO: in case of DOM, only the first result has effect. Maybe make that the specification?
+  -- | When the `widget` computation is executed twice, the widget should only
+  -- | appear in the latest place it is displayed.
   detach :: forall a. m a -> m { value :: a, widget :: m Unit }
 
 instance monadDetachReaderT :: (Monad m, MonadDetach m) => MonadDetach (ReaderT r m) where

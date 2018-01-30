@@ -47,6 +47,8 @@ class DOM node where
   -- | and `from` is before `to`.
   removeAllBetween :: node -> node -> IOSync Unit
 
+  childNodes :: node -> IOSync (Array node)
+
 type EventType = String
 
 class DOM node <= EventDOM event node | node -> event where

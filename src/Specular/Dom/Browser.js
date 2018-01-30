@@ -150,3 +150,10 @@ exports.appendRawHtmlImpl = function(html) {
     };
   };
 };
+
+// childNodesImpl :: Node -> IOSync (Array Node)
+exports.childNodesImpl = function(node) {
+  return function() {
+    return Array.prototype.slice.call(node.childNodes);
+  };
+};
