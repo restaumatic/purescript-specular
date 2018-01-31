@@ -47,6 +47,15 @@ class DOM node where
   -- | and `from` is before `to`.
   removeAllBetween :: node -> node -> IOSync Unit
 
+  -- | `moveAllBetweenInclusive from to parent`
+  -- |
+  -- | Moves `from`, all nodes after `from` and before `to` and `to` to
+  -- | `parent`.
+  -- |
+  -- | Assumes that `from` and `to` have the same parent,
+  -- | and `from` is before `to`.
+  moveAllBetweenInclusive :: node -> node -> node -> IOSync Unit
+
   childNodes :: node -> IOSync (Array node)
 
 type EventType = String

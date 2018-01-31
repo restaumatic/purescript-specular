@@ -157,3 +157,22 @@ exports.childNodesImpl = function(node) {
     return Array.prototype.slice.call(node.childNodes);
   };
 };
+
+// moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> IOSync Unit
+exports.moveAllBetweenInclusiveImpl = function(from) {
+  return function(to) {
+    return function(newParent) {
+      return function() {
+        var node = from;
+        while(true) {
+          var next = node.nextSibling;
+          newParent.appendChild(node);
+          if(node === to) {
+            break;
+          }
+          node = next;
+        }
+      };
+    };
+  };
+};

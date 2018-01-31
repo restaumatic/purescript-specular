@@ -13,14 +13,13 @@ import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Control.Monad.Trans.Class (class MonadTrans, lift)
 import Data.Array as A
-import Data.Foldable (for_)
 import Data.IORef (modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
-import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, childNodes, createDocumentFragment, createElement, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
+import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElement, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Base (foldDynMaybe)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
@@ -177,15 +176,21 @@ instance monadDomBuilderBuilder :: (MonadIOSync m, MonadFRP m, DOM node)
     liftIOSync $ appendChild node env.parent
     pure (Tuple node result)
 
-instance monadDetachBuilder :: (MonadIOSync m, DOM node) => MonadDetach (BuilderT node m) where
+instance monadDetachBuilder :: (MonadIOSync m, MonadCleanup m, DOM node) => MonadDetach (BuilderT node m) where
   detach inner = do
     fragment <- liftIOSync createDocumentFragment
+
+    placeholderBefore <- liftIOSync $ createTextNode ""
+    liftIOSync $ appendChild placeholderBefore fragment
+
     result <- lift $ runBuilderT { parent: fragment } inner
-    nodes <- liftIOSync $ childNodes fragment
+
+    placeholderAfter <- liftIOSync $ createTextNode ""
+    liftIOSync $ appendChild placeholderAfter fragment
+
     let
       attach = do
         env <- getEnv
-        liftIOSync $ for_ nodes $ \node ->
-          appendChild node env.parent
+        liftIOSync $ moveAllBetweenInclusive placeholderBefore placeholderAfter env.parent
 
     pure { value: result, widget: attach }

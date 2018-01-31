@@ -32,6 +32,8 @@ instance domNode :: DOM Node where
 
   childNodes = childNodesImpl
 
+  moveAllBetweenInclusive = moveAllBetweenInclusiveImpl
+
 foreign import createTextNodeImpl :: String -> IOSync Node
 foreign import setTextImpl :: Node -> String -> IOSync Unit
 foreign import createDocumentFragmentImpl :: IOSync Node
@@ -44,6 +46,7 @@ foreign import appendChildImpl :: Node -> Node -> IOSync Unit
 foreign import removeAllBetweenImpl :: Node -> Node -> IOSync Unit
 foreign import appendRawHtmlImpl :: String -> Node -> IOSync Unit
 foreign import childNodesImpl :: Node -> IOSync (Array Node)
+foreign import moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> IOSync Unit
 
 foreign import innerHTML :: Node -> IOSync String
 

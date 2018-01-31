@@ -211,20 +211,6 @@ spec = describe "Builder" $ do
 
   describe "detach" $ do
     it "simple case" $ do
-      Tuple dyn updateDyn <- ioSync $ newDynamic unit
-      Tuple node _ <- runBuilderInDiv $ do
-         { value, widget } <- detach $ text "foo"
-         dynamic_ $ map (\_ -> widget) dyn
-
-      ioSync (innerHTML node) `shouldReturn`
-        """foo"""
-
-      ioSync $ updateDyn unit
-
-      ioSync (innerHTML node) `shouldReturn`
-        """foo"""
-
-    it "works inside dynamic_" $ do
       Tuple node result <- runBuilderInDiv $ do
          { value, widget } <- detach $ text "foo" *> pure 7
          text "bar"
@@ -235,6 +221,47 @@ spec = describe "Builder" $ do
 
       ioSync (innerHTML node) `shouldReturn`
         """barfoo"""
+
+    it "double use" $ do
+      Tuple node _ <- runBuilderInDiv $ do
+         { widget } <- detach $ text "foo"
+         text "bar"
+         widget
+         text "baz"
+         widget
+
+      ioSync (innerHTML node) `shouldReturn`
+        """barbazfoo"""
+
+    it "works inside dynamic_" $ do
+      Tuple dyn updateDyn <- ioSync $ newDynamic unit
+      Tuple node _ <- runBuilderInDiv $ do
+         { value, widget } <- detach $ text "foo"
+         dynamic_ $ map (\_ -> widget) dyn
+
+      ioSync (innerHTML node) `shouldReturn` """foo"""
+
+      ioSync $ updateDyn unit
+
+      ioSync (innerHTML node) `shouldReturn` """foo"""
+
+    it "dynamic_ -> attach -> dynamic_" $ do
+      Tuple dyn updateDyn <- ioSync $ newDynamic unit
+      Tuple innerDyn updateInnerDyn <- ioSync $ newDynamic $ text "inner1"
+      Tuple node _ <- runBuilderInDiv $ do
+         { value, widget } <- detach $ dynamic_ innerDyn
+         dynamic_ $ map (\_ -> widget) dyn
+
+      ioSync (innerHTML node) `shouldReturn` """inner1"""
+
+      ioSync $ updateInnerDyn $ text "inner2"
+      ioSync (innerHTML node) `shouldReturn` """inner2"""
+
+      ioSync $ updateDyn unit
+      ioSync (innerHTML node) `shouldReturn` """inner2"""
+
+      ioSync $ updateInnerDyn $ text "inner3"
+      ioSync (innerHTML node) `shouldReturn` """inner3"""
 
 newDynamic :: forall a. a -> IOSync (Tuple (Dynamic a) (a -> IOSync Unit))
 newDynamic initial = do
