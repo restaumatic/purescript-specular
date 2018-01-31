@@ -528,6 +528,7 @@ foldDynMaybeImpl f initial (Event event) = do
                               (Event event)
     }
 
+-- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
 holdDyn :: forall m a. MonadHold m => a -> Event a -> m (Dynamic a)
 holdDyn = foldDyn (\x _ -> x)
 
