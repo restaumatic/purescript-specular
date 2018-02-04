@@ -209,18 +209,7 @@ runNextFrame frame = do
 
 -- | Create a computation that will run the given action at most once during
 -- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
-oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
-oncePerFrame_ action = do
-  ref <- newIORef Nothing
-  pure $ do
-    time <- framePull $ getTime
-    m_lastTime <- framePull $ pullReadIORef ref
-    case m_lastTime of
-      Just lastTime | lastTime == time ->
-        pure unit
-      _ -> do
-        frameWriteIORef ref (Just time)
-        action
+foreign import oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
 
 -------------------------------------------------------------
 
