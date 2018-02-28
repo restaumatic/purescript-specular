@@ -235,20 +235,10 @@ newtype Behavior a = Behavior (Pull a)
 readBehavior :: forall a. Behavior a -> Pull a
 readBehavior (Behavior read) = read
 
-instance functorBehavior :: Functor Behavior where
-  map f (Behavior read) = Behavior $ map f read
-
-instance applyBehavior :: Apply Behavior where
-  apply (Behavior f) (Behavior x) = Behavior $ f <*> x
-
-instance applicativeBehavior :: Applicative Behavior where
-  pure x = Behavior $ pure x
-
-instance bindBehavior :: Bind Behavior where
-  bind (Behavior read) k = Behavior $ do
-    value <- read
-    readBehavior (k value)
-
+derive newtype instance functorBehavior :: Functor Behavior
+derive newtype instance applyBehavior :: Apply Behavior
+derive newtype instance applicativeBehavior :: Applicative Behavior
+derive newtype instance bindBehavior :: Bind Behavior
 instance monadBehavior :: Monad Behavior
 
 -------------------------------------------------------------
@@ -273,8 +263,7 @@ newtype Event a = Event
 --    and if so, its occurence value,
 --  - subscription function.
 
-instance functorEvent :: Functor Event where
-  map f (Event {occurence, subscribe}) = Event { occurence: map (map f) occurence, subscribe }
+derive instance functorEvent :: Functor Event
 
 -- | An Event that never occurs.
 never :: forall a. Event a
@@ -451,8 +440,7 @@ current (Dynamic {value}) = value
 changed :: forall a. Dynamic a -> Event a
 changed (Dynamic {value, change}) = mapEventB (\_ -> value) change
 
-instance functorDynamic :: Functor Dynamic where
-  map f (Dynamic { value, change }) = Dynamic { value: map f value, change }
+derive instance functorDynamic :: Functor Dynamic
 
 instance applyDynamic :: Apply Dynamic where
   apply (Dynamic f) (Dynamic x) = Dynamic
