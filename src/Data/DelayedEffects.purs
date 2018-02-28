@@ -13,7 +13,6 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.IOSync (IOSync)
 import Data.Array.ST (STArray, emptySTArray, pushSTArray)
 import Data.Array.ST as STA
-import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data RealWorld :: Type
 

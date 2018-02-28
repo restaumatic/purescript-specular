@@ -6,12 +6,11 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Tuple (Tuple(..))
-import Partial.Unsafe (unsafeCrashWith)
-import Specular.FRP (foldDyn, holdDyn, newEvent, subscribeDyn_, subscribeWeakDyn_, weaken)
+import Specular.FRP (holdDyn, newEvent, subscribeWeakDyn_, weaken)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue)
+import Test.Utils (append, ioSync, shouldHaveValue)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "WeakDynamic" $ do

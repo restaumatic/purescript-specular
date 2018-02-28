@@ -1,11 +1,11 @@
 module Specular.FRP (
-    module Specular.FRP.Base
-  , module Specular.FRP.WeakDynamic
-  , module Specular.FRP.Fix
-  , module Specular.FRP.Replaceable
+    module X.Base
+  , module X.WeakDynamic
+  , module X.Fix
+  , module X.Replaceable
 ) where
 
-import Specular.FRP.Base
-import Specular.FRP.WeakDynamic
-import Specular.FRP.Fix
-import Specular.FRP.Replaceable
+import Specular.FRP.Base as X.Base
+import Specular.FRP.WeakDynamic as X.WeakDynamic
+import Specular.FRP.Fix as X.Fix
+import Specular.FRP.Replaceable as X.Replaceable
