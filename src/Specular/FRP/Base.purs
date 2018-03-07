@@ -28,6 +28,7 @@ module Specular.FRP.Base (
   , foldDyn
   , foldDynMaybe
   , holdUniqDynBy
+  , uniqDynBy
 
   , class MonadHostCreate
   , newEvent
@@ -522,6 +523,14 @@ holdDyn = foldDyn (\x _ -> x)
 
 holdUniqDynBy :: forall m a. MonadHold m => (a -> a -> Boolean) -> a -> Event a -> m (Dynamic a)
 holdUniqDynBy eq = foldDynMaybe (\new old -> if eq new old then Nothing else Just new)
+
+-- | Make a Dynamic that only changes value when the input Dynamic changes
+-- | value, and the new value is not equal to the previous value with respect to
+-- | the given equality test.
+uniqDynBy :: forall m a. MonadHold m => MonadPull m => (a -> a -> Boolean) -> Dynamic a -> m (Dynamic a)
+uniqDynBy eq dyn = do
+  initialValue <- pull $ readBehavior $ current dyn
+  holdUniqDynBy eq initialValue (changed dyn)
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
