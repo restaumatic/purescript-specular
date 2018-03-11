@@ -427,6 +427,13 @@ findFirstM f array =
 
 -----------------------------------------------------------------
 
+-- | `Dynamic a` represents a _dynamically changing value_ of type `a`. The
+-- | current value may be queried at any time (using `current`), and it's
+-- | possible to be notified of changes (using `changed`).
+--
+-- Dynamic is implemented as a pair of `Behavior` and `Event`. The Event only
+-- notifies when a change occurs; the new value is always queried from the
+-- behavior.
 newtype Dynamic a = Dynamic
   { value :: Behavior a
   , change :: Event Unit
@@ -434,6 +441,9 @@ newtype Dynamic a = Dynamic
 
 -- | The Behavior representing the current value of the Dynamic.
 -- | When it is changing (the change event occurs), it has the new value.
+-- |
+-- | The value of `current x` is always the value of the latest occurence of
+-- | `changed x`, if it has ever occured.
 current :: forall a. Dynamic a -> Behavior a
 current (Dynamic {value}) = value
 
