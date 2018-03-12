@@ -12,7 +12,8 @@ module Specular.FRP.Async
 
 import Prelude
 
-import Control.Monad.Aff (killFiber, launchAff, launchAff_)
+import Control.Monad.Aff (Aff, delay, killFiber, launchAff, launchAff_)
+import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (error)
@@ -23,6 +24,7 @@ import Control.Monad.Replace (class MonadReplace)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(Just, Nothing))
+import Data.Time.Duration (Milliseconds(..))
 import Specular.FRP (class MonadFRP, class MonadHost, Dynamic, Event, changed, current, dynamic_, holdDyn, leftmost, newEvent, pull)
 import Specular.FRP.Base (readBehavior, subscribeEvent_)
 
@@ -69,6 +71,11 @@ asyncRequestMaybe dquery = do
         pure unit
       Just query ->
         startIO $ do
+
+          -- FIXME: very hacky workaround for
+          -- https://github.com/restaumatic/purescript-specular/issues/10
+          liftAff yieldAff
+
           value <- query
           liftIOSync $ loadStateChanged.fire (Loaded value)
 
@@ -85,6 +92,11 @@ asyncRequestMaybe dquery = do
       ]
 
   pure dyn
+
+-- | Reschedule the current fiber to the end of event loop.
+-- | Equivalent to `setTimeout(function() { ... }, 0);`
+yieldAff :: forall e. Aff e Unit
+yieldAff = delay (Milliseconds 0.0)
 
 -- | Like `asyncRequestMaybe`, but without the Nothing case.
 asyncRequest :: forall m a

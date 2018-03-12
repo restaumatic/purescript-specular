@@ -16,9 +16,9 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Specular.FRP (current, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
 import Specular.FRP.Base (readBehavior, subscribeDyn_)
-import Test.Spec (Spec, describe, it, pending)
+import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue, shouldReturn)
+import Test.Utils (append, clear, ioSync, shouldHaveValue, shouldReturn, yieldAff)
 import Test.Utils.Dom (runBuilderInDiv)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
@@ -38,6 +38,7 @@ spec = do
 
       clear log
       putVar "result" avar
+      yieldAff
       log `shouldHaveValue` [Loaded "result"]
 
     it "makes a request when the value changes" $ do
@@ -60,6 +61,7 @@ spec = do
 
       clear log
       putVar "result" avar
+      yieldAff
       log `shouldHaveValue` [Loaded "result"]
 
     it "ignores responses to requests older than the current" $ do
@@ -86,6 +88,7 @@ spec = do
 
       clear log
       putVar "result2" avar2
+      yieldAff
       log `shouldHaveValue` [Loaded "result2"]
 
     it "ignores out-of-order responses" $ do
@@ -104,6 +107,7 @@ spec = do
 
       clear log
       putVar "result2" avar2
+      yieldAff
       log `shouldHaveValue` [Loaded "result2"]
 
       clear log
@@ -146,18 +150,8 @@ spec = do
       -- Test with immediately executed action
       clear log
       ioSync $ setDyn $ Tuple "pure A" $ Just $ pure "A"
-      -- FIXME: The following should be true:
-      --
-      -- log `shouldHaveValue` [Tuple "pure A" Loading, Tuple "pure A" (Loaded "A")]
-      --
-      -- But it isn't. The log is in reverse order.
-      --
-      -- Fixing this would require some more thought - the problem is that
-      -- frame effects can execute new frames, and this can cause
-      -- effects of a later frame to be executed before the effects of the
-      -- previous frame are done!
-      -- This is what we observe here: When the result changes to Loaded, the
-      -- notification of Loading is still scheduled for execution.
+      yieldAff
+      log `shouldHaveValue` [Tuple "pure A" Loading, Tuple "pure A" (Loaded "A")]
       readDyn result `shouldReturn` Tuple "pure A" (Loaded "A")
 
       -- Test with asynchronous action
@@ -168,6 +162,7 @@ spec = do
 
       clear log
       putVar "B" avar
+      yieldAff
       log `shouldHaveValue` [Tuple "async B" (Loaded "B")]
       readDyn result `shouldReturn` Tuple "async B" (Loaded "B")
 
@@ -176,8 +171,6 @@ spec = do
       ioSync $ setDyn $ Tuple "Nothing again" Nothing
       log `shouldHaveValue` [Tuple "Nothing again" NotRequested]
       readDyn result `shouldReturn` Tuple "Nothing again" NotRequested
-
-    pending """FIXME: sometimes Dynamic changes arrive out of order, see comment in "request dynamic and status dynamic are consistent" """
 
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
@@ -193,3 +186,13 @@ spec = do
       ioSync $ fire "B"
 
       log `shouldHaveValue` ["handler:A", "result:A", "handler:B", "result:B"]
+
+{-
+Note [yieldAff]
+~~~~~~~~~~~~~~~
+
+The calls to `yieldAff` above are workarounds for the workaround for issue #10 -
+see implementation of `asyncRequestMaybe`. It causes the propagation of
+immediate results to be delivered on next tick, so we must also delay
+inspecting results.
+-}

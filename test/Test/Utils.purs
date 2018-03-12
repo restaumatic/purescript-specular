@@ -2,7 +2,7 @@ module Test.Utils where
 
 import Prelude
 
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
@@ -43,3 +43,8 @@ class ShouldHaveInferredType actual expected where
 
 instance shouldHaveInferredTypeInstance :: ShouldHaveInferredType a a where
   shouldHaveInferredType _ _ = unit
+
+-- | Reschedule the current fiber to the end of event loop.
+-- | Equivalent to `setTimeout(function() { ... }, 0);`
+yieldAff :: forall e. Aff e Unit
+yieldAff = delay (Milliseconds 0.0)
