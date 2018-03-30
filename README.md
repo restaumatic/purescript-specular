@@ -1,4 +1,4 @@
-# Specular
+# Specular [![CircleCI](https://circleci.com/gh/restaumatic/purescript-specular/tree/master.svg?style=svg)](https://circleci.com/gh/restaumatic/purescript-specular/tree/master)
 
 Specular is a library for building Web-based UIs in PureScript, based on
 Functional Reactive Programming (FRP). It is heavily inspired by
