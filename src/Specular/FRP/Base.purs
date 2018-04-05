@@ -18,6 +18,7 @@ module Specular.FRP.Base (
   , Dynamic
   , current
   , changed
+  , changed_
   , switch
   , tagDyn
   , attachDynWith
@@ -450,6 +451,10 @@ current (Dynamic {value}) = value
 -- | An Event that fires with the new value every time the Dynamic changes.
 changed :: forall a. Dynamic a -> Event a
 changed (Dynamic {value, change}) = mapEventB (\_ -> value) change
+
+-- | An Event that fires every time the Dynamic changes.
+changed_ :: forall a. Dynamic a -> Event Unit
+changed_ (Dynamic {value, change}) = change
 
 derive instance functorDynamic :: Functor Dynamic
 
