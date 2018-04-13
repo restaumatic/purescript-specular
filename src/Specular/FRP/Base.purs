@@ -237,11 +237,21 @@ newtype Behavior a = Behavior (Pull a)
 readBehavior :: forall a. Behavior a -> Pull a
 readBehavior (Behavior read) = read
 
-derive newtype instance functorBehavior :: Functor Behavior
-derive newtype instance applyBehavior :: Apply Behavior
+instance functorBehavior :: Functor Behavior where
+  map f (Behavior read) = cachedB (Behavior (map f read))
+
+instance applyBehavior :: Apply Behavior where
+  apply (Behavior f) (Behavior x) = cachedB (Behavior (apply f x))
+
 derive newtype instance applicativeBehavior :: Applicative Behavior
-derive newtype instance bindBehavior :: Bind Behavior
+
+instance bindBehavior :: Bind Behavior where
+  bind (Behavior b) k = cachedB (Behavior (b >>= (k >>> readBehavior)))
+
 instance monadBehavior :: Monad Behavior
+
+cachedB :: forall a. Behavior a -> Behavior a
+cachedB (Behavior read) = unsafePerformEff $ runIOSync $ Behavior <$> oncePerFramePull read
 
 -------------------------------------------------------------
 
