@@ -119,23 +119,7 @@ oncePerFramePull action = oncePerFramePullWithIO action pure
 -- |
 -- | It is an error to run the computation returned from `oncePerFrame` inside
 -- | the passed action.
-oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
-oncePerFramePullWithIO action io = do
-  ref <- newIORef Fresh
-  pure $ unsafeMkPull $ \time -> do
-    cache <- readIORef ref
-    case cache of
-      Cached lastTime value | lastTime == time ->
-        pure value
-
-      BlackHole ->
-        unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
-
-      _ -> do
-        writeIORef ref BlackHole
-        value <- runPull time action >>= io
-        writeIORef ref (Cached time value)
-        pure value
+foreign import oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
 
 class Monad m <= MonadPull m where
   pull :: forall a. Pull a -> m a
