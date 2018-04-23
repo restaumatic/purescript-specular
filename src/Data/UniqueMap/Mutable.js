@@ -4,6 +4,8 @@
 // A global counter
 var nextUnique = 0;
 
+global.totalListeners = 0;
+
 // new :: forall a. IOSync (UniqueMap a)
 exports.new = function() {
   return {};
@@ -15,6 +17,7 @@ exports.insert = function(value) {
     return function() {
       var key = nextUnique++;
       map[key] = value;
+      global.totalListeners++;
       return key;
     };
   };
@@ -41,6 +44,9 @@ exports.lookupImpl = function(key) {
 exports['delete'] = function(key) {
   return function(map) {
     return function() {
+      if(key in map) {
+        global.totalListeners--;
+      }
       delete map[key];
     };
   };
