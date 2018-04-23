@@ -8,12 +8,12 @@ import Specular.FRP (filterMapEvent, holdDyn, leftmost, mergeEvents, newBehavior
 import Specular.FRP.Base (subscribeDyn_)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue)
+import Test.Utils (append, clear, ioSync, shouldHaveValue, withLeakCheck)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Event" $ do
 
-  it "pushes values to subscribers, honors unsubscribe" $ do
+  it "pushes values to subscribers, honors unsubscribe" $ withLeakCheck $ do
     {event,fire} <- ioSync newEvent
     log <- ioSync $ newIORef []
     unsub1 <- ioSync $ execCleanupT $ subscribeEvent_ (\x -> append log $ "1:" <> x) event
@@ -24,8 +24,11 @@ spec = describe "Event" $ do
 
     log `shouldHaveValue` ["1:A", "2:A", "2:B"]
 
+    -- clean up
+    ioSync unsub2
+
   describe "mergeEvents" $ do
-    it "different root events" $ do
+    it "different root events" $ withLeakCheck $ do
       root1 <- ioSync newEvent
       root2 <- ioSync newEvent
       log <- ioSync $ newIORef []
@@ -34,7 +37,7 @@ spec = describe "Event" $ do
                               (\l r -> pure $ "both: " <> l <> ", " <> r)
                               root1.event
                               root2.event
-      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+      unsub <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       clear log
       ioSync $ root1.fire "left"
@@ -44,7 +47,10 @@ spec = describe "Event" $ do
       ioSync $ root1.fire "right"
       log `shouldHaveValue` ["right"]
 
-    it "coincidence" $ do
+      -- clean up
+      ioSync unsub
+
+    it "coincidence" $ withLeakCheck $ do
       root <- ioSync newEvent
       log <- ioSync $ newIORef []
 
@@ -54,30 +60,36 @@ spec = describe "Event" $ do
                     (\l r -> pure $ "both: " <> l <> ", " <> r)
                     root.event root.event
 
-      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+      unsub <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync $ root.fire "root"
       log `shouldHaveValue` ["both: root, root"]
 
-  it "sampleAt" $ do
+      -- clean up
+      ioSync unsub
+
+  it "sampleAt" $ withLeakCheck $ do
     root <- ioSync newEvent
     b <- ioSync $ newBehavior "A"
     log <- ioSync $ newIORef []
 
     let event = sampleAt root.event b.behavior
-    _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+    unsub <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
     ioSync $ root.fire ("1" <> _)
     ioSync $ b.set "B"
     ioSync $ root.fire ("2" <> _)
     log `shouldHaveValue` ["1A", "2B"]
 
-  it "filterMapEvent" $ do
+    -- clean up
+    ioSync unsub
+
+  it "filterMapEvent" $ withLeakCheck $ do
     root <- ioSync newEvent
     log <- ioSync $ newIORef []
 
     let event = filterMapEvent (\x -> if x < 5 then Just (2 * x) else Nothing) root.event
-    _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+    unsub <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
     ioSync $ root.fire 1
     ioSync $ root.fire 10
@@ -85,14 +97,17 @@ spec = describe "Event" $ do
     ioSync $ root.fire 4
     log `shouldHaveValue` [2, 6, 8]
 
+    -- clean up
+    ioSync unsub
+
   describe "leftmost" $ do
-    it "different root events" $ do
+    it "different root events" $ withLeakCheck $ do
       root1 <- ioSync newEvent
       root2 <- ioSync newEvent
       log <- ioSync $ newIORef []
 
       let event = leftmost [ root1.event, root2.event ]
-      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+      unsub <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       clear log
       ioSync $ root1.fire "left"
@@ -102,26 +117,36 @@ spec = describe "Event" $ do
       ioSync $ root1.fire "right"
       log `shouldHaveValue` ["right"]
 
-    it "coincidence chooses leftmost" $ do
+      -- clean up
+      ioSync unsub
+
+    it "coincidence chooses leftmost" $ withLeakCheck $ do
       root <- ioSync newEvent
       log <- ioSync $ newIORef []
 
       let event = leftmost [ 1 <$ root.event, 2 <$ root.event, 3 <$ root.event ]
 
-      _ <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
+      unsub <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync $ root.fire unit
       log `shouldHaveValue` [ 1 ]
 
-  it "does not occur during frames started by firing listeners" $ do
+      -- clean up
+      ioSync unsub
+
+  it "does not occur during frames started by firing listeners" $ withLeakCheck $ do
     root <- ioSync newEvent
     log <- ioSync $ newIORef []
 
-    _ <- ioSync $ execCleanupT $ subscribeEvent_ (\_ ->
-      void $ execCleanupT $ do
-         dyn <- holdDyn 0 root.event
-         subscribeDyn_ (append log) dyn
+    unsub <- ioSync $ execCleanupT $ subscribeEvent_ (\_ -> do
+        unsub2 <- execCleanupT $ do
+           dyn <- holdDyn 0 root.event
+           subscribeDyn_ (append log) dyn
+        unsub2
       ) root.event
 
     ioSync $ root.fire 1
     log `shouldHaveValue` [ 0 ]
+
+    -- clean up
+    ioSync unsub

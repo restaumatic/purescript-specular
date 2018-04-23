@@ -3,6 +3,7 @@ module Test.Utils where
 import Prelude
 
 import Control.Monad.Aff (Aff, Milliseconds(..), delay)
+import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
@@ -48,3 +49,13 @@ instance shouldHaveInferredTypeInstance :: ShouldHaveInferredType a a where
 -- | Equivalent to `setTimeout(function() { ... }, 0);`
 yieldAff :: forall e. Aff e Unit
 yieldAff = delay (Milliseconds 0.0)
+
+foreign import getTotalListeners :: forall e. Eff e Int
+
+withLeakCheck :: forall e a. Aff e a -> Aff e a
+withLeakCheck action = do
+  totalBefore <- liftEff getTotalListeners
+  result <- action
+  totalAfter <- liftEff getTotalListeners
+  totalBefore `shouldEqual` totalAfter
+  pure result
