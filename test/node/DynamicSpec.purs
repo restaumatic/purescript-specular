@@ -11,16 +11,16 @@ import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
 import Specular.FRP.Base (latestJust, subscribeDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue)
+import Test.Utils (append, clear, ioSync, shouldHaveValue, withLeakCheck)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Dynamic" $ do
 
   describe "holdDyn" $ do
-    it "updates value when someone is subscribed to changes" $ do
+    it "updates value when someone is subscribed to changes" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple dyn _ <- ioSync $ runCleanupT $ holdDyn 0 event
+      Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
 
       unsub <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
       log `shouldHaveValue` [0]
@@ -32,24 +32,31 @@ spec = describe "Dynamic" $ do
 
       log `shouldHaveValue` [1]
 
-    it "updates value when no one is subscribed" $ do
+      -- clean up
+      ioSync unsub1
+
+    it "updates value when no one is subscribed" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple dyn _ <- ioSync $ runCleanupT $ holdDyn 0 event
+      Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
 
       ioSync $ fire 2
 
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       log `shouldHaveValue` [2]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
   describe "holdUniqDynBy" $ do
-    it "updates value only when it changes" $ do
+    it "updates value only when it changes" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple dyn _ <- ioSync $ runCleanupT $ holdUniqDynBy eq 0 event
+      Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdUniqDynBy eq 0 event
 
-      unsub <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
       log `shouldHaveValue` [0]
 
       clear log
@@ -60,13 +67,17 @@ spec = describe "Dynamic" $ do
 
       log `shouldHaveValue` [1,2]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
   describe "foldDyn" $ do
-    it "updates value correctly" $ do
+    it "updates value correctly" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple dyn _ <- ioSync $ runCleanupT $ foldDyn add 0 event
+      Tuple dyn unsub1 <- ioSync $ runCleanupT $ foldDyn add 0 event
 
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       ioSync $ fire 1
       ioSync $ fire 2
@@ -74,16 +85,20 @@ spec = describe "Dynamic" $ do
 
       log `shouldHaveValue` [0,1,3,6]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
   describe "Applicative instance" $ do
-    it "works with different root Dynamics" $ do
+    it "works with different root Dynamics" $ withLeakCheck $ do
       ev1 <- ioSync newEvent
       ev2 <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple rootDyn1 _ <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
-      Tuple rootDyn2 _ <- ioSync $ runCleanupT $ holdDyn 10 ev2.event
+      Tuple rootDyn1 unsub1 <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
+      Tuple rootDyn2 unsub2 <- ioSync $ runCleanupT $ holdDyn 10 ev2.event
 
       let dyn = Tuple <$> rootDyn1 <*> rootDyn2
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub3 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       ioSync $ ev1.fire 1
       log `shouldHaveValue` [Tuple 0 10, Tuple 1 10]
@@ -92,28 +107,37 @@ spec = describe "Dynamic" $ do
       ioSync $ ev2.fire 5
       log `shouldHaveValue` [Tuple 1 5]
 
-    it "has no glitches when used with the same root Dynamic" $ do
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+      ioSync unsub3
+
+    it "has no glitches when used with the same root Dynamic" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple rootDyn _ <- ioSync $ runCleanupT $ holdDyn 0 event
+      Tuple rootDyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
 
       let dyn = Tuple <$> rootDyn <*> (map (_ + 10) rootDyn)
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       ioSync $ fire 1
 
       log `shouldHaveValue` [Tuple 0 10, Tuple 1 11]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
   describe "Monad instance" $ do
-    it "works" $ do
+    it "works" $ withLeakCheck $ do
       ev1 <- ioSync newEvent
       ev2 <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple rootDynInner _ <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
-      Tuple rootDynOuter _ <- ioSync $ runCleanupT $ holdDyn rootDynInner ev2.event
+      Tuple rootDynInner unsub1 <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
+      Tuple rootDynOuter unsub2 <- ioSync $ runCleanupT $ holdDyn rootDynInner ev2.event
 
       let dyn = join rootDynOuter
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub3 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
       log `shouldHaveValue` [0]
       clear log
 
@@ -147,36 +171,47 @@ spec = describe "Dynamic" $ do
       clear log
 
       -- extra subscription should not mess things up
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn
+      unsub4 <- ioSync $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn
       ioSync $ ev1.fire 15
       ioSync $ ev2.fire rootDynInner
       log `shouldHaveValue` [15, 15]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+      ioSync unsub3
+      ioSync unsub4
+
   describe "subscribeDyn" $ do
-    it "updates the resulting Dynamic" $ do
+    it "updates the resulting Dynamic" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple dyn _ <- ioSync $ runCleanupT $ holdDyn 1 event
+      Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 1 event
 
-      Tuple derivedDyn _ <- ioSync $ runCleanupT $ subscribeDyn (\x ->
+      Tuple derivedDyn unsub2 <- ioSync $ runCleanupT $ subscribeDyn (\x ->
         do
           append log (Left x)
           pure (2 * x)
         ) dyn
 
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log (Right x)) derivedDyn
+      unsub3 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log (Right x)) derivedDyn
 
       ioSync $ fire 5
 
       log `shouldHaveValue` [Left 1, Right 2, Left 5, Right 10]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+      ioSync unsub3
+
   describe "latestJust" $ do
-    it "updates value only when it changes to Just" $ do
+    it "updates value only when it changes to Just" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
       log <- ioSync $ newIORef []
-      Tuple dyn _ <- ioSync $ runCleanupT $ holdDyn Nothing event >>= latestJust
+      Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn Nothing event >>= latestJust
 
-      _ <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       ioSync $ fire Nothing
       ioSync $ fire (Just 1)
@@ -184,3 +219,7 @@ spec = describe "Dynamic" $ do
       ioSync $ fire (Just 2)
 
       log `shouldHaveValue` [Nothing, Just 1, Just 2]
+
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2

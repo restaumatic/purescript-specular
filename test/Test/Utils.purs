@@ -9,7 +9,7 @@ import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Array (snoc)
 import Data.IORef (IORef, modifyIORef, readIORef, writeIORef)
-import Test.Spec.Assertions (shouldEqual)
+import Test.Spec.Assertions (fail, shouldEqual)
 import Type.Prelude (Proxy)
 
 append :: forall a. IORef (Array a) -> a -> IOSync Unit
@@ -57,5 +57,6 @@ withLeakCheck action = do
   totalBefore <- liftEff getTotalListeners
   result <- action
   totalAfter <- liftEff getTotalListeners
-  totalBefore `shouldEqual` totalAfter
+  when (totalBefore /= totalAfter) $
+    fail $ "Subscriber leak! listeners before=" <> show totalBefore <> " after=" <> show totalAfter
   pure result
