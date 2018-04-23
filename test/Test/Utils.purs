@@ -51,6 +51,7 @@ yieldAff :: forall e. Aff e Unit
 yieldAff = delay (Milliseconds 0.0)
 
 foreign import getTotalListeners :: forall e. Eff e Int
+foreign import modifyTotalListeners :: forall e. (Int -> Int) -> Eff e Unit
 
 withLeakCheck :: forall e a. Aff e a -> Aff e a
 withLeakCheck action = do

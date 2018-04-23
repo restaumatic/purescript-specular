@@ -2,7 +2,8 @@ module BuilderSpec where
 
 import Prelude hiding (append)
 
-import Control.Monad.Cleanup (runCleanupT)
+import Control.Monad.Cleanup (execCleanupT, runCleanupT)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.IOSync (IOSync)
 import Data.IORef (newIORef)
 import Data.Monoid (mempty)
@@ -17,12 +18,12 @@ import Specular.FRP.WeakDynamic (switchWeakDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
-import Test.Utils.Dom (runBuilderInDiv, dispatchTrivialEvent, querySelector)
+import Test.Utils (append, ioSync, modifyTotalListeners, shouldHaveValue, shouldReturn, withLeakCheck)
+import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv, runBuilderInDiv')
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Builder" $ do
-  it "builds static DOM" $ do
+  it "builds static DOM" $ withLeakCheck $ do
     Tuple node result <- runBuilderInDiv $ do
        elDynAttr "div" (pure $ SM.singleton "class" "content") $ do
          text "foo"
@@ -34,10 +35,10 @@ spec = describe "Builder" $ do
     ioSync (innerHTML node) `shouldReturn`
       """<div class="content">foo<span>bar</span><p class="foo">Raw</p>baz</div><span></span>"""
 
-  it "updates attributes" $ do
+  it "updates attributes" $ withLeakCheck $ do
     Tuple dyn updateDyn <- ioSync $ newDynamic $
       SM.fromFoldable [ Tuple "k1" "v1", Tuple "k2" "v2" ]
-    Tuple node result <- runBuilderInDiv $ do
+    T3 node result unsub <- runBuilderInDiv' $ do
        elDynAttr "div" (weaken dyn) $ pure unit
 
     ioSync (innerHTML node) `shouldReturn`
@@ -48,10 +49,13 @@ spec = describe "Builder" $ do
     ioSync (innerHTML node) `shouldReturn`
       """<div k1="v1.1" k3="v3"></div>"""
 
+    -- clean up
+    ioSync unsub
+
   describe "dynamic_" $ do
-    it "simple" $ do
+    it "simple" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
-      Tuple node result <- runBuilderInDiv $ dynamic_ dyn
+      T3 node result unsub <- runBuilderInDiv' $ dynamic_ dyn
 
       ioSync (innerHTML node) `shouldReturn`
         """foo"""
@@ -61,9 +65,12 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """bar"""
 
-    it "surrounded by other elements" $ do
+      -- clean up
+      ioSync unsub
+
+    it "surrounded by other elements" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
-      Tuple node result <- runBuilderInDiv $ do
+      T3 node result unsub <- runBuilderInDiv' $ do
          elDynAttr "span" (pure mempty) $ pure unit
          dynamic_ dyn
          elDynAttr "span" (pure mempty) $ pure unit
@@ -76,9 +83,12 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """<span></span>bar<span></span>"""
 
-    it "two subscriptions to the same Dynamic" $ do
+      -- clean up
+      ioSync unsub
+
+    it "two subscriptions to the same Dynamic" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
-      Tuple node result <- runBuilderInDiv $ do
+      T3 node result unsub <- runBuilderInDiv' $ do
          dynamic_ dyn
          dynamic_ dyn
 
@@ -90,9 +100,12 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """barbar"""
 
-    it "nested, same Dynamic" $ do
+      -- clean up
+      ioSync unsub
+
+    it "nested, same Dynamic" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ text "foo"
-      Tuple node result <- runBuilderInDiv $ do
+      T3 node result unsub <- runBuilderInDiv' $ do
          dynamic_ $ dyn $> dynamic_ dyn
 
       ioSync (innerHTML node) `shouldReturn`
@@ -103,10 +116,13 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """bar"""
 
-    it "nested, different Dynamics" $ do
+      -- clean up
+      ioSync unsub
+
+    it "nested, different Dynamics" $ withLeakCheck $ do
       Tuple dyn1 updateDyn1 <- ioSync $ newDynamic $ text "foo1"
       Tuple dyn2 updateDyn2 <- ioSync $ newDynamic $ text "foo2"
-      Tuple node result <- runBuilderInDiv $ do
+      T3 node result unsub <- runBuilderInDiv' $ do
          dynamic_ $ map (\x -> x *> dynamic_ dyn2) dyn1
 
       ioSync (innerHTML node) `shouldReturn`
@@ -122,9 +138,12 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """bar1bar2"""
 
-    it "with rawHtml" $ do
+      -- clean up
+      ioSync unsub
+
+    it "with rawHtml" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic $ rawHtml "<p>raw</p>"
-      Tuple node result <- runBuilderInDiv $ do
+      T3 node result unsub <- runBuilderInDiv' $ do
         el "br" $ pure unit
         dynamic_ dyn
         el "br" $ pure unit
@@ -137,27 +156,34 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """<br><input><br>"""
 
+      -- clean up
+      ioSync unsub
+
   describe "domEventWithSample" $ do
-    it "dispatches DOM events and handles unsubscribe" $ do
-      Tuple node {button,event} <- runBuilderInDiv $ do
+    it "dispatches DOM events and handles unsubscribe" $ withLeakCheck $ do
+      T3 node {button,event} unsub1 <- runBuilderInDiv' $ do
         Tuple button _ <- elDynAttr' "button" (pure mempty) (text "foo")
         event <- domEventWithSample (\_ -> pure unit) "click" button
         pure {button,event}
 
       log <- ioSync $ newIORef []
-      _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
+      unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync $ dispatchTrivialEvent button "click"
       log `shouldHaveValue` [unit]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
   describe "integration test - `dynamic`/`weakDynamic` and flattening" $ do
-    it "clearCompletedButton from TodoMVC, using Dynamic" $ do
+    it "clearCompletedButton from TodoMVC, using Dynamic" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic false
       let
         anyCompletedTasks :: Dynamic Boolean
         anyCompletedTasks = dyn
 
-      Tuple node (result :: Dynamic (Event Unit)) <- runBuilderInDiv $
+      T3 node (result :: Dynamic (Event Unit)) unsub1 <- runBuilderInDiv' $ do
         dynamic $ for anyCompletedTasks $ \anyCompletedTasks' ->
           if anyCompletedTasks'
             then buttonOnClick (pure mempty) (text "Clear")
@@ -168,7 +194,7 @@ spec = describe "Builder" $ do
         event = switch result
 
       log <- ioSync $ newIORef []
-      _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
+      unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync (innerHTML node) `shouldReturn` ""
 
@@ -180,13 +206,17 @@ spec = describe "Builder" $ do
       ioSync $ dispatchTrivialEvent button "click"
       log `shouldHaveValue` [unit]
 
-    it "clearCompletedButton from TodoMVC, using WeakDynamic" $ do
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
+    it "clearCompletedButton from TodoMVC, using WeakDynamic" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic false
       let
         anyCompletedTasks :: WeakDynamic Boolean
         anyCompletedTasks = weaken dyn
 
-      Tuple node (result :: WeakDynamic (Event Unit)) <- runBuilderInDiv $
+      T3 node (result :: WeakDynamic (Event Unit)) unsub1 <- runBuilderInDiv' $ do
         weakDynamic $ for anyCompletedTasks $ \anyCompletedTasks' ->
           if anyCompletedTasks'
             then buttonOnClick (pure mempty) (text "Clear")
@@ -197,7 +227,7 @@ spec = describe "Builder" $ do
         event = switchWeakDyn result
 
       log <- ioSync $ newIORef []
-      _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log) event
+      unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync (innerHTML node) `shouldReturn` ""
 
@@ -209,9 +239,13 @@ spec = describe "Builder" $ do
       ioSync $ dispatchTrivialEvent button "click"
       log `shouldHaveValue` [unit]
 
+      -- clean up
+      ioSync unsub1
+      ioSync unsub2
+
   describe "detach" $ do
-    it "simple case" $ do
-      Tuple node result <- runBuilderInDiv $ do
+    it "simple case" $ withLeakCheck $ do
+      T3 node result unsub <- runBuilderInDiv' $ do
          { value, widget } <- detach $ text "foo" *> pure 7
          text "bar"
          widget
@@ -222,8 +256,11 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """barfoo"""
 
-    it "double use" $ do
-      Tuple node _ <- runBuilderInDiv $ do
+      -- clean up
+      ioSync unsub
+
+    it "double use" $ withLeakCheck $ do
+      T3 node _ unsub <- runBuilderInDiv' $ do
          { widget } <- detach $ text "foo"
          text "bar"
          widget
@@ -233,9 +270,12 @@ spec = describe "Builder" $ do
       ioSync (innerHTML node) `shouldReturn`
         """barbazfoo"""
 
-    it "works inside dynamic_" $ do
+      -- clean up
+      ioSync unsub
+
+    it "works inside dynamic_" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic unit
-      Tuple node _ <- runBuilderInDiv $ do
+      T3 node _ unsub <- runBuilderInDiv' $ do
          { value, widget } <- detach $ text "foo"
          dynamic_ $ map (\_ -> widget) dyn
 
@@ -245,10 +285,13 @@ spec = describe "Builder" $ do
 
       ioSync (innerHTML node) `shouldReturn` """foo"""
 
-    it "dynamic_ -> attach -> dynamic_" $ do
+      -- clean up
+      ioSync unsub
+
+    it "dynamic_ -> attach -> dynamic_" $ withLeakCheck $ do
       Tuple dyn updateDyn <- ioSync $ newDynamic unit
       Tuple innerDyn updateInnerDyn <- ioSync $ newDynamic $ text "inner1"
-      Tuple node _ <- runBuilderInDiv $ do
+      T3 node _ unsub <- runBuilderInDiv' $ do
          { value, widget } <- detach $ dynamic_ innerDyn
          dynamic_ $ map (\_ -> widget) dyn
 
@@ -263,8 +306,15 @@ spec = describe "Builder" $ do
       ioSync $ updateInnerDyn $ text "inner3"
       ioSync (innerHTML node) `shouldReturn` """inner3"""
 
+      -- clean up
+      ioSync unsub
+
 newDynamic :: forall a. a -> IOSync (Tuple (Dynamic a) (a -> IOSync Unit))
 newDynamic initial = do
   {event,fire} <- newEvent
   Tuple dyn _ <- runCleanupT $ holdDyn initial event
+
+  -- HACK: We're discarding the cleanup here,
+  -- but to avoid threading it through we just decrement the counter manually.
+  liftEff $ modifyTotalListeners (_ - 1)
   pure (Tuple dyn fire)
