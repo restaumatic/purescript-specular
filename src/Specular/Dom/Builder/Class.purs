@@ -26,6 +26,17 @@ elDynAttr ::
   -> m a
 elDynAttr tagName dynAttrs inner = snd <$> elDynAttr' tagName dynAttrs inner
 
+
+elAttr' ::
+     forall node m a
+   . MonadDomBuilder node m
+  => String
+  -> Attrs
+  -> m a
+  -> m (Tuple node a)
+elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
+
+
 elAttr ::
      forall node m a
    . MonadDomBuilder node m
@@ -33,7 +44,17 @@ elAttr ::
   -> Attrs
   -> m a
   -> m a
-elAttr tagName attrs inner = elDynAttr tagName (pure attrs) inner
+elAttr tagName attrs inner = snd <$> elAttr' tagName attrs inner
+
+
+el' ::
+     forall node m a
+   . MonadDomBuilder node m
+  => String
+  -> m a
+  -> m (Tuple node a)
+el' tagName inner = elAttr' tagName mempty inner
+
 
 el ::
      forall node m a
@@ -41,7 +62,8 @@ el ::
   => String
   -> m a
   -> m a
-el tagName inner = elAttr tagName mempty inner
+el tagName inner = snd <$> el' tagName inner
+
 
 domEventWithSample ::
      forall event node m a
@@ -56,6 +78,16 @@ domEventWithSample sample eventType node = do
   unsub <- hostEffect $ addEventListener eventType (sample >=> fire) node
   onCleanup unsub
   pure event
+
+
+domEvent ::
+     forall event node m
+   . EventDOM event node
+  => MonadHost IOSync m
+  => EventType
+  -> node
+  -> m (Event Unit)
+domEvent = domEventWithSample (\_ -> pure unit)
 
 instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder node (ReaderT r m) where
   text = lift <<< text
