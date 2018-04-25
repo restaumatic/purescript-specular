@@ -38,6 +38,6 @@ jobs:
           key: v1-dependencies-{{ checksum "package.json" }}
         
       # run tests!
-      - run: yarn test
-
-
+      - run: |
+          export GHCRTS=-N2 # limit purs parallelism
+          yarn test
