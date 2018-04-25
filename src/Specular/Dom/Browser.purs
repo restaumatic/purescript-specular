@@ -1,4 +1,10 @@
-module Specular.Dom.Browser where
+module Specular.Dom.Browser
+  ( Node
+  , innerHTML
+
+  , Event
+  , preventDefault
+  ) where
 
 import Prelude
 
@@ -48,11 +54,15 @@ foreign import appendRawHtmlImpl :: String -> Node -> IOSync Unit
 foreign import childNodesImpl :: Node -> IOSync (Array Node)
 foreign import moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> IOSync Unit
 
-foreign import innerHTML :: Node -> IOSync String
-
 foreign import data Event :: Type
 
 instance eventDomNode :: EventDOM Event Node where
   addEventListener = addEventListenerImpl
 
 foreign import addEventListenerImpl :: String -> (Event -> IOSync Unit) -> Node -> IOSync (IOSync Unit)
+
+-- | JS `Event.preventDefault()`.
+foreign import preventDefault :: Event -> IOSync Unit
+
+-- | Get `innerHTML` of a node.
+foreign import innerHTML :: Node -> IOSync String

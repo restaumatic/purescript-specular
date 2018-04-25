@@ -176,3 +176,10 @@ exports.moveAllBetweenInclusiveImpl = function(from) {
     };
   };
 };
+
+// preventDefault :: Event -> IOSync Unit
+exports.preventDefault = function (event) {
+  return function() {
+    return event.preventDefault();
+  }
+};
