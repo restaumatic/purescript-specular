@@ -5,12 +5,13 @@ import Prelude
 import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
+import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, Namespace, TagName, addEventListener)
-import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent)
+import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
@@ -32,6 +33,17 @@ elDynAttr ::
   -> m a
 elDynAttr tagName dynAttrs inner = snd <$> elDynAttr' tagName dynAttrs inner
 
+
+elAttr' ::
+     forall node m a
+   . MonadDomBuilder node m
+  => String
+  -> Attrs
+  -> m a
+  -> m (Tuple node a)
+elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
+
+
 elAttr ::
      forall node m a
    . MonadDomBuilder node m
@@ -39,7 +51,17 @@ elAttr ::
   -> Attrs
   -> m a
   -> m a
-elAttr tagName attrs inner = elDynAttr tagName (pure attrs) inner
+elAttr tagName attrs inner = snd <$> elAttr' tagName attrs inner
+
+
+el' ::
+     forall node m a
+   . MonadDomBuilder node m
+  => String
+  -> m a
+  -> m (Tuple node a)
+el' tagName inner = elAttr' tagName mempty inner
+
 
 el ::
      forall node m a
@@ -47,7 +69,18 @@ el ::
   => String
   -> m a
   -> m a
-el tagName inner = elAttr tagName mempty inner
+el tagName inner = snd <$> el' tagName inner
+
+
+dynRawHtml ::
+     forall node m
+   . MonadDomBuilder node m
+  => MonadReplace m
+  => MonadHost IOSync m
+  => WeakDynamic String
+  -> m Unit
+dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
+
 
 domEventWithSample ::
      forall event node m a
@@ -62,6 +95,16 @@ domEventWithSample sample eventType node = do
   unsub <- hostEffect $ addEventListener eventType (sample >=> fire) node
   onCleanup unsub
   pure event
+
+
+domEvent ::
+     forall event node m
+   . EventDOM event node
+  => MonadHost IOSync m
+  => EventType
+  -> node
+  -> m (Event Unit)
+domEvent = domEventWithSample (\_ -> pure unit)
 
 instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder node (ReaderT r m) where
   text = lift <<< text
