@@ -20,10 +20,3 @@ exports.getCheckboxChecked = function(node) {
     return node.checked;
   };
 };
-
-// preventDefault :: Browser.Event -> IOSync Unit
-exports.preventDefault = function (event) {
-  return function() {
-    return event.preventDefault();
-  }
-};

@@ -18,7 +18,6 @@ module Specular.Dom.Widgets.Input (
   -- TODO: move to Internal
   , getTextInputValue
   , setTextInputValue
-  , preventDefault
 ) where
 
 import Prelude
@@ -138,4 +137,3 @@ unsafeEventKey event = pure (unsafeCoerce event).key
 
 foreign import getTextInputValue :: Node -> IOSync String
 foreign import setTextInputValue :: Node -> String -> IOSync Unit
-foreign import preventDefault    :: Browser.Event -> IOSync Unit
