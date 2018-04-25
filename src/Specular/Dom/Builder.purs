@@ -19,7 +19,7 @@ import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
-import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElement, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
+import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP (class MonadFRP, class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDyn, hostEffect, newBehavior, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Base (foldDynMaybe)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
@@ -155,9 +155,9 @@ instance monadDomBuilderBuilder :: (MonadIOSync m, MonadFRP m, DOM node)
     env <- getEnv
     liftIOSync $ appendRawHtml html env.parent
 
-  elDynAttr' tagName dynAttrs inner = do
+  elDynAttrNS' namespace tagName dynAttrs inner = do
     env <- getEnv
-    node <- liftIOSync $ createElement tagName
+    node <- liftIOSync $ createElementNS namespace tagName
 
     attrsRef <- liftIOSync $ newIORef mempty
     let
