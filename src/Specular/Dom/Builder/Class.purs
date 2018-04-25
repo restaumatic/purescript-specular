@@ -5,11 +5,12 @@ import Prelude
 import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
+import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, addEventListener)
-import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent)
+import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
@@ -63,6 +64,16 @@ el ::
   -> m a
   -> m a
 el tagName inner = snd <$> el' tagName inner
+
+
+dynRawHtml ::
+     forall node m
+   . MonadDomBuilder node m
+  => MonadReplace m
+  => MonadHost IOSync m
+  => WeakDynamic String
+  -> m Unit
+dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
 
 
 domEventWithSample ::
