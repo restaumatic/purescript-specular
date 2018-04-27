@@ -5,18 +5,24 @@ import Prelude
 import Benchmark (fnEff, runBench)
 import Benchmark.Suite.Monad (runSuiteM)
 import Benchmark.Suite.ST (new)
+import BuilderSpec (newDynamic)
+import Control.Monad.Cleanup (CleanupT(..), execCleanupT, runCleanupT)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IO.Effect (INFINITY)
-import Control.Monad.IOSync (IOSync, runIOSync')
+import Control.Monad.IOSync (IOSync(..), runIOSync, runIOSync')
 import Control.Monad.ST (ST)
+import Data.Foldable (sequence_)
 import Data.List.Lazy (replicateM)
-import Data.Traversable (for_)
-import Data.Tuple (Tuple(..))
+import Data.Traversable (for, for_)
+import Data.Tuple (Tuple(..), fst)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (elAttr, text)
 import Specular.Dom.Node.Class (createElement, (:=))
 import Specular.Dom.Widget (class MonadWidget, Widget, runWidgetInNode)
+import Specular.FRP (Dynamic, holdDyn, never, newEvent)
+import Specular.FRP.Base (subscribeDyn_)
 import Test.Utils.Dom (T3(T3))
 
 foreign import exportBenchmark :: forall e. Eff e Unit
@@ -73,14 +79,59 @@ main = do
   bench
 
 tests =
-  [ Tuple "js 10" (staticJS 10)
-  , Tuple "js_c 10" (staticJS_c 10)
-  , Tuple "js_m 10" (staticJS_m 10)
-  , Tuple "static mono 10" (runWidget $ staticWidgetMono 10)
-  , Tuple "static 10" (runWidget $ deoptimizeWidget (staticWidget 10))
+--  builderTests <> 
+  dynamicTests <>
+  []
+
+builderTests =
+  [ Tuple "js 10" (pure $ staticJS 10)
+  , Tuple "js_c 10" (pure $ staticJS_c 10)
+  , Tuple "js_m 10" (pure $ staticJS_m 10)
+  , Tuple "static mono 10" (pure $ runWidget $ staticWidgetMono 10)
+  , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
   ]
 
+dynamicTests =
+  [ Tuple "dyn" $ testDynFn1 pure
+  , Tuple "dyn fmap" $ testDynFn1 \d -> pure (add 1 <$> d)
+  , Tuple "dyn ap pure" $ testDynFn1 \d -> pure (pure (const 1) <*> d)
+  , Tuple "dyn ap self" $ testDynFn1 \d -> pure (add <$> d <*> d)
+  , Tuple "dyn bind self" $ testDynFn1 \d -> pure (d >>= \_ -> d)
+  , Tuple "dyn bind inner" $ testDynFn1 \d -> pure (pure 10 >>= \_ -> d)
+  , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
+  ]
+
+type Host = CleanupT IOSync
+
+runIOSync'' :: forall e a. IOSync a -> Eff e a
+runIOSync'' = unsafeCoerceEff <<< runIOSync
+
+runHost :: forall e a. Host a -> Eff e a
+runHost = runIOSync'' <<< map fst <<< runCleanupT
+
+testDynFn1 :: forall e. (Dynamic Int -> Host (Dynamic Int)) -> Eff e (Eff e Unit)
+testDynFn1 fn =
+  runHost do
+    event <- newEvent
+    dyn <- holdDyn 0 event.event
+    dyn' <- fn dyn
+    subscribeDyn_ (\_ -> pure unit) dyn'
+    pure (runIOSync'' $ event.fire 1)
+
+testDynFn2 :: forall e. (Dynamic Int -> Dynamic Int -> Host (Dynamic Int)) -> Eff e (Eff e Unit)
+testDynFn2 fn =
+  runHost do
+    event <- newEvent
+    dyn <- holdDyn 0 event.event
+    dyn2 <- holdDyn 0 never
+    dyn' <- fn dyn dyn2
+    subscribeDyn_ (\_ -> pure unit) dyn'
+    pure (runIOSync'' $ event.fire 1)
+
+bench :: forall s. Eff (st :: ST s, console :: CONSOLE, infinity :: INFINITY) Unit
 bench = do
+  tests' <- for tests $ \(Tuple name fn) ->
+    Tuple name <$> fn
   runBench $
-    for_ tests $ \(Tuple name fn) ->
+    for tests' $ \(Tuple name fn) ->
       fnEff name fn
