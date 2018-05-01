@@ -105,12 +105,13 @@ exports.staticJS_m = function(n) {
   return function() {
     var parent = document.createElement('div');
     replicateM_RIO(n,
-      elAttr_c('div')({'class':'foo'})(function(parent) {
-        elAttr_c('div')({'class':'bar'})(text_c('foo'))(parent);
-        elAttr_c('div')({'class':'baz'})(text_c('foo'))(parent);
-        elAttr_c('div')({'class':'thud'})(text_c('foo'))(parent);
-      }))(parent);
-//    console.log('html', parent.outerHTML);
+      elAttr_c('div')({'class':'foo'})(
+        bind_RIO( elAttr_c('div')({'class':'bar'})(text_c('foo')), function(_) {
+          return bind_RIO( elAttr_c('div')({'class':'baz'})(text_c('foo')), function(_) {
+            return elAttr_c('div')({'class':'thud'})(text_c('foo'));
+          });
+        })
+      ))(parent);
   };
 };
 
