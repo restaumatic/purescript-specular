@@ -44,6 +44,10 @@ module Specular.FRP.Base (
   , class MonadFRP
 
   , for
+
+  , subscribeEvent_Impl
+  , foldDynImpl
+  , foldDynMaybeImpl
 ) where
 
 import Prelude
@@ -383,14 +387,16 @@ instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate io m) => MonadHost
   newBehavior = lift <<< newBehavior
 
 instance monadHostCleanupT :: MonadHost IOSync (CleanupT IOSync) where
-  subscribeEvent_ handler (Event {occurence,subscribe}) = do
-    unsub <- liftIOSync $ subscribe $ do
-      m_value <- framePull $ readBehavior occurence
-      for_ m_value $ \value ->
-        effect $ handler value
-    onCleanup unsub
-
+  subscribeEvent_ = subscribeEvent_Impl
   hostEffect = liftIOSync
+
+subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadIOSync m => (a -> IOSync Unit) -> Event a -> m Unit
+subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
+  unsub <- liftIOSync $ subscribe $ do
+    m_value <- framePull $ readBehavior occurence
+    for_ m_value $ \value ->
+      effect $ handler value
+  onCleanup unsub
 
 newBehaviorIOSync :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
 newBehaviorIOSync initialValue = do
@@ -484,30 +490,36 @@ instance monadHoldReaderT :: MonadHold m => MonadHold (ReaderT r m) where
   foldDynMaybe f x0 e = lift (foldDynMaybe f x0 e)
 
 instance monadHoldCleanupT :: MonadHold (CleanupT IOSync) where
-  foldDyn f initial (Event event) = do
-    ref <- liftIOSync $ newIORef initial
-    updateOrReadValue <- liftIOSync $
-      oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-        oldValue <- readIORef ref
-        case m_newValue of
-          Just occurence -> do
-            let newValue = f occurence oldValue
-            writeIORef ref newValue
-            pure newValue
-          Nothing ->
-            pure oldValue
-
-    unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
-    onCleanup unsub
-
-    pure $ Dynamic
-      { value: Behavior updateOrReadValue
-      , change: map (\_ -> unit) (Event event)
-      }
-
+  foldDyn = foldDynImpl
   foldDynMaybe = foldDynMaybeImpl
 
-foldDynMaybeImpl :: forall a b. (a -> b -> Maybe b) -> b -> Event a -> CleanupT IOSync (Dynamic b)
+foldDynImpl
+  :: forall m a b. MonadCleanup m => MonadIOSync m
+  => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
+foldDynImpl f initial (Event event) = do
+  ref <- liftIOSync $ newIORef initial
+  updateOrReadValue <- liftIOSync $
+    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+      oldValue <- readIORef ref
+      case m_newValue of
+        Just occurence -> do
+          let newValue = f occurence oldValue
+          writeIORef ref newValue
+          pure newValue
+        Nothing ->
+          pure oldValue
+
+  unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
+  onCleanup unsub
+
+  pure $ Dynamic
+    { value: Behavior updateOrReadValue
+    , change: map (\_ -> unit) (Event event)
+    }
+
+foldDynMaybeImpl
+  :: forall m a b. MonadCleanup m => MonadIOSync m
+   => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
 foldDynMaybeImpl f initial (Event event) = do
   ref <- liftIOSync $ newIORef initial
   (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftIOSync $
