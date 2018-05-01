@@ -23,7 +23,7 @@ type Widget = BuilderT Node (CleanupT IOSync)
 
 -- | Runs a widget in the specified parent element. Returns the result and cleanup action.
 runWidgetInNode :: forall a. Node -> Widget a -> IOSync (Tuple a (IOSync Unit))
-runWidgetInNode parent widget = runCleanupT $ runBuilderT {parent} widget
+runWidgetInNode parent widget = runBuilderT parent widget
 
 -- | Runs a widget in the specified parent element and discards cleanup action.
 runMainWidgetInNode :: forall a. Node -> Widget a -> IOSync a
