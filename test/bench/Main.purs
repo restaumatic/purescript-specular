@@ -3,17 +3,13 @@ module BenchMain where
 import Prelude
 
 import Benchmark (fnEff, runBench)
-import Benchmark.Suite.Monad (runSuiteM)
-import Benchmark.Suite.ST (new)
-import BuilderSpec (newDynamic)
-import Control.Monad.Cleanup (CleanupT(..), execCleanupT, runCleanupT)
+import Control.Monad.Cleanup (CleanupT, runCleanupT)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IO.Effect (INFINITY)
-import Control.Monad.IOSync (IOSync(..), runIOSync, runIOSync')
+import Control.Monad.IOSync (IOSync, runIOSync, runIOSync')
 import Control.Monad.ST (ST)
-import Data.Foldable (sequence_)
 import Data.List.Lazy (replicateM)
 import Data.Traversable (for, for_)
 import Data.Tuple (Tuple(..), fst)
@@ -69,8 +65,6 @@ main :: forall s. Eff (st :: ST s, console :: CONSOLE, infinity :: INFINITY) Uni
 main = do
   exportBenchmark
 
-  staticJS_m 10
-
   log "Warmup..."
   for_ tests $ \(Tuple name fn) ->
     void $ replicateM 5000 fn
@@ -78,11 +72,16 @@ main = do
   log "Benchmarking..."
   bench
 
+type Test e = Tuple String (Eff (infinity :: INFINITY | e) (Eff (infinity :: INFINITY | e) Unit))
+type Tests = forall e. Array (Test e)
+
+tests :: Tests
 tests =
---  builderTests <> 
+  builderTests <> 
   dynamicTests <>
   []
 
+builderTests :: Tests
 builderTests =
   [ Tuple "js 10" (pure $ staticJS 10)
   , Tuple "js_c 10" (pure $ staticJS_c 10)
@@ -91,6 +90,7 @@ builderTests =
   , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
   ]
 
+dynamicTests :: Tests
 dynamicTests =
   [ Tuple "dyn" $ testDynFn1 pure
   , Tuple "dyn fmap" $ testDynFn1 \d -> pure (add 1 <$> d)
