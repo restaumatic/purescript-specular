@@ -8,7 +8,7 @@ import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.IO.Effect (INFINITY)
 import Control.Monad.ST (ST)
 import Data.List.Lazy (replicateM)
-import Data.Traversable (for, for_)
+import Data.Traversable (for)
 import Data.Tuple (Tuple(Tuple))
 import Bench.Primitives (dynamicTests)
 import Bench.Builder (builderTests)
@@ -17,25 +17,21 @@ import Bench.Types (Tests)
 main :: forall s. Eff (st :: ST s, console :: CONSOLE, infinity :: INFINITY) Unit
 main = do
   exportBenchmark
+  bench builderTests
+  bench dynamicTests
+
+bench :: forall s. Tests -> Eff (st :: ST s, console :: CONSOLE, infinity :: INFINITY) Unit
+bench tests = do
 
   log "Warmup..."
-  for_ tests $ \(Tuple name setupFn) -> do
+
+  tests' <- for tests $ \(Tuple name setupFn) -> do
     fn <- setupFn
     void $ replicateM 5000 fn
+    pure (Tuple name fn)
 
   log "Benchmarking..."
-  bench
 
-tests :: Tests
-tests =
-  builderTests <> 
-  dynamicTests <>
-  []
-
-bench :: forall s. Eff (st :: ST s, console :: CONSOLE, infinity :: INFINITY) Unit
-bench = do
-  tests' <- for tests $ \(Tuple name setupFn) ->
-    Tuple name <$> setupFn
   runBench $
     for tests' $ \(Tuple name fn) ->
       fnEff name fn
