@@ -1,8 +1,5 @@
-exports.exportBenchmark = function() {
-  window.Benchmark = require('benchmark');
-};
-
-// staticJS :: forall e. Int -> Eff e Unit
+// The PS widget is:
+//
 // void $ replicateM n $
 //   elAttr "div" ("class" := "foo") $ do
 //     elAttr "div" ("class" := "bar") $ do
@@ -11,6 +8,10 @@ exports.exportBenchmark = function() {
 //       text "foo"
 //     elAttr "div" ("class" := "thud") $ do
 //       text "foo"
+
+
+// staticJS :: forall e. Int -> Eff e Unit
+// 
 exports.staticJS = function(n) {
   return function() {
     var parent = document.createElement('div');
@@ -27,7 +28,6 @@ exports.staticJS = function(n) {
         }, parent);
       }, parent);
     }
-//    console.log('html', parent.outerHTML);
   };
 };
 
