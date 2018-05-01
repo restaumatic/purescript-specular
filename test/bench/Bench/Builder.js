@@ -10,8 +10,11 @@
 //       text "foo"
 
 
+////////////////////////////////////////////////////////////////////////////////
 // staticJS :: forall e. Int -> Eff e Unit
-// 
+//
+// This is what we're aiming for in terms of performance: imperative JS code
+// that just creates and appends the nodes.
 exports.staticJS = function(n) {
   return function() {
     var parent = document.createElement('div');
@@ -44,6 +47,12 @@ function text(t, parent) {
   var node = document.createTextNode(t);
   parent.appendChild(node);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// staticJS_c :: forall e. Int -> Eff e Unit
+//
+// Like staticJS, but all functions are curried. This is more similar to what
+// PureScript emits, but still uses imperative sequencing instead of `bindE`.
 
 exports.staticJS_c = function(n) {
   return function() {
@@ -86,6 +95,12 @@ function text_c(t) {
   };
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// staticJS_m :: forall e. Int -> Eff e Unit
+//
+// Functions are curried, and sequencing is done using monadic `bind`, though
+// specialized to `RIO` monad - "Reader + IO".
+
 exports.staticJS_m = function(n) {
   return function() {
     var parent = document.createElement('div');
@@ -105,6 +120,7 @@ function bind_RIO(m, k) {
   };
 };
 
+// Generic implementation of `replicateM` in terms of `bind_RIO`.
 function replicateM_RIO(n, x) {
   if(n == 0) {
     return function() {};
