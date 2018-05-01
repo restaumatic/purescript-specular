@@ -24,14 +24,6 @@ dynamicTests =
   , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
   ]
 
-type Host = CleanupT IOSync
-
-runIOSync'' :: forall e a. IOSync a -> Eff e a
-runIOSync'' = unsafeCoerceEff <<< runIOSync
-
-runHost :: forall e a. Host a -> Eff e a
-runHost = runIOSync'' <<< map fst <<< runCleanupT
-
 testDynFn1 :: forall e. (Dynamic Int -> Host (Dynamic Int)) -> Eff e (Eff e Unit)
 testDynFn1 fn =
   runHost do
@@ -50,3 +42,11 @@ testDynFn2 fn =
     dyn' <- fn dyn dyn2
     subscribeDyn_ (\_ -> pure unit) dyn'
     pure (runIOSync'' $ event.fire 1)
+
+type Host = CleanupT IOSync
+
+runIOSync'' :: forall e a. IOSync a -> Eff e a
+runIOSync'' = unsafeCoerceEff <<< runIOSync
+
+runHost :: forall e a. Host a -> Eff e a
+runHost = runIOSync'' <<< map fst <<< runCleanupT
