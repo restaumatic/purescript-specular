@@ -19,6 +19,8 @@ class Monad m <= MonadDomBuilder node m | m -> node where
   elDynAttrNS' :: forall a. Maybe Namespace -> TagName -> WeakDynamic Attrs -> m a -> m (Tuple node a)
   rawHtml :: String -> m Unit
 
+  elAttr :: forall a. TagName -> Attrs -> m a -> m a
+
 elDynAttr'
   :: forall m node a. MonadDomBuilder node m
   => String -> WeakDynamic Attrs -> m a -> m (Tuple node a)
@@ -44,16 +46,6 @@ elAttr' ::
 elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
 
 
-elAttr ::
-     forall node m a
-   . MonadDomBuilder node m
-  => String
-  -> Attrs
-  -> m a
-  -> m a
-elAttr tagName attrs inner = snd <$> elAttr' tagName attrs inner
-
-
 el' ::
      forall node m a
    . MonadDomBuilder node m
@@ -69,7 +61,7 @@ el ::
   => String
   -> m a
   -> m a
-el tagName inner = snd <$> el' tagName inner
+el tagName inner = elAttr tagName mempty inner
 
 
 dynRawHtml ::
@@ -111,6 +103,8 @@ instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder nod
   dynText = lift <<< dynText
   elDynAttrNS' ns tag attrs body = ReaderT $ \env -> elDynAttrNS' ns tag attrs $ runReaderT body env
   rawHtml = lift <<< rawHtml
+  elAttr tag attrs body =
+    ReaderT $ \env -> elAttr tag attrs $ runReaderT body env
 
 class MonadDetach m where
   -- | Initialize a widget without displaying it immediately.

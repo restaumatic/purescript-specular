@@ -177,6 +177,14 @@ instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder nod
     liftIOSync $ appendChild node env.parent
     pure (Tuple node result)
 
+  elAttr tagName attrs inner = do
+    env <- getEnv
+    node <- liftIOSync $ createElementNS Nothing tagName
+    liftIOSync $ setAttributes node attrs
+    result <- Builder $ RIO.local (setParent node) $ unBuilder inner
+    liftIOSync $ appendChild node env.parent
+    pure result
+
 instance monadDetachBuilder :: DOM node => MonadDetach (Builder node) where
   detach inner = do
     fragment <- liftIOSync createDocumentFragment
