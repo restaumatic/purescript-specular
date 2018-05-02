@@ -581,6 +581,7 @@ switch (Dynamic { value, change: Event change }) = Event
       -- of the inner Event and outer Dynamic change
 
       unsubRef <- newIORef (pure unit)
+      isDoneRef <- newIORef false
 
       let
         cleanup :: IOSync Unit
@@ -589,9 +590,11 @@ switch (Dynamic { value, change: Event change }) = Event
         replaceWith :: Event a -> Frame Unit
         replaceWith (Event event) = do
           effect $ do
-            cleanup
-            unsub <- event.subscribe onceListener
-            writeIORef unsubRef unsub
+            isDone <- readIORef isDoneRef
+            unless isDone do
+              cleanup
+              unsub <- event.subscribe onceListener
+              writeIORef unsubRef unsub
 
         -- Unsubscribe from the previous change event (if any)
         -- and subscribe to the current one.
@@ -610,7 +613,7 @@ switch (Dynamic { value, change: Event change }) = Event
         updateListener
         -- and resubscribe
 
-      pure (cleanup *> unsub)
+      pure (writeIORef isDoneRef true *> cleanup *> unsub)
   }
 
 
