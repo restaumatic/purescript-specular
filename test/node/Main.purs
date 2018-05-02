@@ -10,11 +10,13 @@ import EventSpec as EventSpec
 import DynamicSpec as DynamicSpec
 import FixSpec as FixSpec
 import WeakDynamicSpec as WeakDynamicSpec
+import RIOSpec as RIOSpec
 
 main :: Eff (RunnerEffects ()) Unit
 main = run [consoleReporter] do
   FixSpec.spec
-  DynamicSpec.spec
   EventSpec.spec
+  DynamicSpec.spec
   UniqueMapMutableSpec.spec
   WeakDynamicSpec.spec
+  RIOSpec.spec

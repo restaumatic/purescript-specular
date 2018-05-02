@@ -56,8 +56,10 @@ import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Control.Monad.Reader (ask, runReaderT)
-import Control.Monad.Reader.Trans (ReaderT(..))
+import Control.Monad.RIO (RIO, rio, runRIO)
+import Control.Monad.RIO as RIO
+import Control.Monad.Reader (ask)
+import Control.Monad.Reader.Trans (ReaderT)
 import Control.Monad.Trans.Class (lift)
 import Data.Array as Array
 import Data.DelayedEffects (DelayedEffects, sequenceEffects)
@@ -68,16 +70,17 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Data.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
+import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------
 
 -- | Pull is a computation that reads a value given current time.
 -- |
 -- | Invariant: Pull computations are always idempotent (`forall x :: Pull a. x *> x = x`).
-newtype Pull a = MkPull (ReaderT Time IOSync a)
+newtype Pull a = MkPull (RIO Time a)
 
 runPull :: forall a. Time -> Pull a -> IOSync a
-runPull time (MkPull x) = runReaderT x time
+runPull time (MkPull x) = runRIO time x
 
 derive newtype instance functorPull :: Functor Pull
 derive newtype instance applyPull :: Apply Pull
@@ -93,7 +96,10 @@ getTime =
 pullReadIORef :: forall a. IORef a -> Pull a
 pullReadIORef ref =
   -- readIORef is idempotent
-  MkPull $ lift $ readIORef ref
+  MkPull (liftIOSync (readIORef ref))
+
+unsafeMkPull :: forall a. (Time -> IOSync a) -> Pull a
+unsafeMkPull f = MkPull (rio f)
 
 data CacheState a =
     Fresh
@@ -117,7 +123,7 @@ oncePerFramePull action = oncePerFramePullWithIO action pure
 oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
 oncePerFramePullWithIO action io = do
   ref <- newIORef Fresh
-  pure $ MkPull $ ReaderT $ \time -> do
+  pure $ unsafeMkPull $ \time -> do
     cache <- readIORef ref
     case cache of
       Cached lastTime value | lastTime == time ->
@@ -155,23 +161,25 @@ instance monadPullReaderT :: MonadPull m => MonadPull (ReaderT r m) where
 --
 -- Frame computations have access to current logical time. See `oncePerFrame`
 -- for why this is needed.
-newtype Frame a = Frame (ReaderT DelayedEffects Pull a)
+newtype Frame a = Frame (RIO FrameEnv a)
+
+type FrameEnv =
+  { effects :: DelayedEffects
+  , time :: Time
+  }
 
 framePull :: forall a. Pull a -> Frame a
-framePull = Frame <<< lift
+framePull (MkPull x) = Frame (RIO.local _.time x)
 
 frameWriteIORef :: forall a. IORef a -> a -> Frame Unit
-frameWriteIORef ref value =
-  -- HACK: briefly creating a Pull that is not idempotent;
-  -- But it's immediately lifted to Frame, so it's OK
-  framePull $ MkPull $ lift $ writeIORef ref value
+frameWriteIORef ref value = Frame (liftIOSync (writeIORef ref value))
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: IOSync Unit -> Frame Unit
-effect action = Frame $ ReaderT $ \effects ->
+effect action = Frame $ rio $ \{effects} ->
   -- HACK: briefly creating a Pull that is not idempotent;
   -- But it's immediately lifted to Frame, so it's OK
-  void $ MkPull $ lift $ DE.push effects action
+  void $ DE.push effects action
 
 derive newtype instance functorFrame :: Functor Frame
 derive newtype instance applyFrame :: Apply Frame
@@ -183,7 +191,7 @@ derive newtype instance monadFrame :: Monad Frame
 runFrame :: forall a. Time -> Frame a -> IOSync a
 runFrame currentTime (Frame x) = do
   effectsMutable <- DE.empty
-  value <- runPull currentTime $ runReaderT x effectsMutable
+  value <- runRIO { effects: effectsMutable, time: currentTime } x
   effects <- DE.unsafeFreeze effectsMutable
   DE.sequenceEffects effects
   pure value

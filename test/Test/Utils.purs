@@ -1,6 +1,6 @@
 module Test.Utils where
 
-import Prelude
+import Prelude hiding (append)
 
 import Control.Monad.Aff (Aff, Milliseconds(..), delay)
 import Control.Monad.Eff (Eff)
@@ -8,7 +8,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Array (snoc)
-import Data.IORef (IORef, modifyIORef, readIORef, writeIORef)
+import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Type.Prelude (Proxy)
 
@@ -28,6 +28,22 @@ shouldReturn action expected = do
 
 ioSync :: forall r a. IOSync a -> Aff r a
 ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync
+
+newtype SpyIO a = SpyIO
+  { fn :: a -> IOSync Unit
+  , values :: IORef (Array a)
+  }
+
+newSpyIO :: forall r a. Aff r (SpyIO a)
+newSpyIO = do
+  log <- ioSync $ newIORef []
+  pure $ SpyIO { fn: append log , values: log }
+
+trigger :: forall a b. SpyIO a -> a -> b -> IOSync b
+trigger (SpyIO spy) x y = spy.fn x *> pure y
+
+assertValues :: forall r a. Eq a => Show a => SpyIO a -> Array a -> Aff r Unit
+assertValues (SpyIO spy) = shouldHaveValue spy.values
 
 class ShouldHaveInferredType actual expected where
   -- | Assert that the given value has inferred type @expected@.

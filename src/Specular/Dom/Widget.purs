@@ -9,21 +9,20 @@ module Specular.Dom.Widget (
 
 import Prelude
 
-import Control.Monad.Cleanup (CleanupT, runCleanupT)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync)
 import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
 import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder (BuilderT, runBuilderT)
+import Specular.Dom.Builder (Builder, runBuilder)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.FRP (class MonadHold, class MonadHost)
 
-type Widget = BuilderT Node (CleanupT IOSync)
+type Widget = Builder Node
 
 -- | Runs a widget in the specified parent element. Returns the result and cleanup action.
 runWidgetInNode :: forall a. Node -> Widget a -> IOSync (Tuple a (IOSync Unit))
-runWidgetInNode parent widget = runCleanupT $ runBuilderT {parent} widget
+runWidgetInNode parent widget = runBuilder parent widget
 
 -- | Runs a widget in the specified parent element and discards cleanup action.
 runMainWidgetInNode :: forall a. Node -> Widget a -> IOSync a
