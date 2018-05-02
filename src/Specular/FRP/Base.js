@@ -6,10 +6,3 @@ exports.sequenceFrame_ = function(xs) {
     }
   };
 };
-
-// unsafeMkPull :: forall a. (Time -> IOSync a) -> Pull a
-exports.unsafeMkPull = function(f) {
-  return function(env) {
-    return f(env)();
-  };
-};
