@@ -29,8 +29,10 @@ import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 
 newtype Builder node a = Builder (RIO (BuilderEnv node) a)
 
-mkBuilder :: forall node a. (BuilderEnv node -> IOSync a) -> Builder node a
-mkBuilder = Builder <<< rio
+type BuilderEnv node =
+  { parent :: node
+  , cleanup :: DelayedEffects
+  }
 
 derive newtype instance functorBuilder :: Functor (Builder node)
 derive newtype instance applyBuilder :: Apply (Builder node)
@@ -39,8 +41,12 @@ derive newtype instance bindBuilder :: Bind (Builder node)
 derive newtype instance monadBuilder :: Monad (Builder node)
 derive newtype instance monadEffBuilder :: MonadEff eff (Builder node)
 derive newtype instance monadIOSyncBuilder :: MonadIOSync (Builder node)
+
 instance monadCleanupBuilder :: MonadCleanup (Builder node) where
   onCleanup action = mkBuilder $ \env -> DE.push env.cleanup action
+
+mkBuilder :: forall node a. (BuilderEnv node -> IOSync a) -> Builder node a
+mkBuilder = Builder <<< rio
 
 unBuilder :: forall node a. Builder node a -> RIO (BuilderEnv node) a
 unBuilder (Builder f) = f
@@ -52,11 +58,6 @@ runBuilder parent (Builder f) = do
   result <- runRIO env f
   actions <- DE.unsafeFreeze actionsMutable
   pure (Tuple result (DE.sequenceEffects actions))
-
-type BuilderEnv node =
-  { parent :: node
-  , cleanup :: DelayedEffects
-  }
 
 getEnv :: forall node. Builder node (BuilderEnv node)
 getEnv = Builder ask
@@ -142,20 +143,19 @@ instance monadHostBuilder :: MonadHost IOSync (Builder node) where
 
 instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder node) where
 
-  text str = mkBuilder $ \env -> do
+  text str = mkBuilder \env -> do
     node <- createTextNode str
     appendChild node env.parent
 
   dynText dstr = do
-    node <- mkBuilder $ \env -> do
+    node <- mkBuilder \env -> do
       node <- createTextNode ""
       appendChild node env.parent
       pure node
     subscribeWeakDyn_ (setText node) dstr
 
-  rawHtml html = do
-    env <- getEnv
-    liftIOSync $ appendRawHtml html env.parent
+  rawHtml html = mkBuilder \env -> 
+    appendRawHtml html env.parent
 
   elDynAttr' tagName dynAttrs inner = do
     env <- getEnv
