@@ -53,6 +53,8 @@ module Specular.FRP.Base (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Console (log)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
@@ -378,8 +380,12 @@ instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
           frameWriteIORef occurenceRef Nothing
 
       subscribe l = do
+        n <- nextSubId
+        debugN 0 ("Sub " <> show n <> " created")
         key <- UMM.insert l listenerMap
-        pure $ UMM.delete key listenerMap
+        pure do
+          debugN 0 ("Sub " <> show n <> " removed")
+          UMM.delete key listenerMap
 
     pure
       { event: Event { occurence: Behavior $ pullReadIORef occurenceRef, subscribe }
@@ -567,6 +573,10 @@ uniqDynBy eq dyn = do
   initialValue <- pull $ readBehavior $ current dyn
   holdUniqDynBy eq initialValue (changed dyn)
 
+foreign import nextSwitchId :: IOSync Int
+foreign import nextSubId :: IOSync Int
+foreign import debugN :: Int -> String -> IOSync Unit
+
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
 switch (Dynamic { value, change: Event change }) = Event
@@ -576,33 +586,58 @@ switch (Dynamic { value, change: Event change }) = Event
       innerEvent.occurence
 
   , subscribe: \l -> do
+      id <- nextSwitchId
+      let
+        debug n s = debugN n ("[switch " <> show id <> "] " <> s)
+        frameDebug n s = unsafeCoerce (debug n s :: IOSync Unit)
+
+      debug 1 "subscribe start"
+
       onceListener <- oncePerFrame_ l
       -- oncePerFrame guards us against the case of coincidence
       -- of the inner Event and outer Dynamic change
 
       unsubRef <- newIORef (pure unit)
+      isDoneRef <- newIORef false
 
       let
         cleanup :: IOSync Unit
-        cleanup = join (readIORef unsubRef)
+        cleanup = do
+          unsub <- readIORef unsubRef
+          writeIORef unsubRef (pure unit)
+          unsub
 
-        replaceWith :: Event a -> Frame Unit
-        replaceWith (Event event) = do
-          effect $ do
-            cleanup
-            unsub <- event.subscribe onceListener
-            writeIORef unsubRef unsub
-
-        -- Unsubscribe from the previous change event (if any)
-        -- and subscribe to the current one.
+      -- Unsubscribe from the previous change event (if any)
+      -- and subscribe to the current one.
         updateListener :: Frame Unit
-        updateListener = framePull (readBehavior value) >>= replaceWith
+        updateListener = do
+          Event newEvent <- framePull (readBehavior value)
+          effect do
+            isDone <- readIORef isDoneRef
+
+            unless isDone do
+              debug 1 "updateListener effect start"
+              cleanup
+
+              debug 1 "subscribe inner start"
+              unsub <- newEvent.subscribe onceListener
+              debug (-1) "subscribe inner end"
+
+              writeIORef unsubRef do
+                debug 1 "unsubscribe inner start"
+                unsub
+                debug (-1) "unsubscribe inner end"
+
+              debug (-1) "updateListener effect end"
 
       -- First, we subscribe to the current inner Dynamic
       runNextFrame updateListener
 
+      debug 1 "subscribe outer start"
       unsub <- change.subscribe $ do
         -- when the outer Dynamic changes,
+
+        frameDebug 1 "outer notify start"
 
         onceListener
         -- we notify our listener
@@ -610,7 +645,17 @@ switch (Dynamic { value, change: Event change }) = Event
         updateListener
         -- and resubscribe
 
-      pure (cleanup *> unsub)
+        frameDebug (-1) "outer notify end"
+      debug (-1) "subscribe outer end"
+
+      debug (-1) "subscribe end"
+
+      pure do
+        writeIORef isDoneRef true
+        cleanup
+        debug 1 "unsubscribe outer start"
+        unsub
+        debug (-1) "unsubscribe outer end"
   }
 
 

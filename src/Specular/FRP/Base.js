@@ -13,3 +13,40 @@ exports.unsafeMkPull = function(f) {
     return f(env)();
   };
 };
+
+var nsid = 0;
+
+// nextSwitchId :: IOSync Int
+exports.nextSwitchId = function() {
+  return nsid++;
+};
+
+var nsubid = 0;
+
+exports.nextSubId = function() {
+  return nsubid++;
+};
+
+var indentLevel = 0;
+
+// debugN :: Int -> String -> IOSync Unit
+exports.debugN = function(n) {
+  return function(s) {
+    return function() {
+      if(n > 0) {
+        indentLevel += n;
+      }
+      
+      var indent = '';
+      for(var i = 0; i < indentLevel; i++) {
+        indent += ' ';
+      }
+
+      if(n < 0) {
+        indentLevel += n;
+      }
+
+      console.log(indent + s);
+    };
+  };
+};

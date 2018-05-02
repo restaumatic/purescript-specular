@@ -17,6 +17,7 @@ main = run [consoleReporter] do
   FixSpec.spec
   EventSpec.spec
   DynamicSpec.spec
+  {-
   UniqueMapMutableSpec.spec
   WeakDynamicSpec.spec
-  RIOSpec.spec
+  RIOSpec.spec -}

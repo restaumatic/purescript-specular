@@ -1,6 +1,9 @@
 module DynamicSpec where
 
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Console (log)
+import Control.Monad.IOSync.Class (liftIOSync)
 import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
@@ -8,7 +11,7 @@ import Data.Tuple (Tuple(..))
 import Prelude hiding (append)
 import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
 import Specular.FRP.Base (latestJust, subscribeDyn)
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, itOnly)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, clear, ioSync, shouldHaveValue, withLeakCheck, withLeakCheck')
 
@@ -181,7 +184,7 @@ spec = describe "Dynamic" $ do
       ioSync unsub3
       ioSync unsub4
 
-    it "triple bind with the same root" $ withLeakCheck $ do
+    itOnly "triple bind with the same root, only leak check" $ withLeakCheck $ do
       ev <- ioSync newEvent
       unsub1 <- ioSync $ execCleanupT $ do
         rootDyn <- holdDyn unit ev.event
@@ -191,10 +194,43 @@ spec = describe "Dynamic" $ do
             rootDyn
             rootDyn
 
+        liftIOSync $ liftEff $ log "subscribing"
         subscribeDyn_ (\_ -> pure unit) dyn
 
+      liftEff $ log "first fire"
       withLeakCheck' "first fire" $ ioSync $ ev.fire unit
-      withLeakCheck' "second fire" $ ioSync $ ev.fire unit
+      liftEff $ log "second fire"
+      --withLeakCheck' "second fire" $
+      ioSync $ ev.fire unit
+      liftEff $ log "third fire"
+      withLeakCheck' "third fire" $ ioSync $ ev.fire unit
+
+      -- clean up
+      ioSync unsub1
+
+    it "triple bind with the same root" $ withLeakCheck $ do
+      ev <- ioSync newEvent
+      log <- ioSync $ newIORef []
+
+      unsub1 <- ioSync $ execCleanupT $ do
+        rootDyn <- holdDyn 0 ev.event
+        let
+          dyn = do
+            x <- rootDyn
+            y <- rootDyn
+            z <- rootDyn
+            pure (Tuple x (Tuple y z))
+
+        subscribeDyn_ (append log) dyn
+
+      ioSync $ ev.fire 1
+      ioSync $ ev.fire 2
+
+      log `shouldHaveValue`
+        [ Tuple 0 (Tuple 0 0)
+        , Tuple 1 (Tuple 1 1)
+        , Tuple 2 (Tuple 2 2)
+        ]
 
       -- clean up
       ioSync unsub1
