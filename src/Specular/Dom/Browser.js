@@ -28,6 +28,15 @@ exports.createElementImpl = function(tag) {
   };
 };
 
+// createElementNSImpl :: Namespace -> TagName -> IOSync Node
+exports.createElementNSImpl = function(namespace) {
+  return function(tag) {
+    return function() {
+      return document.createElementNS(namespace, tag);
+    };
+  };
+};
+
 // setAttributeImpl :: Node -> String -> String -> IOSync Unit
 exports.setAttributeImpl = function(node) {
   return function(name) {

@@ -3,7 +3,7 @@ module Specular.Dom.Node.Class where
 import Prelude
 
 import Control.Monad.IOSync (IOSync)
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.StrMap (StrMap)
 import Data.StrMap as StrMap
 
@@ -14,12 +14,17 @@ infix 8 StrMap.singleton as :=
 
 type TagName = String
 
+-- | XML namespace URI.
+type Namespace = String
+
 class DOM node where
   createTextNode :: String -> IOSync node
   setText :: node -> String -> IOSync Unit
 
   createDocumentFragment :: IOSync node
-  createElement :: TagName -> IOSync node
+
+  -- | Create an element, optionally with namespace.
+  createElementNS :: Maybe Namespace -> TagName -> IOSync node
 
   setAttributes :: node -> Attrs -> IOSync Unit
   removeAttributes :: node -> Array String -> IOSync Unit
@@ -63,3 +68,6 @@ type EventType = String
 class DOM node <= EventDOM event node | node -> event where
   -- | Register an event listener. Returns unregister action.
   addEventListener :: EventType -> (event -> IOSync Unit) -> node -> IOSync (IOSync Unit)
+
+createElement :: forall node. DOM node => TagName -> IOSync node
+createElement = createElementNS Nothing

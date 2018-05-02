@@ -13,7 +13,7 @@ import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Node.Class (class DOM, class EventDOM, TagName)
+import Specular.Dom.Node.Class (class DOM, class EventDOM, TagName, Namespace)
 
 foreign import data Node :: Type
 
@@ -21,7 +21,8 @@ instance domNode :: DOM Node where
   createTextNode = createTextNodeImpl
   setText = setTextImpl
   createDocumentFragment = createDocumentFragmentImpl
-  createElement = createElementImpl
+  createElementNS (Just namespace) = createElementNSImpl namespace
+  createElementNS Nothing = createElementImpl
 
   setAttributes node attrs =
     for_ (SM.toUnfoldable attrs :: Array (Tuple String String)) $ \(Tuple name value) ->
@@ -43,6 +44,7 @@ instance domNode :: DOM Node where
 foreign import createTextNodeImpl :: String -> IOSync Node
 foreign import setTextImpl :: Node -> String -> IOSync Unit
 foreign import createDocumentFragmentImpl :: IOSync Node
+foreign import createElementNSImpl :: Namespace -> TagName -> IOSync Node
 foreign import createElementImpl :: TagName -> IOSync Node
 foreign import setAttributeImpl :: Node -> String -> String -> IOSync Unit
 foreign import removeAttributesImpl :: Node -> Array String -> IOSync Unit
