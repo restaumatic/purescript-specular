@@ -18,7 +18,6 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (error)
 import Control.Monad.IO (IO, runIO)
-import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Replace (class MonadReplace)
 import Data.Generic.Rep (class Generic)
@@ -114,7 +113,7 @@ asyncRequest dquery = asyncRequestMaybe (map Just dquery)
 -- FIXME: Does not cancel running actions on cleanup
 performEvent
   :: forall m a
-   . MonadHost IOSync m
+   . MonadHost m
   => Event (IO a)
   -> m (Event a)
 performEvent event = do

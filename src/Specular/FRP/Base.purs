@@ -70,7 +70,6 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Data.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
-import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------
 
@@ -344,28 +343,29 @@ mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
 mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
-class Monad m <= MonadHostCreate io m | m -> io where
+class Monad m <= MonadHostCreate m where
   -- | Create an Event that can be triggered externally.
   -- | Each `fire` will run a frame where the event occurs.
-  newEvent :: forall a. m { event :: Event a, fire :: a -> io Unit }
+  newEvent :: forall a. m { event :: Event a, fire :: a -> IOSync Unit }
 
   -- | Create a new Behavior whose value can be modified outside a frame.
-  newBehavior :: forall a. a -> m { behavior :: Behavior a, set :: a -> io Unit }
+  newBehavior :: forall a. a -> m { behavior :: Behavior a, set :: a -> IOSync Unit }
 
-instance monadHostCreateReaderT :: MonadHostCreate io m => MonadHostCreate io (ReaderT r m) where
+instance monadHostCreateReaderT :: MonadHostCreate m => MonadHostCreate (ReaderT r m) where
   newEvent = lift newEvent
   newBehavior = lift <<< newBehavior
 
-class (Monad io, Monad m, MonadPull m, MonadCleanup m, MonadHostCreate io m) <= MonadHost io m | m -> io where
-  subscribeEvent_ :: forall a. (a -> io Unit) -> Event a -> m Unit
+class (Monad m, MonadIOSync m, MonadPull m, MonadCleanup m, MonadHostCreate m) <= MonadHost m where
+  subscribeEvent_ :: forall a. (a -> IOSync Unit) -> Event a -> m Unit
 
-  hostEffect :: forall a. io a -> m a
+-- | DEPRECATED: Replace this with `liftIOSync`.
+hostEffect :: forall m a. MonadIOSync m => IOSync a -> m a
+hostEffect = liftIOSync
 
-instance monadHostReaderT :: (Monad io, MonadHost io m) => MonadHost io (ReaderT r m) where
+instance monadHostReaderT :: MonadHost m => MonadHost (ReaderT r m) where
   subscribeEvent_ f event = lift (subscribeEvent_ f event)
-  hostEffect = lift <<< hostEffect
 
-instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
+instance monadHostCreateIOSync :: MonadHostCreate IOSync where
   newEvent = do
     occurenceRef <- newIORef Nothing
     listenerMap <- UMM.new
@@ -390,13 +390,12 @@ instance monadHostCreateIOSync :: MonadHostCreate IOSync IOSync where
 
 foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
 
-instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate io m) => MonadHostCreate io (CleanupT m) where
+instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate m) => MonadHostCreate (CleanupT m) where
   newEvent = lift newEvent
   newBehavior = lift <<< newBehavior
 
-instance monadHostCleanupT :: MonadHost IOSync (CleanupT IOSync) where
+instance monadHostCleanupT :: MonadHost (CleanupT IOSync) where
   subscribeEvent_ = subscribeEvent_Impl
-  hostEffect = liftIOSync
 
 subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadIOSync m => (a -> IOSync Unit) -> Event a -> m Unit
 subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
@@ -636,24 +635,22 @@ instance bindDynamic :: Bind Dynamic where
 
 instance monadDynamic :: Monad Dynamic
 
-subscribeDyn_ ::
-     forall io m a
-   . MonadHost io m
-  => Monad m -- FIXME: why is this needed?
-  => (a -> io Unit)
+subscribeDyn_
+  :: forall m a
+   . MonadHost m
+  => (a -> IOSync Unit)
   -> Dynamic a
   -> m Unit
 subscribeDyn_ handler (Dynamic {value, change}) = do
   currentValue <- pull $ readBehavior value
-  hostEffect $ handler currentValue
+  liftIOSync $ handler currentValue
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
 
 subscribeDyn ::
-     forall io m a b
-   . MonadHost io m
+     forall m a b
+   . MonadHost m
   => MonadHold m
-  => Monad io -- FIXME: why is this needed?
-  => (a -> io b)
+  => (a -> IOSync b)
   -> Dynamic a
   -> m (Dynamic b)
 subscribeDyn handler dyn = do
@@ -680,8 +677,8 @@ latestJust dyn = do
   currentValue <- pull $ readBehavior $ current dyn
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
-class (MonadHold m, MonadHost IOSync m, MonadIOSync m) <= MonadFRP m
-instance monadFRP :: (MonadHold m, MonadHost IOSync m, MonadIOSync m) => MonadFRP m
+class (MonadHold m, MonadHost m) <= MonadFRP m
+instance monadFRP :: (MonadHold m, MonadHost m) => MonadFRP m
 
 -- | Flipped `map`.
 -- |

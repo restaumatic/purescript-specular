@@ -133,13 +133,12 @@ instance monadHoldBuilder :: MonadHold (Builder node) where
 instance monadPullBuilder :: MonadPull (Builder node) where
   pull = liftIOSync <<< pull
 
-instance monadHostCreateBuilder :: MonadHostCreate IOSync (Builder node) where
+instance monadHostCreateBuilder :: MonadHostCreate (Builder node) where
   newEvent = liftIOSync newEvent
   newBehavior = liftIOSync <<< newBehavior
 
-instance monadHostBuilder :: MonadHost IOSync (Builder node) where
+instance monadHostBuilder :: MonadHost (Builder node) where
   subscribeEvent_ = subscribeEvent_Impl
-  hostEffect = liftIOSync
 
 instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder node) where
 

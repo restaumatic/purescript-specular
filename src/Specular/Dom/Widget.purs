@@ -10,7 +10,6 @@ module Specular.Dom.Widget (
 import Prelude
 
 import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (class MonadIOSync)
 import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
 import Specular.Dom.Browser (Node)
@@ -37,5 +36,5 @@ runMainWidgetInBody widget = do
 foreign import documentBody :: IOSync Node
 
 -- A handy alias for all the typeclasses you'll need
-class (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m, MonadDetach m) <= MonadWidget m
-instance monadWidget :: (MonadDomBuilder Node m, MonadHost IOSync m, MonadReplace m, MonadHold m, MonadIOSync m, MonadDetach m) => MonadWidget m
+class (MonadDomBuilder Node m, MonadHost m, MonadReplace m, MonadHold m, MonadDetach m) <= MonadWidget m
+instance monadWidget :: (MonadDomBuilder Node m, MonadHost m, MonadReplace m, MonadHold m, MonadDetach m) => MonadWidget m

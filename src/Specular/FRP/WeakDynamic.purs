@@ -12,6 +12,7 @@ module Specular.FRP.WeakDynamic (
 
 import Prelude
 
+import Control.Monad.IOSync (IOSync)
 import Data.Foldable (traverse_)
 import Data.Functor.Compose (Compose(..))
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -61,10 +62,9 @@ switchWeakDyn (WeakDynamic (Compose mdyn)) = switch $ map (fromMaybe never) mdyn
 -- | Invoke the handler immediately if the WeakDynamic has a value currently,
 -- | and invoke it every time it changes, until cleanup.
 subscribeWeakDyn_ ::
-     forall io m a
-   . MonadHost io m
-  => Applicative io
-  => (a -> io Unit)
+     forall m a
+   . MonadHost m
+  => (a -> IOSync Unit)
   -> WeakDynamic a
   -> m Unit
 subscribeWeakDyn_ handler (WeakDynamic (Compose mdyn)) =
@@ -73,12 +73,10 @@ subscribeWeakDyn_ handler (WeakDynamic (Compose mdyn)) =
 -- | Invoke the handler immediately if the WeakDynamic has a value currently,
 -- | and invoke it every time it changes, until cleanup.
 subscribeWeakDyn ::
-     forall io m a b
-   . MonadHost io m
+     forall m a b
+   . MonadHost m
   => MonadHold m
-  => Monad io
-  => Applicative io
-  => (a -> io b)
+  => (a -> IOSync b)
   -> WeakDynamic a
   -> m (WeakDynamic b)
 subscribeWeakDyn handler wdyn = do
