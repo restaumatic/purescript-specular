@@ -7,16 +7,22 @@ import Control.Monad.IOSync (IOSync)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
+import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
-import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, addEventListener)
+import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, Namespace, TagName, addEventListener)
 import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
   dynText :: WeakDynamic String -> m Unit
-  elDynAttr' :: forall a . String -> WeakDynamic Attrs -> m a -> m (Tuple node a)
+  elDynAttrNS' :: forall a. Maybe Namespace -> TagName -> WeakDynamic Attrs -> m a -> m (Tuple node a)
   rawHtml :: String -> m Unit
+
+elDynAttr'
+  :: forall m node a. MonadDomBuilder node m
+  => String -> WeakDynamic Attrs -> m a -> m (Tuple node a)
+elDynAttr' = elDynAttrNS' Nothing
 
 elDynAttr ::
      forall node m a
@@ -103,7 +109,7 @@ domEvent = domEventWithSample (\_ -> pure unit)
 instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder node (ReaderT r m) where
   text = lift <<< text
   dynText = lift <<< dynText
-  elDynAttr' tag attrs body = ReaderT $ \env -> elDynAttr' tag attrs $ runReaderT body env
+  elDynAttrNS' ns tag attrs body = ReaderT $ \env -> elDynAttrNS' ns tag attrs $ runReaderT body env
   rawHtml = lift <<< rawHtml
 
 class MonadDetach m where

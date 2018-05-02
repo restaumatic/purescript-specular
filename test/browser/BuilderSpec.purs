@@ -6,11 +6,12 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.IOSync (IOSync)
 import Data.IORef (newIORef)
+import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elDynAttr, elDynAttr', rawHtml, text)
+import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elDynAttr, elDynAttr', elDynAttrNS', rawHtml, text)
 import Specular.Dom.Widgets.Button (buttonOnClick)
 import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, for, holdDyn, never, newEvent, subscribeEvent_, switch, weaken)
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
@@ -20,6 +21,7 @@ import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (append, ioSync, modifyTotalListeners, shouldHaveValue, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv, runBuilderInDiv')
+import Unsafe.Coerce (unsafeCoerce)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Builder" $ do
@@ -308,6 +310,13 @@ spec = describe "Builder" $ do
 
       -- clean up
       ioSync unsub
+
+  it "supports element namespaces" $ withLeakCheck $ do
+    let xmlns = "http://www.w3.org/2000/svg"
+    Tuple _ (Tuple svgNode _) <- runBuilderInDiv $
+      elDynAttrNS' (Just xmlns) "svg" (pure mempty) (pure unit)
+
+    (unsafeCoerce svgNode).namespaceURI `shouldEqual` xmlns
 
 newDynamic :: forall a. a -> IOSync (Tuple (Dynamic a) (a -> IOSync Unit))
 newDynamic initial = do
