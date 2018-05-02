@@ -70,10 +70,14 @@ foreign import getTotalListeners :: forall e. Eff e Int
 foreign import modifyTotalListeners :: forall e. (Int -> Int) -> Eff e Unit
 
 withLeakCheck :: forall e a. Aff e a -> Aff e a
-withLeakCheck action = do
+withLeakCheck = withLeakCheck' ""
+
+withLeakCheck' :: forall e a. String -> Aff e a -> Aff e a
+withLeakCheck' msg action = do
   totalBefore <- liftEff getTotalListeners
   result <- action
   totalAfter <- liftEff getTotalListeners
+  let msg' = if msg == "" then "" else " (" <> msg <> ")"
   when (totalBefore /= totalAfter) $
-    fail $ "Subscriber leak! listeners before=" <> show totalBefore <> " after=" <> show totalAfter
+    fail $ "Subscriber leak" <> msg' <> "! listeners before=" <> show totalBefore <> " after=" <> show totalAfter
   pure result
