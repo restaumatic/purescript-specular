@@ -19,6 +19,7 @@
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",
     "purescript-spec": "^2.0.0",
-    "purescript-phantom": "^3.0.1"
+    "purescript-phantom": "^3.0.1",
+    "purescript-benchmark": "^0.1.0"
   }
 }
