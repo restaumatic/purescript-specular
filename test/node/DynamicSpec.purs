@@ -1,17 +1,16 @@
 module DynamicSpec where
 
-import Prelude hiding (append)
-
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.IORef (newIORef)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
+import Prelude hiding (append)
 import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
 import Specular.FRP.Base (latestJust, subscribeDyn)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue, withLeakCheck)
+import Test.Utils (append, clear, ioSync, shouldHaveValue, withLeakCheck, withLeakCheck')
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = describe "Dynamic" $ do
@@ -181,6 +180,24 @@ spec = describe "Dynamic" $ do
       ioSync unsub2
       ioSync unsub3
       ioSync unsub4
+
+    it "triple bind with the same root" $ withLeakCheck $ do
+      ev <- ioSync newEvent
+      unsub1 <- ioSync $ execCleanupT $ do
+        rootDyn <- holdDyn unit ev.event
+        let
+          dyn = do
+            rootDyn
+            rootDyn
+            rootDyn
+
+        subscribeDyn_ (\_ -> pure unit) dyn
+
+      withLeakCheck' "first fire" $ ioSync $ ev.fire unit
+      withLeakCheck' "second fire" $ ioSync $ ev.fire unit
+
+      -- clean up
+      ioSync unsub1
 
   describe "subscribeDyn" $ do
     it "updates the resulting Dynamic" $ withLeakCheck $ do
