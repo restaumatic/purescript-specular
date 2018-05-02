@@ -76,7 +76,7 @@ dynRawHtml ::
      forall node m
    . MonadDomBuilder node m
   => MonadReplace m
-  => MonadHost IOSync m
+  => MonadHost m
   => WeakDynamic String
   -> m Unit
 dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
@@ -85,7 +85,7 @@ dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
 domEventWithSample ::
      forall event node m a
    . EventDOM event node
-  => MonadHost IOSync m
+  => MonadHost m
   => (event -> IOSync a)
   -> EventType
   -> node
@@ -100,7 +100,7 @@ domEventWithSample sample eventType node = do
 domEvent ::
      forall event node m
    . EventDOM event node
-  => MonadHost IOSync m
+  => MonadHost m
   => EventType
   -> node
   -> m (Event Unit)
