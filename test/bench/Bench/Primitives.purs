@@ -1,5 +1,6 @@
 module Bench.Primitives
   ( dynamicTests
+  , weakDynamicTests
   ) where
 
 import Prelude
@@ -10,7 +11,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Tuple (Tuple(..), fst)
-import Specular.FRP (Dynamic, holdDyn, never, newEvent)
+import Specular.FRP (Dynamic, WeakDynamic, holdDyn, holdWeakDyn, never, newEvent, subscribeWeakDyn_)
 import Specular.FRP.Base (subscribeDyn_)
 
 dynamicTests :: Tests
@@ -50,3 +51,23 @@ runIOSync'' = unsafeCoerceEff <<< runIOSync
 
 runHost :: forall e a. Host a -> Eff e a
 runHost = runIOSync'' <<< map fst <<< runCleanupT
+
+weakDynamicTests :: Tests
+weakDynamicTests =
+  [ Tuple "weak dyn" $ testWeakDynFn1 pure
+  , Tuple "weak dyn fmap" $ testWeakDynFn1 \d -> pure (add 1 <$> d)
+  , Tuple "weak dyn ap pure" $ testWeakDynFn1 \d -> pure (pure (const 1) <*> d)
+  , Tuple "weak dyn ap self" $ testWeakDynFn1 \d -> pure (add <$> d <*> d)
+  , Tuple "weak dyn bind self" $ testWeakDynFn1 \d -> pure (d >>= \_ -> d)
+  , Tuple "weak dyn bind inner" $ testWeakDynFn1 \d -> pure (pure 10 >>= \_ -> d)
+  , Tuple "weak dyn bind outer" $ testWeakDynFn1 \d -> pure (d >>= \_ -> pure 10)
+  ]
+
+testWeakDynFn1 :: forall e. (WeakDynamic Int -> Host (WeakDynamic Int)) -> Eff e (Eff e Unit)
+testWeakDynFn1 fn =
+  runHost do
+    event <- newEvent
+    dyn <- holdWeakDyn event.event
+    dyn' <- fn dyn
+    subscribeWeakDyn_ (\_ -> pure unit) dyn'
+    pure (runIOSync'' $ event.fire 1)
