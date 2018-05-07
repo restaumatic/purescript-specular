@@ -8,7 +8,6 @@ module Specular.FRP.Base (
   , filterMapEvent
 
   , Pull
-  , class MonadPull
   , pull
 
   , Behavior
@@ -24,18 +23,15 @@ module Specular.FRP.Base (
   , attachDynWith
   , latestJust
 
-  , class MonadHold
   , holdDyn
   , foldDyn
   , foldDynMaybe
   , holdUniqDynBy
   , uniqDynBy
 
-  , class MonadHostCreate
   , newEvent
   , newBehavior
 
-  , class MonadHost
   , subscribeEvent_
   , subscribeDyn_
   , subscribeDyn
@@ -52,15 +48,13 @@ module Specular.FRP.Base (
 
 import Prelude
 
-import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.RIO (RIO, rio, runRIO)
 import Control.Monad.RIO as RIO
 import Control.Monad.Reader (ask)
-import Control.Monad.Reader.Trans (ReaderT)
-import Control.Monad.Trans.Class (lift)
 import Data.Array as Array
 import Data.DelayedEffects (DelayedEffects, sequenceEffects)
 import Data.DelayedEffects as DE
@@ -137,19 +131,10 @@ oncePerFramePullWithIO action io = do
         writeIORef ref (Cached time value)
         pure value
 
-class Monad m <= MonadPull m where
-  pull :: forall a. Pull a -> m a
-
-instance monadPullIOSync :: MonadPull IOSync where
-  pull p = do
-    time <- freshTime
-    runPull time p
-
-instance monadPullCleanupT :: MonadPull m => MonadPull (CleanupT m) where
-  pull = lift <<< pull
-
-instance monadPullReaderT :: MonadPull m => MonadPull (ReaderT r m) where
-  pull = lift <<< pull
+pull :: forall m a. MonadIOSync m => Pull a -> m a
+pull p = liftIOSync do
+  time <- freshTime
+  runPull time p
 
 -------------------------------------------------
 
@@ -343,59 +328,8 @@ mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
 mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
-class Monad m <= MonadHostCreate m where
-  -- | Create an Event that can be triggered externally.
-  -- | Each `fire` will run a frame where the event occurs.
-  newEvent :: forall a. m { event :: Event a, fire :: a -> IOSync Unit }
-
-  -- | Create a new Behavior whose value can be modified outside a frame.
-  newBehavior :: forall a. a -> m { behavior :: Behavior a, set :: a -> IOSync Unit }
-
-instance monadHostCreateReaderT :: MonadHostCreate m => MonadHostCreate (ReaderT r m) where
-  newEvent = lift newEvent
-  newBehavior = lift <<< newBehavior
-
-class (Monad m, MonadIOSync m, MonadPull m, MonadCleanup m, MonadHostCreate m) <= MonadHost m where
-  subscribeEvent_ :: forall a. (a -> IOSync Unit) -> Event a -> m Unit
-
--- | DEPRECATED: Replace this with `liftIOSync`.
-hostEffect :: forall m a. MonadIOSync m => IOSync a -> m a
-hostEffect = liftIOSync
-
-instance monadHostReaderT :: MonadHost m => MonadHost (ReaderT r m) where
-  subscribeEvent_ f event = lift (subscribeEvent_ f event)
-
-instance monadHostCreateIOSync :: MonadHostCreate IOSync where
-  newEvent = do
-    occurenceRef <- newIORef Nothing
-    listenerMap <- UMM.new
-    let
-      fire value = do
-        writeIORef occurenceRef (Just value)
-        listeners <- UMM.values listenerMap
-        runNextFrame $ do
-          sequenceFrame_ listeners
-          frameWriteIORef occurenceRef Nothing
-
-      subscribe l = do
-        key <- UMM.insert l listenerMap
-        pure $ UMM.delete key listenerMap
-
-    pure
-      { event: Event { occurence: Behavior $ pullReadIORef occurenceRef, subscribe }
-      , fire
-      }
-
-  newBehavior initialValue = newBehaviorIOSync initialValue
-
-foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
-
-instance monadHostCreateCleanupT :: (Monad m, MonadHostCreate m) => MonadHostCreate (CleanupT m) where
-  newEvent = lift newEvent
-  newBehavior = lift <<< newBehavior
-
-instance monadHostCleanupT :: MonadHost (CleanupT IOSync) where
-  subscribeEvent_ = subscribeEvent_Impl
+subscribeEvent_ :: forall m a. MonadIOSync m => MonadCleanup m => (a -> IOSync Unit) -> Event a -> m Unit
+subscribeEvent_ = subscribeEvent_Impl
 
 subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadIOSync m => (a -> IOSync Unit) -> Event a -> m Unit
 subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
@@ -404,6 +338,39 @@ subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
     for_ m_value $ \value ->
       effect $ handler value
   onCleanup unsub
+
+-- | DEPRECATED: Replace this with `liftIOSync`.
+hostEffect :: forall m a. MonadIOSync m => IOSync a -> m a
+hostEffect = liftIOSync
+
+-- | Create an Event that can be triggered externally.
+-- | Each `fire` will run a frame where the event occurs.
+newEvent :: forall m a. MonadIOSync m => m { event :: Event a, fire :: a -> IOSync Unit }
+newEvent = liftIOSync do
+  occurenceRef <- newIORef Nothing
+  listenerMap <- UMM.new
+  let
+    fire value = do
+      writeIORef occurenceRef (Just value)
+      listeners <- UMM.values listenerMap
+      runNextFrame $ do
+        sequenceFrame_ listeners
+        frameWriteIORef occurenceRef Nothing
+
+    subscribe l = do
+      key <- UMM.insert l listenerMap
+      pure $ UMM.delete key listenerMap
+
+  pure
+    { event: Event { occurence: Behavior $ pullReadIORef occurenceRef, subscribe }
+    , fire
+    }
+
+-- | Create a new Behavior whose value can be modified outside a frame.
+newBehavior :: forall m a. MonadIOSync m => a -> m { behavior :: Behavior a, set :: a -> IOSync Unit }
+newBehavior initialValue = liftIOSync $ newBehaviorIOSync initialValue
+
+foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
 
 newBehaviorIOSync :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
 newBehaviorIOSync initialValue = do
@@ -480,25 +447,13 @@ instance applyDynamic :: Apply Dynamic where
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
 
-class MonadCleanup m <= MonadHold m where
-  -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
-  -- | and every time `e` fires, its value will update by applying `f` to the
-  -- | event occurence value and the old value.
-  -- |
-  -- | On cleanup, the Dynamic will stop updating in response to the event.
-  foldDyn :: forall a b. (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-
-  -- | Like `foldDyn`, but the Dynamic will not update if the folding function
-  -- | returns Nothing.
-  foldDynMaybe :: forall a b. (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
-
-instance monadHoldReaderT :: MonadHold m => MonadHold (ReaderT r m) where
-  foldDyn f x0 e = lift (foldDyn f x0 e)
-  foldDynMaybe f x0 e = lift (foldDynMaybe f x0 e)
-
-instance monadHoldCleanupT :: MonadHold (CleanupT IOSync) where
-  foldDyn = foldDynImpl
-  foldDynMaybe = foldDynMaybeImpl
+-- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
+-- | and every time `e` fires, its value will update by applying `f` to the
+-- | event occurence value and the old value.
+-- |
+-- | On cleanup, the Dynamic will stop updating in response to the event.
+foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
+foldDyn = foldDynImpl
 
 foldDynImpl
   :: forall m a b. MonadCleanup m => MonadIOSync m
@@ -523,6 +478,11 @@ foldDynImpl f initial (Event event) = do
     { value: Behavior updateOrReadValue
     , change: map (\_ -> unit) (Event event)
     }
+
+-- | Like `foldDyn`, but the Dynamic will not update if the folding function
+-- | returns Nothing.
+foldDynMaybe :: forall m a b. MonadFRP m => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
+foldDynMaybe = foldDynMaybeImpl
 
 foldDynMaybeImpl
   :: forall m a b. MonadCleanup m => MonadIOSync m
@@ -552,16 +512,16 @@ foldDynMaybeImpl f initial (Event event) = do
     }
 
 -- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
-holdDyn :: forall m a. MonadHold m => a -> Event a -> m (Dynamic a)
+holdDyn :: forall m a. MonadFRP m => a -> Event a -> m (Dynamic a)
 holdDyn = foldDyn (\x _ -> x)
 
-holdUniqDynBy :: forall m a. MonadHold m => (a -> a -> Boolean) -> a -> Event a -> m (Dynamic a)
+holdUniqDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> a -> Event a -> m (Dynamic a)
 holdUniqDynBy eq = foldDynMaybe (\new old -> if eq new old then Nothing else Just new)
 
 -- | Make a Dynamic that only changes value when the input Dynamic changes
 -- | value, and the new value is not equal to the previous value with respect to
 -- | the given equality test.
-uniqDynBy :: forall m a. MonadHold m => MonadPull m => (a -> a -> Boolean) -> Dynamic a -> m (Dynamic a)
+uniqDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> Dynamic a -> m (Dynamic a)
 uniqDynBy eq dyn = do
   initialValue <- pull $ readBehavior $ current dyn
   holdUniqDynBy eq initialValue (changed dyn)
@@ -637,7 +597,7 @@ instance monadDynamic :: Monad Dynamic
 
 subscribeDyn_
   :: forall m a
-   . MonadHost m
+   . MonadFRP m
   => (a -> IOSync Unit)
   -> Dynamic a
   -> m Unit
@@ -648,8 +608,7 @@ subscribeDyn_ handler (Dynamic {value, change}) = do
 
 subscribeDyn ::
      forall m a b
-   . MonadHost m
-  => MonadHold m
+   . MonadFRP m
   => (a -> IOSync b)
   -> Dynamic a
   -> m (Dynamic b)
@@ -672,13 +631,14 @@ attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
 -- |
 -- | The resulting Dynamic changes when the input changes to a value that is a `Just`,
 -- | and doesn't change when the input changes to `Nothing`.
-latestJust :: forall m a. MonadPull m => MonadHold m => Dynamic (Maybe a) -> m (Dynamic (Maybe a))
+latestJust :: forall m a. MonadFRP m => Dynamic (Maybe a) -> m (Dynamic (Maybe a))
 latestJust dyn = do
   currentValue <- pull $ readBehavior $ current dyn
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
-class (MonadHold m, MonadHost m) <= MonadFRP m
-instance monadFRP :: (MonadHold m, MonadHost m) => MonadFRP m
+-- | A "type class alias" for the constraints required by most FRP primitives.
+class (MonadIOSync m, MonadCleanup m) <= MonadFRP m
+instance monadFRP :: (MonadIOSync m, MonadCleanup m) => MonadFRP m
 
 -- | Flipped `map`.
 -- |

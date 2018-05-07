@@ -11,7 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, Namespace, TagName, addEventListener)
-import Specular.FRP (class MonadHost, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
+import Specular.FRP (class MonadFRP, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
@@ -68,7 +68,7 @@ dynRawHtml ::
      forall node m
    . MonadDomBuilder node m
   => MonadReplace m
-  => MonadHost m
+  => MonadFRP m
   => WeakDynamic String
   -> m Unit
 dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
@@ -77,7 +77,7 @@ dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
 domEventWithSample ::
      forall event node m a
    . EventDOM event node
-  => MonadHost m
+  => MonadFRP m
   => (event -> IOSync a)
   -> EventType
   -> node
@@ -92,7 +92,7 @@ domEventWithSample sample eventType node = do
 domEvent ::
      forall event node m
    . EventDOM event node
-  => MonadHost m
+  => MonadFRP m
   => EventType
   -> node
   -> m (Event Unit)

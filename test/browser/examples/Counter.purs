@@ -8,7 +8,7 @@ import Specular.Dom.Builder.Class (dynText, el, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.Dom.Widgets.Button (buttonOnClick)
-import Specular.FRP (class MonadHold, Dynamic, Event, foldDyn, leftmost)
+import Specular.FRP (class MonadFRP, Dynamic, Event, foldDyn, leftmost)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
 import Test.Spec (Spec, describe, it)
@@ -68,7 +68,7 @@ view {value} = do
 
   pure { increment, decrement }
 
-control :: forall m. MonadHold m
+control :: forall m. MonadFRP m
   => { increment :: Event Unit
      , decrement :: Event Unit
      }

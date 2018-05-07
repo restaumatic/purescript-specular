@@ -14,7 +14,7 @@ import Prelude
 
 import Control.Monad.Aff (Aff, delay, killFiber, launchAff, launchAff_)
 import Control.Monad.Aff.Class (liftAff)
-import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
+import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (error)
 import Control.Monad.IO (IO, runIO)
@@ -24,11 +24,11 @@ import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Time.Duration (Milliseconds(..))
-import Specular.FRP (class MonadFRP, class MonadHost, Dynamic, Event, changed, current, dynamic_, holdDyn, leftmost, newEvent, pull)
+import Specular.FRP (class MonadFRP, Dynamic, Event, changed, current, dynamic_, holdDyn, leftmost, newEvent, pull)
 import Specular.FRP.Base (readBehavior, subscribeEvent_)
 
 -- | Start an asynchronous IO computation. It will be cancelled on cleanup.
-startIO :: forall m. MonadIOSync m => MonadCleanup m => IO Unit -> m Unit
+startIO :: forall m. MonadFRP m => IO Unit -> m Unit
 startIO action = do
   fiber <- liftIOSync $ liftEff $ launchAff $ runIO action
   onCleanup $ liftEff $ launchAff_ $ killFiber (error "Cancelled") fiber
@@ -113,7 +113,7 @@ asyncRequest dquery = asyncRequestMaybe (map Just dquery)
 -- FIXME: Does not cancel running actions on cleanup
 performEvent
   :: forall m a
-   . MonadHost m
+   . MonadFRP m
   => Event (IO a)
   -> m (Event a)
 performEvent event = do
