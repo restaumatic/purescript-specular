@@ -9,6 +9,17 @@
 //     elAttr "div" ("class" := "thud") $ do
 //       text "foo"
 
+// replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
+// replicateM_, optimized for Widget.
+exports.replicateM_Widget_ = function(n) {
+  return function(widget) {
+    return function(env) {
+      for(var i = 0; i < n; i++) {
+        widget(env);
+      }
+    };
+  };
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // staticJS :: forall e. Int -> Eff e Unit

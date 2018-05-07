@@ -42,6 +42,21 @@ staticWidgetMono n =
       elAttr "div" ("class" := "thud") $ do
         text "foo"
 
+-- | The same widget, but monomorphic. Can be used to test the effect of
+-- | polymorphism to some degree.
+staticWidgetMonoOptReplicate :: Int -> Widget Unit
+staticWidgetMonoOptReplicate n =
+  replicateM_Widget_ n $
+    elAttr "div" ("class" := "foo") $ do
+      elAttr "div" ("class" := "bar") $ do
+        text "foo"
+      elAttr "div" ("class" := "baz") $ do
+        text "foo"
+      elAttr "div" ("class" := "thud") $ do
+        text "foo"
+
+foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
+
 -- See comments in the FFI module.
 foreign import staticJS :: forall e. Int -> Eff e Unit
 foreign import staticJS_c :: forall e. Int -> Eff e Unit
@@ -54,6 +69,7 @@ builderTests =
   , Tuple "js_m 10" (pure $ staticJS_m 10)
   , Tuple "static mono 10" (pure $ runWidget $ staticWidgetMono 10)
   , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
+  , Tuple "static opt replicateM_" (pure $ runWidget $ staticWidgetMonoOptReplicate 10)
   , Tuple "static ReaderT 10"
       (pure $ runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
   , Tuple "static 2x ReaderT 10"
