@@ -2,7 +2,7 @@
 
 - 2018-05-07 **(breaking change)** The `MonadPull`, `MonadHost`,
   `MonadHostCreate` and `MonadHold` type classes are removed in interest of
-  simplicity. The remaining ones are:
+  simplicity.
 
   To fix breakage, replace uses of the above classes with `MonadFRP`.
 
