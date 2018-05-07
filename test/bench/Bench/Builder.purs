@@ -8,6 +8,7 @@ import Bench.Types (Tests)
 import Control.Monad.Eff (Eff)
 import Control.Monad.IO.Effect (INFINITY)
 import Control.Monad.IOSync (IOSync, runIOSync')
+import Control.Monad.Reader (runReaderT)
 import Data.List.Lazy (replicateM)
 import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Browser (Node)
@@ -53,6 +54,11 @@ builderTests =
   , Tuple "js_m 10" (pure $ staticJS_m 10)
   , Tuple "static mono 10" (pure $ runWidget $ staticWidgetMono 10)
   , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
+  , Tuple "static ReaderT 10"
+      (pure $ runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
+  , Tuple "static 2x ReaderT 10"
+      (pure $ runWidget $ deoptimizeWidget
+        (flip runReaderT unit $ flip runReaderT unit $ staticWidget 10))
   ]
 
 
