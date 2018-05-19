@@ -38,6 +38,10 @@ module Specular.FRP.Base (
   , hostEffect
 
   , class MonadFRP
+  , class MonadPull
+  , class MonadHost
+  , class MonadHostCreate
+  , class MonadHold
 
   , for
 
@@ -639,6 +643,22 @@ latestJust dyn = do
 -- | A "type class alias" for the constraints required by most FRP primitives.
 class (MonadIOSync m, MonadCleanup m) <= MonadFRP m
 instance monadFRP :: (MonadIOSync m, MonadCleanup m) => MonadFRP m
+
+-- | Deprecated, use MonadFRP instead.
+class MonadFRP m <= MonadPull m
+instance monadPull_ :: MonadFRP m => MonadPull m
+
+-- | Deprecated, use MonadFRP instead.
+class MonadFRP m <= MonadHost m
+instance monadHost :: MonadFRP m => MonadPull m
+
+-- | Deprecated, use MonadFRP instead.
+class MonadFRP m <= MonadHostCreate m
+instance monadHostCreate :: MonadFRP m => MonadPull m
+
+-- | Deprecated, use MonadFRP instead.
+class MonadFRP m <= MonadHold m
+instance monadHold :: MonadFRP m => MonadPull m
 
 -- | Flipped `map`.
 -- |

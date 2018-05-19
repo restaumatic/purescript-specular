@@ -1,10 +1,11 @@
 ## Pre-release
 
-- 2018-05-07 **(breaking change)** The `MonadPull`, `MonadHost`,
-  `MonadHostCreate` and `MonadHold` type classes are removed in interest of
-  simplicity.
+- 2018-05-20 The `MonadPull`, `MonadHost`, `MonadHostCreate` and `MonadHold`
+  type classes are reduced to just "aliases" for `MonadCleanup`+`MonadIOSync`
+  in interest of simplicity.
 
-  To fix breakage, replace uses of the above classes with `MonadFRP`.
+  It is advised to replace uses of the above classes with `MonadFRP`. They will
+  be removed in a future version.
 
 - 2018-05-02 **(breaking change)** The `MonadHostCreate` and `MonadHost` classes
   became single-parameter - the `io` parameter was removed. It was intended to
