@@ -2,9 +2,11 @@
 
 ## Displaying static HTML
 
-`[thunk]`
+`[TODO]`
 
 ## Obtaining dynamic values
+
+`[TODO]`
 
 ## Observing values and events
 
@@ -84,4 +86,4 @@ elDynAttr "button"
 
 ## Dynamic structure
 
-`[thunk]`
+`[TODO]`
