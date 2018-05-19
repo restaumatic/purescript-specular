@@ -17,7 +17,7 @@ import Data.Foldable (traverse_)
 import Data.Functor.Compose (Compose(..))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (traverse)
-import Specular.FRP.Base (class MonadHold, class MonadHost, Dynamic, Event, attachDynWith, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch)
+import Specular.FRP.Base (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch)
 
 -- | A primitive similar to Dynamic. The difference is: while Dynamic always
 -- | has a value, WeakDynamic has a value always after some point, but for
@@ -51,7 +51,7 @@ changedW = filterMapEvent id <<< changed <<< unWeakDynamic
 
 -- | Make a WeakDynamic that will have no value, but will acquire one when the Event fires.
 -- | It will also change every time the Event fires.
-holdWeakDyn :: forall m a. MonadHold m => Event a -> m (WeakDynamic a)
+holdWeakDyn :: forall m a. MonadFRP m => Event a -> m (WeakDynamic a)
 holdWeakDyn change = WeakDynamic <<< Compose <$> holdDyn Nothing (Just <$> change)
 
 -- | Make an Event that occurs when the given WeakDynamic has a value, and the
@@ -63,7 +63,7 @@ switchWeakDyn (WeakDynamic (Compose mdyn)) = switch $ map (fromMaybe never) mdyn
 -- | and invoke it every time it changes, until cleanup.
 subscribeWeakDyn_ ::
      forall m a
-   . MonadHost m
+   . MonadFRP m
   => (a -> IOSync Unit)
   -> WeakDynamic a
   -> m Unit
@@ -74,8 +74,7 @@ subscribeWeakDyn_ handler (WeakDynamic (Compose mdyn)) =
 -- | and invoke it every time it changes, until cleanup.
 subscribeWeakDyn ::
      forall m a b
-   . MonadHost m
-  => MonadHold m
+   . MonadFRP m
   => (a -> IOSync b)
   -> WeakDynamic a
   -> m (WeakDynamic b)

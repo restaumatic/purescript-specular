@@ -13,7 +13,7 @@ import Prelude
 import Data.Record (delete, get, insert)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(Tuple), snd)
-import Specular.FRP.Base (class MonadHold, class MonadHost, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
+import Specular.FRP.Base (class MonadFRP, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn)
 import Type.Equality (class TypeEquals, to)
 import Type.Prelude (class IsSymbol, class RowLacks)
@@ -21,7 +21,7 @@ import Type.Row (class RowToList, Cons, Nil, RLProxy(..))
 
 fixEvent ::
      forall m a b
-   . MonadHost m
+   . MonadFRP m
   => (Event a -> m (Tuple (Event a) b))
   -> m b
 fixEvent f = do
@@ -32,8 +32,7 @@ fixEvent f = do
 
 fixDyn ::
      forall m a b
-   . MonadHost m
-  => MonadHold m
+   . MonadFRP m
   => (WeakDynamic a -> m (Tuple (Dynamic a) b))
   -> m b
 fixDyn f = do
@@ -43,11 +42,11 @@ fixDyn f = do
   subscribeDyn_ fire dyn
   pure result
 
-fixFRP_ :: forall input output m. FixFRP input output => MonadHost m => MonadHold m => (input -> m output) -> m Unit
+fixFRP_ :: forall input output m. FixFRP input output => MonadFRP m => (input -> m output) -> m Unit
 fixFRP_ f = fixFRP (\input -> (\x -> Tuple x unit) <$> f input)
 
 class FixFRP input output | output -> input, input -> output where
-  fixFRP :: forall m b. MonadHost m => MonadHold m => (input -> m (Tuple output b)) -> m b
+  fixFRP :: forall m b. MonadFRP m => (input -> m (Tuple output b)) -> m b
 
 instance fixFRPEvent :: FixFRP (Event a) (Event a) where
   fixFRP = fixEvent
@@ -60,8 +59,7 @@ instance fixFRPRecord :: (FixFRPRecord ro_list ri ro, RowToList ro ro_list) => F
 
 class FixFRPRecord ro_list ri ro | ro_list -> ri ro where
   fixRecord :: forall m b
-     . MonadHost m
-    => MonadHold m
+     . MonadFRP m
     => RLProxy ro_list
     -> (Record ri -> m (Tuple (Record ro) b))
     -> m b

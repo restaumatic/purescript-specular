@@ -23,8 +23,6 @@ import Data.StrMap as SM
 import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
-import Specular.FRP (class MonadHold, class MonadHost, class MonadHostCreate, class MonadPull, foldDynImpl, foldDynMaybeImpl, newBehavior, newEvent, pull)
-import Specular.FRP.Base (subscribeEvent_Impl)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 
 newtype Builder node a = Builder (RIO (BuilderEnv node) a)
@@ -125,20 +123,6 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
     onCleanup $ join $ readIORef cleanupRef
 
     pure $ Slot { replace, destroy, append }
-
-instance monadHoldBuilder :: MonadHold (Builder node) where
-  foldDyn = foldDynImpl
-  foldDynMaybe = foldDynMaybeImpl
-
-instance monadPullBuilder :: MonadPull (Builder node) where
-  pull = liftIOSync <<< pull
-
-instance monadHostCreateBuilder :: MonadHostCreate (Builder node) where
-  newEvent = liftIOSync newEvent
-  newBehavior = liftIOSync <<< newBehavior
-
-instance monadHostBuilder :: MonadHost (Builder node) where
-  subscribeEvent_ = subscribeEvent_Impl
 
 instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder node) where
 
