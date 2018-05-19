@@ -7,6 +7,8 @@ model.
 
 ## Getting started
 
+There's a tutorial currently in the making: [Tutorial (incomplete)](./doc/Tutorial.md)
+
 Currently there's no tutorial or introductory documentation. However, there's
 plenty of material about Reflex-Dom. See
 [A Beginner-friendly Step by Step Tutorial for Reflex-Dom](https://github.com/hansroland/reflex-dom-inbits/blob/master/tutorial.md)
