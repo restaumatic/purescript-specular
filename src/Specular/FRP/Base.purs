@@ -63,7 +63,6 @@ import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Data.UniqueMap.Mutable as UMM
-import Partial.Unsafe (unsafeCrashWith)
 
 -------------------------------------------------
 
@@ -113,23 +112,7 @@ oncePerFramePull action = oncePerFramePullWithIO action pure
 -- |
 -- | It is an error to run the computation returned from `oncePerFrame` inside
 -- | the passed action.
-oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
-oncePerFramePullWithIO action io = do
-  ref <- newIORef Fresh
-  pure $ unsafeMkPull $ \time -> do
-    cache <- readIORef ref
-    case cache of
-      Cached lastTime value | lastTime == time ->
-        pure value
-
-      BlackHole ->
-        unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
-
-      _ -> do
-        writeIORef ref BlackHole
-        value <- runPull time action >>= io
-        writeIORef ref (Cached time value)
-        pure value
+foreign import oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
 
 pull :: forall m a. MonadIOSync m => Pull a -> m a
 pull p = liftIOSync do
@@ -194,18 +177,7 @@ runNextFrame frame = do
 
 -- | Create a computation that will run the given action at most once during
 -- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
-oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
-oncePerFrame_ action = do
-  ref <- newIORef Nothing
-  pure $ do
-    time <- framePull $ getTime
-    m_lastTime <- framePull $ pullReadIORef ref
-    case m_lastTime of
-      Just lastTime | lastTime == time ->
-        pure unit
-      _ -> do
-        frameWriteIORef ref (Just time)
-        action
+foreign import oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
 
 -------------------------------------------------------------
 
