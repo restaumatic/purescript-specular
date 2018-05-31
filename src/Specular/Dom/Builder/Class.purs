@@ -4,6 +4,7 @@ import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.IOSync (IOSync)
+import Control.Monad.IOSync.Class (liftIOSync)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
@@ -11,7 +12,7 @@ import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, Namespace, TagName, addEventListener)
-import Specular.FRP (class MonadFRP, Event, WeakDynamic, hostEffect, newEvent, weakDynamic_)
+import Specular.FRP (class MonadFRP, Event, WeakDynamic, newEvent, weakDynamic_)
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
@@ -84,7 +85,7 @@ domEventWithSample ::
   -> m (Event a)
 domEventWithSample sample eventType node = do
   {event,fire} <- newEvent
-  unsub <- hostEffect $ addEventListener eventType (sample >=> fire) node
+  unsub <- liftIOSync $ addEventListener eventType (sample >=> fire) node
   onCleanup unsub
   pure event
 

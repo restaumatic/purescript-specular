@@ -35,7 +35,6 @@ module Specular.FRP.Base (
   , subscribeEvent_
   , subscribeDyn_
   , subscribeDyn
-  , hostEffect
 
   , class MonadFRP
 
@@ -337,10 +336,6 @@ subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
       effect $ handler value
   onCleanup unsub
 
--- | DEPRECATED: Replace this with `liftIOSync`.
-hostEffect :: forall m a. MonadIOSync m => IOSync a -> m a
-hostEffect = liftIOSync
-
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall m a. MonadIOSync m => m { event :: Event a, fire :: a -> IOSync Unit }
@@ -613,7 +608,7 @@ subscribeDyn ::
 subscribeDyn handler dyn = do
   {event,fire} <- newEvent
   currentValue <- pull $ readBehavior $ current dyn
-  initialResult <- hostEffect $ handler currentValue
+  initialResult <- liftIOSync $ handler currentValue
   subscribeEvent_ (handler >=> fire) $ changed dyn
   holdDyn initialResult event
 

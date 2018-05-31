@@ -3,13 +3,14 @@ module Specular.FRP.List where
 import Prelude
 
 import Control.Monad.IOSync (IOSync)
+import Control.Monad.IOSync.Class (liftIOSync)
 import Control.Monad.Replace (class MonadReplace, Slot, newSlot, unSlot)
 import Data.Array as Array
-import Specular.Internal.Effect (Ref, newRef, readRef, writeRef)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
-import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, hostEffect, newEvent)
+import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn_, weaken)
+import Specular.Internal.Effect (Ref, newRef, readRef, writeRef)
 import Unsafe.Reference (unsafeRefEq)
 
 -- | `weakDynamicListWithIndex dynArray handler`
@@ -33,7 +34,7 @@ weakDynamicListWithIndex dynArray handler = do
   (latestRef :: Ref (Array { slot :: Slot m
                              , fire :: a -> IOSync Unit
                              , result :: b }))
-    <- hostEffect $ newRef []
+    <- liftIOSync $ newRef []
 
   mainSlot <- newSlot
   resultChanged <- newEvent

@@ -33,7 +33,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr', text)
 import Specular.Dom.Node.Class (Attrs, (:=))
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, filterEvent, holdDyn, leftmost, never)
-import Specular.FRP.Base (hostEffect, subscribeEvent_, tagDyn)
+import Specular.FRP.Base (subscribeEvent_, tagDyn)
 import Unsafe.Coerce (unsafeCoerce)
 
 textInputOnChange :: forall m. MonadWidget m => String -> Attrs -> m (Dynamic String)
@@ -120,7 +120,7 @@ textInputValueOnChange :: forall m. MonadFRP m
   => TextInput
   -> m (Dynamic String)
 textInputValueOnChange (TextInput {element}) = do
-  initial <- hostEffect $ getTextInputValue element
+  initial <- liftIOSync $ getTextInputValue element
   changed <- domEventWithSample (\_ -> getTextInputValue element) "change" element
   holdDyn initial changed
 

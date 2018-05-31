@@ -6,6 +6,7 @@ import Prelude
 
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Random (random)
+import Control.Monad.IOSync.Class (liftIOSync)
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.TraversableWithIndex (forWithIndex)
@@ -15,7 +16,7 @@ import Specular.Dom.Node.Class (Attrs, (:=))
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.Dom.Widgets.Input (BooleanInputType(Radio), booleanInputView)
 import Specular.FRP (Dynamic, Event, WeakDynamic, fixFRP, holdDyn, leftmost)
-import Specular.FRP.Base (filterMapEvent, hostEffect)
+import Specular.FRP.Base (filterMapEvent)
 
 type RadioGroupConfig m a =
   { options :: Array a
@@ -35,7 +36,7 @@ radioGroup :: forall m a. MonadWidget m
   => RadioGroupConfig m a
   -> m (Dynamic a)
 radioGroup config = fixFRP $ \selectedIndex -> do
-  let randomIdentifier = hostEffect $ liftEff $ map (\n -> "radio" <> show n) random
+  let randomIdentifier = liftIOSync $ liftEff $ map (\n -> "radio" <> show n) random
   name <- randomIdentifier
     -- ^ FIXME: document this sorcery
 
