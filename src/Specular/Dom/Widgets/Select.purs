@@ -32,7 +32,7 @@ type SelectConfig a =
   }
 
 -- | A <select> element with static list of options.
--- | The returned Dynamic represents the currently seleted value.
+-- | The returned Dynamic represents the currently selected value.
 selectInput :: forall m a. MonadWidget m
   => SelectConfig a
   -> m (Dynamic a)
