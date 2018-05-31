@@ -1,4 +1,4 @@
-module Data.UniqueMap.Mutable (
+module Specular.Internal.UniqueMap.Mutable (
     Unique
   , UniqueMap
   , new

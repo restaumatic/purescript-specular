@@ -62,7 +62,7 @@ import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
-import Data.UniqueMap.Mutable as UMM
+import Specular.Internal.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
 
 -------------------------------------------------

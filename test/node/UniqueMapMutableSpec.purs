@@ -4,13 +4,13 @@ import Prelude
 
 import Data.Array (sort)
 import Data.Maybe (Maybe(..))
-import Data.UniqueMap.Mutable as UMM
+import Specular.Internal.UniqueMap.Mutable as UMM
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Runner (RunnerEffects)
 import Test.Utils (ioSync, shouldReturn)
 
 spec :: forall eff. Spec (RunnerEffects eff) Unit
-spec = describe "Data.UniqueMap.Mutable" $ do
+spec = describe "Specular.Internal.UniqueMap.Mutable" $ do
 
   it "can insert and retrieve elements" $ do
     m <- ioSync UMM.new
