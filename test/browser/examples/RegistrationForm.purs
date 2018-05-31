@@ -4,7 +4,7 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (class MonadCleanup, runCleanupT)
 import Control.Monad.IOSync.Class (class MonadIOSync)
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
@@ -53,7 +53,7 @@ spec = describe "RegistrationForm" $ do
     let showFormResult {login,password} = "login: " <> login <> ", password: " <> password
 
     Tuple node event <- runBuilderInDiv mainWidget
-    log <- ioSync $ newIORef []
+    log <- ioSync $ newRef []
     _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log <<< showFormResult) event
 
 

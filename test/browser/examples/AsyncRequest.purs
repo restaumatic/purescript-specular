@@ -10,7 +10,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (log)
 import Control.Monad.IO (IO)
 import Control.Monad.IOSync.Class (liftIOSync)
-import Data.IORef (newIORef, readIORef, writeIORef)
+import Specular.Internal.Effect (newRef, readRef, writeRef)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.String as String
@@ -58,9 +58,9 @@ spec = describe "AsyncRequest" $ do
     it "always displays the latest request" $ do
       firstRequest <- makeEmptyVar
       secondRequest <- makeEmptyVar
-      currentRequestVar <- ioSync $ newIORef firstRequest
+      currentRequestVar <- ioSync $ newRef firstRequest
       let backend = { toUpper: \_ -> do
-                        var <- liftIOSync $ readIORef currentRequestVar
+                        var <- liftIOSync $ readRef currentRequestVar
                         liftAff $ takeVar var
                     }
       Tuple query setQuery <- ioSync $ newDynamic ""
@@ -68,7 +68,7 @@ spec = describe "AsyncRequest" $ do
       Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
 
       ioSync $ setQuery "foo"
-      ioSync $ writeIORef currentRequestVar secondRequest
+      ioSync $ writeRef currentRequestVar secondRequest
       ioSync $ setQuery "bar"
 
       putVar "FOO" firstRequest

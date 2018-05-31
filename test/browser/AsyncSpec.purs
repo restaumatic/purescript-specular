@@ -10,7 +10,7 @@ import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Cleanup (runCleanupT)
 import Control.Monad.IO (IO)
 import Control.Monad.IOSync.Class (liftIOSync)
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
 import Specular.FRP (current, newEvent, pull, subscribeEvent_)
@@ -26,7 +26,7 @@ spec = do
   describe "asyncRequestMaybe" $ do
     it "makes a request for initial value" $ do
       avar <- makeEmptyVar
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
 
       let request = liftAff $ takeVar avar
 
@@ -43,7 +43,7 @@ spec = do
 
     it "makes a request when the value changes" $ do
       avar <- makeEmptyVar
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
 
       let request = liftAff $ takeVar avar
 
@@ -67,7 +67,7 @@ spec = do
     it "ignores responses to requests older than the current" $ do
       avar1 <- makeEmptyVar
       avar2 <- makeEmptyVar
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
 
       Tuple dyn setDyn <- ioSync $ newDynamic Nothing
 
@@ -94,7 +94,7 @@ spec = do
     it "ignores out-of-order responses" $ do
       avar1 <- makeEmptyVar
       avar2 <- makeEmptyVar
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
 
       Tuple dyn setDyn <- ioSync $ newDynamic Nothing
 
@@ -136,7 +136,7 @@ spec = do
 
       -- In `log` we'll have pairs of (String, String)
       -- The first String is the request description, the second is the result.
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
 
       Tuple _ result <- runBuilderInDiv $ do
         status <- asyncRequestMaybe $ map snd dyn
@@ -175,7 +175,7 @@ spec = do
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       _ <- ioSync $ runCleanupT $ do
         result <- performEvent $ map
           (\x -> liftIOSync (append log ("handler:" <> x)) *> pure x)

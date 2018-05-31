@@ -4,7 +4,7 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Tuple (Tuple(..))
 import Specular.FRP (holdDyn, newEvent, subscribeWeakDyn_, weaken)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn)
@@ -17,7 +17,7 @@ spec = describe "WeakDynamic" $ do
 
   describe "pure" $ do
     it "has a value immediately" $ do
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       _ <- ioSync $ runCleanupT $
         subscribeWeakDyn_ (\x -> append log x) $
           pure 0
@@ -27,7 +27,7 @@ spec = describe "WeakDynamic" $ do
   describe "subscribeWeakDyn" $ do
     it "updates the resulting Dynamic" $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn _ <- ioSync $ runCleanupT $ map weaken $ holdDyn 1 event
 
       Tuple derivedDyn _ <- ioSync $ runCleanupT $ subscribeWeakDyn (\x ->

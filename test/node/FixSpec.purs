@@ -4,7 +4,7 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
 import Control.Monad.IOSync.Class (liftIOSync)
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Tuple (Tuple(..))
 import Specular.FRP (Dynamic, Event, WeakDynamic, holdDyn, never, newEvent, subscribeEvent_, weaken)
 import Specular.FRP.Base (mergeEvents)
@@ -19,7 +19,7 @@ spec :: forall eff. Spec (RunnerEffects eff) Unit
 spec = do
   describe "fixEvent" $ do
     it "connects result Event to input Event" $ do
-     log <- ioSync $ newIORef []
+     log <- ioSync $ newRef []
      Tuple fire _ <- ioSync $ runCleanupT $
        fixEvent $ \input -> do
          _ <- subscribeEvent_ (append log) input
@@ -32,7 +32,7 @@ spec = do
      log `shouldHaveValue` [1]
 
     pending' "input and output occur simultaneously" $ do
-     log <- ioSync $ newIORef []
+     log <- ioSync $ newRef []
      Tuple fire _ <- ioSync $ runCleanupT $
        fixEvent $ \input -> do
          {event: output, fire} <- liftIOSync newEvent
@@ -51,7 +51,7 @@ spec = do
 
   describe "fixDyn" $ do
    it "gives input WeakDynamic initial value" $ do
-     log <- ioSync $ newIORef []
+     log <- ioSync $ newRef []
      Tuple _ _ <- ioSync $ runCleanupT $
        fixDyn $ \input -> do
          _ <- subscribeWeakDyn_ (append log) input
@@ -63,7 +63,7 @@ spec = do
 
    it "propagates output changes to input" $ do
      {event,fire} <- ioSync newEvent
-     log <- ioSync $ newIORef []
+     log <- ioSync $ newRef []
      Tuple _ _ <- ioSync $ runCleanupT $
        fixDyn $ \input -> do
          _ <- subscribeWeakDyn_ (append log) input
@@ -77,7 +77,7 @@ spec = do
 
    pending' "input and output change simultaneously" $ do
      {event,fire} <- ioSync newEvent
-     log <- ioSync $ newIORef []
+     log <- ioSync $ newRef []
      Tuple _ _ <- ioSync $ runCleanupT $
        fixDyn $ \input -> do
          output <- holdDyn 1 event
@@ -109,7 +109,7 @@ spec = do
                         unit)
 
     it "works for Events and Dynamics" $ do
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple fire _ <- ioSync $ runCleanupT $
         fixFRP $ \input -> do
           {event, fire} <- liftIOSync newEvent

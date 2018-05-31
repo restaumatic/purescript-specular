@@ -2,7 +2,7 @@ module DynamicSpec where
 
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Prelude hiding (append)
@@ -18,7 +18,7 @@ spec = describe "Dynamic" $ do
   describe "holdDyn" $ do
     it "updates value when someone is subscribed to changes" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
 
       unsub <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -36,7 +36,7 @@ spec = describe "Dynamic" $ do
 
     it "updates value when no one is subscribed" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
 
       ioSync $ fire 2
@@ -52,7 +52,7 @@ spec = describe "Dynamic" $ do
   describe "holdUniqDynBy" $ do
     it "updates value only when it changes" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdUniqDynBy eq 0 event
 
       unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -73,7 +73,7 @@ spec = describe "Dynamic" $ do
   describe "foldDyn" $ do
     it "updates value correctly" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn unsub1 <- ioSync $ runCleanupT $ foldDyn add 0 event
 
       unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -92,7 +92,7 @@ spec = describe "Dynamic" $ do
     it "works with different root Dynamics" $ withLeakCheck $ do
       ev1 <- ioSync newEvent
       ev2 <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple rootDyn1 unsub1 <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
       Tuple rootDyn2 unsub2 <- ioSync $ runCleanupT $ holdDyn 10 ev2.event
 
@@ -113,7 +113,7 @@ spec = describe "Dynamic" $ do
 
     it "has no glitches when used with the same root Dynamic" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple rootDyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
 
       let dyn = Tuple <$> rootDyn <*> (map (_ + 10) rootDyn)
@@ -131,7 +131,7 @@ spec = describe "Dynamic" $ do
     it "works" $ withLeakCheck $ do
       ev1 <- ioSync newEvent
       ev2 <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple rootDynInner unsub1 <- ioSync $ runCleanupT $ holdDyn 0 ev1.event
       Tuple rootDynOuter unsub2 <- ioSync $ runCleanupT $ holdDyn rootDynInner ev2.event
 
@@ -202,7 +202,7 @@ spec = describe "Dynamic" $ do
   describe "subscribeDyn" $ do
     it "updates the resulting Dynamic" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 1 event
 
       Tuple derivedDyn unsub2 <- ioSync $ runCleanupT $ subscribeDyn (\x ->
@@ -225,7 +225,7 @@ spec = describe "Dynamic" $ do
   describe "latestJust" $ do
     it "updates value only when it changes to Just" $ withLeakCheck $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn Nothing event >>= latestJust
 
       unsub2 <- ioSync $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn

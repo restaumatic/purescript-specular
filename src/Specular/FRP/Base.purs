@@ -52,18 +52,16 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Specular.Internal.RIO (RIO, rio, runRIO)
-import Specular.Internal.RIO as RIO
 import Control.Monad.Reader (ask)
 import Data.Array as Array
-import Data.DelayedEffects (DelayedEffects, sequenceEffects)
-import Data.DelayedEffects as DE
 import Data.Foldable (for_)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
-import Specular.Internal.UniqueMap.Mutable as UMM
 import Partial.Unsafe (unsafeCrashWith)
+import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
+import Specular.Internal.RIO (RIO, rio, runRIO)
+import Specular.Internal.RIO as RIO
+import Specular.Internal.UniqueMap.Mutable as UMM
 
 -------------------------------------------------
 
@@ -86,10 +84,10 @@ getTime =
   -- ask is idempotent
   MkPull ask
 
-pullReadIORef :: forall a. IORef a -> Pull a
-pullReadIORef ref =
-  -- readIORef is idempotent
-  MkPull (liftIOSync (readIORef ref))
+pullReadRef :: forall a. Ref a -> Pull a
+pullReadRef ref =
+  -- readRef is idempotent
+  MkPull (liftIOSync (readRef ref))
 
 unsafeMkPull :: forall a. (Time -> IOSync a) -> Pull a
 unsafeMkPull f = MkPull (rio f)
@@ -115,9 +113,9 @@ oncePerFramePull action = oncePerFramePullWithIO action pure
 -- | the passed action.
 oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
 oncePerFramePullWithIO action io = do
-  ref <- newIORef Fresh
+  ref <- newRef Fresh
   pure $ unsafeMkPull $ \time -> do
-    cache <- readIORef ref
+    cache <- readRef ref
     case cache of
       Cached lastTime value | lastTime == time ->
         pure value
@@ -126,9 +124,9 @@ oncePerFramePullWithIO action io = do
         unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
 
       _ -> do
-        writeIORef ref BlackHole
+        writeRef ref BlackHole
         value <- runPull time action >>= io
-        writeIORef ref (Cached time value)
+        writeRef ref (Cached time value)
         pure value
 
 pull :: forall m a. MonadIOSync m => Pull a -> m a
@@ -155,15 +153,15 @@ type FrameEnv =
 framePull :: forall a. Pull a -> Frame a
 framePull (MkPull x) = Frame (RIO.local _.time x)
 
-frameWriteIORef :: forall a. IORef a -> a -> Frame Unit
-frameWriteIORef ref value = Frame (liftIOSync (writeIORef ref value))
+frameWriteRef :: forall a. Ref a -> a -> Frame Unit
+frameWriteRef ref value = Frame (liftIOSync (writeRef ref value))
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: IOSync Unit -> Frame Unit
 effect action = Frame $ rio $ \{effects} ->
   -- HACK: briefly creating a Pull that is not idempotent;
   -- But it's immediately lifted to Frame, so it's OK
-  void $ DE.push effects action
+  void $ pushDelayed effects action
 
 derive newtype instance functorFrame :: Functor Frame
 derive newtype instance applyFrame :: Apply Frame
@@ -174,16 +172,16 @@ derive newtype instance monadFrame :: Monad Frame
 -- | Run a Frame computation and then run its effects.
 runFrame :: forall a. Time -> Frame a -> IOSync a
 runFrame currentTime (Frame x) = do
-  effectsMutable <- DE.empty
+  effectsMutable <- emptyDelayed
   value <- runRIO { effects: effectsMutable, time: currentTime } x
-  effects <- DE.unsafeFreeze effectsMutable
-  DE.sequenceEffects effects
+  effects <- unsafeFreezeDelayed effectsMutable
+  sequenceEffects effects
   pure value
 
 freshTime :: IOSync Time
 freshTime = do
-  time <- readIORef nextTimeRef
-  writeIORef nextTimeRef (case time of Time t -> Time (t + 1))
+  time <- readRef nextTimeRef
+  writeRef nextTimeRef (case time of Time t -> Time (t + 1))
   pure time
 
 -- | Run a Frame computation with a fresh time value and then run its effects.
@@ -196,15 +194,15 @@ runNextFrame frame = do
 -- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
 oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
 oncePerFrame_ action = do
-  ref <- newIORef Nothing
+  ref <- newRef Nothing
   pure $ do
     time <- framePull $ getTime
-    m_lastTime <- framePull $ pullReadIORef ref
+    m_lastTime <- framePull $ pullReadRef ref
     case m_lastTime of
       Just lastTime | lastTime == time ->
         pure unit
       _ -> do
-        frameWriteIORef ref (Just time)
+        frameWriteRef ref (Just time)
         action
 
 -------------------------------------------------------------
@@ -216,8 +214,8 @@ newtype Time = Time Int
 derive newtype instance eqTime :: Eq Time
 
 -- | The global time counter.
-nextTimeRef :: IORef Time
-nextTimeRef = unsafePerformEff $ runIOSync $ newIORef (Time 0)
+nextTimeRef :: Ref Time
+nextTimeRef = unsafePerformEff $ runIOSync $ newRef (Time 0)
 
 -------------------------------------------------------------
 
@@ -347,22 +345,22 @@ hostEffect = liftIOSync
 -- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall m a. MonadIOSync m => m { event :: Event a, fire :: a -> IOSync Unit }
 newEvent = liftIOSync do
-  occurenceRef <- newIORef Nothing
+  occurenceRef <- newRef Nothing
   listenerMap <- UMM.new
   let
     fire value = do
-      writeIORef occurenceRef (Just value)
+      writeRef occurenceRef (Just value)
       listeners <- UMM.values listenerMap
       runNextFrame $ do
         sequenceFrame_ listeners
-        frameWriteIORef occurenceRef Nothing
+        frameWriteRef occurenceRef Nothing
 
     subscribe l = do
       key <- UMM.insert l listenerMap
       pure $ UMM.delete key listenerMap
 
   pure
-    { event: Event { occurence: Behavior $ pullReadIORef occurenceRef, subscribe }
+    { event: Event { occurence: Behavior $ pullReadRef occurenceRef, subscribe }
     , fire
     }
 
@@ -374,10 +372,10 @@ foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
 
 newBehaviorIOSync :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
 newBehaviorIOSync initialValue = do
-  ref <- newIORef initialValue
+  ref <- newRef initialValue
   pure
-    { behavior: Behavior $ pullReadIORef ref
-    , set: writeIORef ref
+    { behavior: Behavior $ pullReadRef ref
+    , set: writeRef ref
     }
 
 -- | An Event that occurs when any of the events occur.
@@ -459,14 +457,14 @@ foldDynImpl
   :: forall m a b. MonadCleanup m => MonadIOSync m
   => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 foldDynImpl f initial (Event event) = do
-  ref <- liftIOSync $ newIORef initial
+  ref <- liftIOSync $ newRef initial
   updateOrReadValue <- liftIOSync $
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readIORef ref
+      oldValue <- readRef ref
       case m_newValue of
         Just occurence -> do
           let newValue = f occurence oldValue
-          writeIORef ref newValue
+          writeRef ref newValue
           pure newValue
         Nothing ->
           pure oldValue
@@ -488,13 +486,13 @@ foldDynMaybeImpl
   :: forall m a b. MonadCleanup m => MonadIOSync m
    => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
 foldDynMaybeImpl f initial (Event event) = do
-  ref <- liftIOSync $ newIORef initial
+  ref <- liftIOSync $ newRef initial
   (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftIOSync $
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readIORef ref
+      oldValue <- readRef ref
       case m_newValue of
         Just occurence | Just newValue <- f occurence oldValue -> do
-          writeIORef ref newValue
+          writeRef ref newValue
           pure { changing: true, value: newValue }
         _ ->
           pure { changing: false, value: oldValue }
@@ -539,21 +537,21 @@ switch (Dynamic { value, change: Event change }) = Event
       -- oncePerFrame guards us against the case of coincidence
       -- of the inner Event and outer Dynamic change
 
-      unsubRef <- newIORef (pure unit)
-      isDoneRef <- newIORef false
+      unsubRef <- newRef (pure unit)
+      isDoneRef <- newRef false
 
       let
         cleanup :: IOSync Unit
-        cleanup = join (readIORef unsubRef)
+        cleanup = join (readRef unsubRef)
 
         replaceWith :: Event a -> Frame Unit
         replaceWith (Event event) = do
           effect $ do
-            isDone <- readIORef isDoneRef
+            isDone <- readRef isDoneRef
             unless isDone do
               cleanup
               unsub <- event.subscribe onceListener
-              writeIORef unsubRef unsub
+              writeRef unsubRef unsub
 
         -- Unsubscribe from the previous change event (if any)
         -- and subscribe to the current one.
@@ -572,7 +570,7 @@ switch (Dynamic { value, change: Event change }) = Event
         updateListener
         -- and resubscribe
 
-      pure (writeIORef isDoneRef true *> cleanup *> unsub)
+      pure (writeRef isDoneRef true *> cleanup *> unsub)
   }
 
 

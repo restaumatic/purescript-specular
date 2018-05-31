@@ -4,7 +4,7 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
 import Data.Foreign (toForeign)
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter)
@@ -38,7 +38,7 @@ spec = describe "Input widgets" $ do
 
     it "return value changes when setValue fires" $ do
       {event,fire} <- ioSync newEvent
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: event, attributes: pure mempty }
 
@@ -52,7 +52,7 @@ spec = describe "Input widgets" $ do
 
     pending' "textInputValueEventOnEnter" $ do
       -- FIXME: unable to simulate the keypress event correctly
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: never, attributes: pure mempty }
       void $ ioSync $ runCleanupT $ do

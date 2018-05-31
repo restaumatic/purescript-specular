@@ -5,7 +5,7 @@ import Prelude
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.Replace (class MonadReplace, Slot, newSlot, unSlot)
 import Data.Array as Array
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Specular.Internal.Effect (Ref, newRef, readRef, writeRef)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
 import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, hostEffect, newEvent)
@@ -30,10 +30,10 @@ weakDynamicListWithIndex :: forall m a b
   -> (Int -> WeakDynamic a -> m b)
   -> m (WeakDynamic (Array b))
 weakDynamicListWithIndex dynArray handler = do
-  (latestRef :: IORef (Array { slot :: Slot m
+  (latestRef :: Ref (Array { slot :: Slot m
                              , fire :: a -> IOSync Unit
                              , result :: b }))
-    <- hostEffect $ newIORef []
+    <- hostEffect $ newRef []
 
   mainSlot <- newSlot
   resultChanged <- newEvent
@@ -41,7 +41,7 @@ weakDynamicListWithIndex dynArray handler = do
   let
     update :: Array a -> IOSync Unit
     update newArray = do
-      latest <- readIORef latestRef
+      latest <- readRef latestRef
       newEntries <- map Array.concat $ flip traverse (Array.range 0 (max (Array.length newArray) (Array.length latest))) $ \i -> do
         case Array.index latest i, Array.index newArray i of
           Just entry, Just x  -> do
@@ -60,7 +60,7 @@ weakDynamicListWithIndex dynArray handler = do
           Nothing,     Nothing ->
             pure []
       let newLatest = Array.take (Array.length newArray) $ latest <> newEntries
-      writeIORef latestRef newLatest
+      writeRef latestRef newLatest
       resultChanged.fire $ map _.result newLatest
 
   subscribeWeakDyn_ update dynArray

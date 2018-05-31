@@ -9,14 +9,9 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Class (class MonadEff)
 import Control.Monad.IOSync (IOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Specular.Internal.RIO (RIO, rio, runRIO)
-import Specular.Internal.RIO as RIO
 import Control.Monad.Reader (ask)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
-import Data.DelayedEffects (DelayedEffects)
-import Data.DelayedEffects as DE
-import Data.IORef (modifyIORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
@@ -24,6 +19,9 @@ import Data.Tuple (Tuple(Tuple))
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
+import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
+import Specular.Internal.RIO (RIO, rio, runRIO)
+import Specular.Internal.RIO as RIO
 
 newtype Builder node a = Builder (RIO (BuilderEnv node) a)
 
@@ -41,7 +39,7 @@ derive newtype instance monadEffBuilder :: MonadEff eff (Builder node)
 derive newtype instance monadIOSyncBuilder :: MonadIOSync (Builder node)
 
 instance monadCleanupBuilder :: MonadCleanup (Builder node) where
-  onCleanup action = mkBuilder $ \env -> DE.push env.cleanup action
+  onCleanup action = mkBuilder $ \env -> pushDelayed env.cleanup action
 
 mkBuilder :: forall node a. (BuilderEnv node -> IOSync a) -> Builder node a
 mkBuilder = Builder <<< rio
@@ -51,11 +49,11 @@ unBuilder (Builder f) = f
 
 runBuilder :: forall node a. node -> Builder node a -> IOSync (Tuple a (IOSync Unit))
 runBuilder parent (Builder f) = do
-  actionsMutable <- DE.empty
+  actionsMutable <- emptyDelayed
   let env = { parent, cleanup: actionsMutable }
   result <- runRIO env f
-  actions <- DE.unsafeFreeze actionsMutable
-  pure (Tuple result (DE.sequenceEffects actions))
+  actions <- unsafeFreezeDelayed actionsMutable
+  pure (Tuple result (sequenceEffects actions))
 
 getEnv :: forall node. Builder node (BuilderEnv node)
 getEnv = Builder ask
@@ -72,14 +70,14 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
     liftIOSync $ appendChild placeholderAfter env.parent
     -- FIXME: placeholderAfter leaks if replace is never called
 
-    cleanupRef <- liftIOSync $ newIORef (mempty :: IOSync Unit)
+    cleanupRef <- liftIOSync $ newRef (mempty :: IOSync Unit)
 
     let
       replace :: forall a. Builder node a -> IOSync a
       replace inner = do
         fragment <- createDocumentFragment
         Tuple result cleanup <- runBuilder fragment inner
-        join $ readIORef cleanupRef
+        join $ readRef cleanupRef
 
         m_parent <- parentNode placeholderAfter
 
@@ -89,26 +87,26 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
             insertBefore placeholderBefore placeholderAfter parent
             insertBefore fragment placeholderAfter parent
 
-            writeIORef cleanupRef $ do
+            writeRef cleanupRef $ do
               cleanup
               removeAllBetween placeholderBefore placeholderAfter
-              writeIORef cleanupRef mempty -- TODO: explain this
+              writeRef cleanupRef mempty -- TODO: explain this
 
           Nothing ->
             -- we've been removed from the DOM
-            writeIORef cleanupRef cleanup
+            writeRef cleanupRef cleanup
 
         pure result
 
       destroy :: IOSync Unit
       destroy = do
-        join $ readIORef cleanupRef
+        join $ readRef cleanupRef
 
       append :: IOSync (Slot (Builder node))
       append = do
         fragment <- createDocumentFragment
         Tuple slot cleanup <- runBuilder fragment newSlot
-        modifyIORef cleanupRef (_ *> cleanup) -- FIXME: memory leak if the inner slot is destroyed
+        modifyRef cleanupRef (_ *> cleanup) -- FIXME: memory leak if the inner slot is destroyed
 
         m_parent <- parentNode placeholderAfter
 
@@ -120,7 +118,7 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
 
         pure slot
 
-    onCleanup $ join $ readIORef cleanupRef
+    onCleanup $ join $ readRef cleanupRef
 
     pure $ Slot { replace, destroy, append }
 
@@ -144,11 +142,11 @@ instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder nod
     env <- getEnv
     node <- liftIOSync $ createElementNS namespace tagName
 
-    attrsRef <- liftIOSync $ newIORef mempty
+    attrsRef <- liftIOSync $ newRef mempty
     let
       resetAttributes newAttrs = do
-        oldAttrs <- readIORef attrsRef
-        writeIORef attrsRef newAttrs
+        oldAttrs <- readRef attrsRef
+        writeRef attrsRef newAttrs
         let
           changed = SM.filterWithKey (\k v -> SM.lookup k oldAttrs /= Just v) newAttrs
           removed = A.filter (\k -> not (k `SM.member` newAttrs)) $ SM.keys oldAttrs

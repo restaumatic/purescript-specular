@@ -8,18 +8,18 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Data.Array (snoc)
-import Data.IORef (IORef, modifyIORef, newIORef, readIORef, writeIORef)
+import Specular.Internal.Effect (Ref, modifyRef, newRef, readRef, writeRef)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Type.Prelude (Proxy)
 
-append :: forall a. IORef (Array a) -> a -> IOSync Unit
-append ref value = modifyIORef ref (\a -> snoc a value)
+append :: forall a. Ref (Array a) -> a -> IOSync Unit
+append ref value = modifyRef ref (\a -> snoc a value)
 
-clear :: forall a r. IORef (Array a) -> Aff r Unit
-clear ref = ioSync $ writeIORef ref []
+clear :: forall a r. Ref (Array a) -> Aff r Unit
+clear ref = ioSync $ writeRef ref []
 
-shouldHaveValue :: forall a r. Eq a => Show a => IORef a -> a -> Aff r Unit
-shouldHaveValue ref expected = ioSync (readIORef ref) `shouldReturn` expected
+shouldHaveValue :: forall a r. Eq a => Show a => Ref a -> a -> Aff r Unit
+shouldHaveValue ref expected = ioSync (readRef ref) `shouldReturn` expected
 
 shouldReturn :: forall r t. Show t => Eq t => Aff r t -> t -> Aff r Unit
 shouldReturn action expected = do
@@ -31,12 +31,12 @@ ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync
 
 newtype SpyIO a = SpyIO
   { fn :: a -> IOSync Unit
-  , values :: IORef (Array a)
+  , values :: Ref (Array a)
   }
 
 newSpyIO :: forall r a. Aff r (SpyIO a)
 newSpyIO = do
-  log <- ioSync $ newIORef []
+  log <- ioSync $ newRef []
   pure $ SpyIO { fn: append log , values: log }
 
 trigger :: forall a b. SpyIO a -> a -> b -> IOSync b

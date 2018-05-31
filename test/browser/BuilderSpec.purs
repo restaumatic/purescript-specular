@@ -5,7 +5,7 @@ import Prelude hiding (append)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.IOSync (IOSync)
-import Data.IORef (newIORef)
+import Specular.Internal.Effect (newRef)
 import Data.Maybe (Maybe(..))
 import Data.Monoid (mempty)
 import Data.StrMap as SM
@@ -168,7 +168,7 @@ spec = describe "Builder" $ do
         event <- domEventWithSample (\_ -> pure unit) "click" button
         pure {button,event}
 
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync $ dispatchTrivialEvent button "click"
@@ -195,7 +195,7 @@ spec = describe "Builder" $ do
         event :: Event Unit
         event = switch result
 
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync (innerHTML node) `shouldReturn` ""
@@ -228,7 +228,7 @@ spec = describe "Builder" $ do
         event :: Event Unit
         event = switchWeakDyn result
 
-      log <- ioSync $ newIORef []
+      log <- ioSync $ newRef []
       unsub2 <- ioSync $ execCleanupT $ subscribeEvent_ (append log) event
 
       ioSync (innerHTML node) `shouldReturn` ""
