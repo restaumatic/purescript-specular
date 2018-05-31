@@ -52,8 +52,8 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Control.Monad.IOSync (IOSync, runIOSync)
 import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
-import Control.Monad.RIO (RIO, rio, runRIO)
-import Control.Monad.RIO as RIO
+import Specular.Internal.RIO (RIO, rio, runRIO)
+import Specular.Internal.RIO as RIO
 import Control.Monad.Reader (ask)
 import Data.Array as Array
 import Data.DelayedEffects (DelayedEffects, sequenceEffects)

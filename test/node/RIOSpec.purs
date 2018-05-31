@@ -2,8 +2,8 @@ module RIOSpec where
 
 import Control.Monad.Aff (Aff)
 import Control.Monad.IOSync.Class (liftIOSync)
-import Control.Monad.RIO (RIO, local)
-import Control.Monad.RIO as RIO
+import Specular.Internal.RIO (RIO, local)
+import Specular.Internal.RIO as RIO
 import Control.Monad.Reader.Class (ask)
 import Prelude hiding (append)
 import Test.Spec (Spec, describe, it)

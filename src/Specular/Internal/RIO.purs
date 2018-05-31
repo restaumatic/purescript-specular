@@ -1,4 +1,4 @@
-module Control.Monad.RIO
+module Specular.Internal.RIO
   ( RIO(..)
   , INF
   , rio
