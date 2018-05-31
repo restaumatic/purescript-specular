@@ -1,5 +1,12 @@
 ## Pre-release
 
+- 2018-05-31 **(breaking change)** The `hostEffect` function was removed.
+  Replace all uses with `liftIOSync`.
+
+- 2018-05-31 The modules `Data.DelayedEffects`, `Data.IORef`, and
+  `Control.Monad.RIO` are moved to an internal namespace. The change is breaking
+  only if you were using them.
+
 - 2018-05-07 **(breaking change)** The `MonadPull`, `MonadHost`,
   `MonadHostCreate` and `MonadHold` type classes are removed in interest of
   simplicity.
