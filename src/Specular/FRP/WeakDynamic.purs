@@ -8,6 +8,7 @@ module Specular.FRP.WeakDynamic (
   , subscribeWeakDyn_
   , attachWeakDynWith
   , tagWeakDyn
+  , uniqWeakDynBy
 ) where
 
 import Prelude
@@ -17,7 +18,7 @@ import Data.Foldable (traverse_)
 import Data.Functor.Compose (Compose(..))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (traverse)
-import Specular.FRP.Base (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch)
+import Specular.FRP.Base (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch, uniqDynBy)
 
 -- | A primitive similar to Dynamic. The difference is: while Dynamic always
 -- | has a value, WeakDynamic has a value always after some point, but for
@@ -30,6 +31,9 @@ newtype WeakDynamic a = WeakDynamic (Compose Dynamic Maybe a)
 
 unWeakDynamic :: forall a. WeakDynamic a -> Dynamic (Maybe a)
 unWeakDynamic (WeakDynamic (Compose mdyn)) = mdyn
+
+mkWeakDynamic :: forall a. Dynamic (Maybe a) -> WeakDynamic a
+mkWeakDynamic = WeakDynamic <<< Compose
 
 derive newtype instance functorWeakDynamic :: Functor WeakDynamic
 derive newtype instance applyWeakDynamic :: Apply WeakDynamic
@@ -91,3 +95,17 @@ attachWeakDynWith f wdyn event =
 tagWeakDyn :: forall a. WeakDynamic a -> Event Unit -> Event a
 tagWeakDyn wdyn event =
   filterMapEvent id $ attachDynWith (\a b -> a) (unWeakDynamic wdyn) event
+
+-- | Make a WeakDynamic that only changes value when the input WeakDynamic changes
+-- | value, and the new value is not equal to the previous value with respect to
+-- | the given equality test.
+uniqWeakDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> WeakDynamic a -> m (WeakDynamic a)
+uniqWeakDynBy eq wdyn = mkWeakDynamic <$> uniqDynBy (liftEqMaybe eq) (unWeakDynamic wdyn)
+
+liftEqMaybe :: forall a. (a -> a -> Boolean) -> Maybe a -> Maybe a -> Boolean
+liftEqMaybe eq =
+  case _, _ of
+    Just x,  Just y  -> eq x y
+    Nothing, Nothing -> true
+    _      , _       -> false
+
