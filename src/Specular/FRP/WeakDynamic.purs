@@ -1,5 +1,6 @@
 module Specular.FRP.WeakDynamic (
     WeakDynamic 
+  , unWeakDynamic
   , changedW
   , weaken
   , holdWeakDyn
