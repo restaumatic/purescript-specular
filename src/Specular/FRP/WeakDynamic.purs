@@ -103,6 +103,7 @@ tagWeakDyn wdyn event =
 uniqWeakDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> WeakDynamic a -> m (WeakDynamic a)
 uniqWeakDynBy eq wdyn = mkWeakDynamic <$> uniqDynBy (liftEqMaybe eq) (unWeakDynamic wdyn)
 
+-- | Lift an equivalence relation on `a` to an equivalence relation on `Maybe a`.
 liftEqMaybe :: forall a. (a -> a -> Boolean) -> Maybe a -> Maybe a -> Boolean
 liftEqMaybe eq =
   case _, _ of
