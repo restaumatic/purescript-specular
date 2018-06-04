@@ -8,8 +8,8 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (dynText, el, text)
-import Specular.FRP (changedW, for, subscribeEvent_, weaken)
-import Specular.FRP.List (weakDynamicList, weakDynamicList_)
+import Specular.FRP (changedW, dynamic_, for, subscribeEvent_, weaken)
+import Specular.FRP.List (weakDynamicList, weakDynamicList_, dynamicList_)
 import Specular.FRP.Replaceable (weakDynamic_)
 import Specular.FRP.WeakDynamic (attachWeakDynWith)
 import Specular.Internal.Effect (newRef)
@@ -36,6 +36,27 @@ spec = do
       Tuple node2 _ <- runBuilderInDiv $
         weakDynamicList_ wdyn $ \item ->
           el "p" $ dynText $ map show item
+
+      for_ states $ \state -> do
+        ioSync (fire state)
+        html1 <- ioSync (innerHTML node1)
+        html2 <- ioSync (innerHTML node2)
+        html1 `shouldEqual` html2 
+
+  describe "dynamicList_" $ do
+    it "builds and updates DOM correctly" $ do
+      let states = [[1], [], [1,2,3,4], [2,3,4], [2]]
+
+      Tuple dyn fire <- ioSync $ newDynamic []
+
+      Tuple node1 _ <- runBuilderInDiv $
+        dynamic_ $ for dyn $ \array ->
+          for_ array $ \item ->
+            el "p" $ text $ show item
+
+      Tuple node2 _ <- runBuilderInDiv $
+        dynamicList_ dyn $ \item ->
+          el "p" $ dynText $ weaken $ map show item
 
       for_ states $ \state -> do
         ioSync (fire state)
