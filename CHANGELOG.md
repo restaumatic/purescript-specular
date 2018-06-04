@@ -1,5 +1,8 @@
 ## Pre-release
 
+- 2018-06-04 `dynamicList`, `dynamicListWithIndex`, `dynamicList_` and
+  `dynamicListWithIndex_` functions were added.
+
 - 2018-06-03 `uniqWeakDynBy` function was added, analogous to `uniqDynBy`.
 
 - 2018-05-31 **(breaking change)** The `hostEffect` function was removed.
