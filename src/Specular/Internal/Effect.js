@@ -51,7 +51,7 @@ exports.unsafeFreezeDelayed = function(x) {
 
 // sequenceEffects :: Array (Effect Unit) -> Effect Unit
 exports.sequenceEffects = function(effects) {
-  return function seuqenceEffects_eff() {
+  return function sequenceEffects_eff() {
     for(var i = 0; i < effects.length; i++) {
       effects[i]();
     }
