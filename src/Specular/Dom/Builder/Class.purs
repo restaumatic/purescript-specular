@@ -46,6 +46,14 @@ elAttr' ::
   -> m (Tuple node a)
 elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
 
+elAttr_ ::
+     forall node m a
+   . MonadDomBuilder node m
+  => String
+  -> Attrs
+  -> m Unit
+elAttr_ tagName attrs = elAttr tagName attrs (pure unit)
+
 
 el' ::
      forall node m a
@@ -63,6 +71,13 @@ el ::
   -> m a
   -> m a
 el tagName inner = elAttr tagName mempty inner
+
+el_ ::
+     forall node m
+   . MonadDomBuilder node m
+  => String
+  -> m Unit
+el_ tagName = el tagName (pure unit)
 
 
 dynRawHtml ::
