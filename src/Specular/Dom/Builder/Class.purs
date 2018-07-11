@@ -47,7 +47,7 @@ elAttr' ::
 elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
 
 elAttr_ ::
-     forall node m a
+     forall node m
    . MonadDomBuilder node m
   => String
   -> Attrs
