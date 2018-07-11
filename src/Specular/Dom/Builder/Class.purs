@@ -100,8 +100,7 @@ domEventWithSample ::
   -> m (Event a)
 domEventWithSample sample eventType node = do
   {event,fire} <- newEvent
-  unsub <- liftIOSync $ addEventListener eventType (sample >=> fire) node
-  onCleanup unsub
+  onDomEvent eventType node (sample >=> fire)
   pure event
 
 
@@ -113,6 +112,20 @@ domEvent ::
   -> node
   -> m (Event Unit)
 domEvent = domEventWithSample (\_ -> pure unit)
+
+
+-- | Register a DOM event listener.
+onDomEvent
+  :: forall m node event
+   . EventDOM event node
+  => MonadFRP m
+  => EventType
+  -> node
+  -> (event -> IOSync Unit)
+  -> m Unit
+onDomEvent eventType node handler = do
+  unsub <- liftIOSync $ addEventListener eventType handler node
+  onCleanup unsub
 
 instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder node (ReaderT r m) where
   text = lift <<< text
