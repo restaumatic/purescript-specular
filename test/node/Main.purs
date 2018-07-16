@@ -11,6 +11,7 @@ import DynamicSpec as DynamicSpec
 import FixSpec as FixSpec
 import WeakDynamicSpec as WeakDynamicSpec
 import RIOSpec as RIOSpec
+import TraceSpec as TraceSpec
 
 main :: Eff (RunnerEffects ()) Unit
 main = run [consoleReporter] do
@@ -20,3 +21,4 @@ main = run [consoleReporter] do
   UniqueMapMutableSpec.spec
   WeakDynamicSpec.spec
   RIOSpec.spec
+  TraceSpec.spec
