@@ -43,6 +43,9 @@ module Specular.FRP.Base (
   , subscribeEvent_Impl
   , foldDynImpl
   , foldDynMaybeImpl
+
+  , traceEventIO
+  , traceDynIO
 ) where
 
 import Prelude
@@ -640,3 +643,32 @@ instance monadFRP :: (MonadIOSync m, MonadCleanup m) => MonadFRP m
 -- TODO: This should be moved somewhere
 for :: forall f a b. Functor f => f a -> (a -> b) -> f b
 for = flip map
+
+
+traceEventIO :: forall a. (a -> IOSync Unit) -> Event a -> Event a
+traceEventIO handler (Event {occurence, subscribe}) =
+  Event
+    { occurence
+    , subscribe: \l ->
+       subscribe $ do
+         occ <- framePull $ readBehavior occurence
+         effect $ case occ of
+                    (Just x) -> handler x
+                    _        -> pure unit
+         l
+    }
+
+
+traceDynIO :: forall a. (a -> IOSync Unit) -> Dynamic a -> Dynamic a
+traceDynIO handler (Dynamic {value, change: Event{occurence, subscribe}}) =
+  Dynamic
+    { value
+    , change: Event
+      { occurence
+      , subscribe: \l ->
+          subscribe $ do
+            occ <- framePull $ readBehavior value
+            effect $ handler occ
+            l
+      }
+    }
