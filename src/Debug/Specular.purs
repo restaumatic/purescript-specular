@@ -7,9 +7,6 @@ module Debug.Specular
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync(..))
-import Data.Foldable (for_)
-import Data.Maybe (Maybe(..))
 import Debug.Trace (class DebugWarning, trace)
 import Specular.FRP (Dynamic, Event)
 import Specular.FRP.Base (traceDynIO, traceEventIO)

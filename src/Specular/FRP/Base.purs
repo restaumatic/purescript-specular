@@ -660,15 +660,10 @@ traceEventIO handler (Event {occurence, subscribe}) =
 
 
 traceDynIO :: forall a. (a -> IOSync Unit) -> Dynamic a -> Dynamic a
-traceDynIO handler (Dynamic {value, change: Event{occurence, subscribe}}) =
+traceDynIO handler (Dynamic {value, change}) =
   Dynamic
     { value
-    , change: Event
-      { occurence
-      , subscribe: \l ->
-          subscribe $ do
-            occ <- framePull $ readBehavior value
-            effect $ handler occ
-            l
-      }
+    , change: map (const unit)
+          <<< traceEventIO handler
+          <<< filterMapEventB (\_ -> Just <$> value) $ change
     }
