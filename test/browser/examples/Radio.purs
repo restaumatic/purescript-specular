@@ -2,7 +2,6 @@ module Examples.Radio (mainWidget) where
 
 import Prelude hiding (append)
 
-import Data.Monoid (mempty)
 import Specular.Dom.Builder.Class (dynText, el, elAttr, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (class MonadWidget)

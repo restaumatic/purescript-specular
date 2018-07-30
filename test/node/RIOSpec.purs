@@ -1,17 +1,17 @@
 module RIOSpec where
 
-import Control.Monad.Aff (Aff)
-import Control.Monad.IOSync.Class (liftIOSync)
+import Prelude hiding (append)
+
+import Control.Monad.Reader.Class (ask)
+import Effect.Aff (Aff)
+import Effect.Class (liftEffect)
 import Specular.Internal.RIO (RIO, local)
 import Specular.Internal.RIO as RIO
-import Control.Monad.Reader.Class (ask)
-import Prelude hiding (append)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (assertValues, ioSync, newSpyIO, trigger)
+import Test.Utils (assertValues, newSpyIO, trigger)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = describe "RIO" $ do
 
   it "pure" $ do
@@ -23,9 +23,9 @@ spec = describe "RIO" $ do
   it "map" $ do
     map (add 1) (pure 2) `shouldReturn` 3
 
-  it "liftIOSync" $ do
+  it "liftEffect" $ do
     spy <- newSpyIO
-    liftIOSync (trigger spy "effect" "value") `shouldReturn` "value"
+    liftEffect (trigger spy "effect" "value") `shouldReturn` "value"
     assertValues spy ["effect"]
 
   describe "apply" $ do
@@ -34,7 +34,7 @@ spec = describe "RIO" $ do
 
     it "effects" $ do
       spy <- newSpyIO
-      (liftIOSync (trigger spy "f" (add 1)) <*> liftIOSync (trigger spy "x" 2))
+      (liftEffect (trigger spy "f" (add 1)) <*> liftEffect (trigger spy "x" 2))
         `shouldReturn` 3
       assertValues spy ["f", "x"]
 
@@ -44,8 +44,8 @@ spec = describe "RIO" $ do
 
     it "effects" $ do
       spy <- newSpyIO
-      (do x <- liftIOSync (trigger spy "first" "x")
-          liftIOSync (trigger spy "second" (x <> "y")))
+      (do x <- liftEffect (trigger spy "first" "x")
+          liftEffect (trigger spy "second" (x <> "y")))
         `shouldReturn` "xy"
       assertValues spy ["first", "second"]
 
@@ -57,10 +57,10 @@ type TestEnv = Int
 testEnv :: TestEnv
 testEnv = 1
 
-shouldReturn :: forall r t. Show t => Eq t => RIO TestEnv t -> t -> Aff r Unit
+shouldReturn :: forall t. Show t => Eq t => RIO TestEnv t -> t -> Aff Unit
 shouldReturn action expected = do
   actual <- runRIO action
   actual `shouldEqual` expected
 
-runRIO :: forall r a. RIO TestEnv a -> Aff r a
-runRIO = ioSync <<< RIO.runRIO testEnv
+runRIO :: forall a. RIO TestEnv a -> Aff a
+runRIO = liftEffect <<< RIO.runRIO testEnv

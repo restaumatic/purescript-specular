@@ -1,48 +1,46 @@
-module Test.Utils where
+module Test.Utils
+  ( module Test.Utils
+  , module Effect.Class
+  ) where
 
 import Prelude hiding (append)
 
-import Control.Monad.Aff (Aff, Milliseconds(..), delay)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.IOSync (IOSync, runIOSync)
+import Effect.Aff (Aff, Milliseconds(..), delay)
+import Effect (Effect)
+import Effect.Class (liftEffect)
 import Data.Array (snoc)
 import Specular.Internal.Effect (Ref, modifyRef, newRef, readRef, writeRef)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Type.Prelude (Proxy)
 
-append :: forall a. Ref (Array a) -> a -> IOSync Unit
+append :: forall a. Ref (Array a) -> a -> Effect Unit
 append ref value = modifyRef ref (\a -> snoc a value)
 
-clear :: forall a r. Ref (Array a) -> Aff r Unit
-clear ref = ioSync $ writeRef ref []
+clear :: forall a. Ref (Array a) -> Aff Unit
+clear ref = liftEffect $ writeRef ref []
 
-shouldHaveValue :: forall a r. Eq a => Show a => Ref a -> a -> Aff r Unit
-shouldHaveValue ref expected = ioSync (readRef ref) `shouldReturn` expected
+shouldHaveValue :: forall a. Eq a => Show a => Ref a -> a -> Aff Unit
+shouldHaveValue ref expected = liftEffect (readRef ref) `shouldReturn` expected
 
-shouldReturn :: forall r t. Show t => Eq t => Aff r t -> t -> Aff r Unit
+shouldReturn :: forall t. Show t => Eq t => Aff t -> t -> Aff Unit
 shouldReturn action expected = do
   actual <- action
   actual `shouldEqual` expected
 
-ioSync :: forall r a. IOSync a -> Aff r a
-ioSync = liftEff <<< unsafeCoerceEff <<< runIOSync
-
 newtype SpyIO a = SpyIO
-  { fn :: a -> IOSync Unit
+  { fn :: a -> Effect Unit
   , values :: Ref (Array a)
   }
 
-newSpyIO :: forall r a. Aff r (SpyIO a)
+newSpyIO :: forall a. Aff (SpyIO a)
 newSpyIO = do
-  log <- ioSync $ newRef []
+  log <- liftEffect $ newRef []
   pure $ SpyIO { fn: append log , values: log }
 
-trigger :: forall a b. SpyIO a -> a -> b -> IOSync b
+trigger :: forall a b. SpyIO a -> a -> b -> Effect b
 trigger (SpyIO spy) x y = spy.fn x *> pure y
 
-assertValues :: forall r a. Eq a => Show a => SpyIO a -> Array a -> Aff r Unit
+assertValues :: forall a. Eq a => Show a => SpyIO a -> Array a -> Aff Unit
 assertValues (SpyIO spy) = shouldHaveValue spy.values
 
 class ShouldHaveInferredType actual expected where
@@ -63,20 +61,20 @@ instance shouldHaveInferredTypeInstance :: ShouldHaveInferredType a a where
 
 -- | Reschedule the current fiber to the end of event loop.
 -- | Equivalent to `setTimeout(function() { ... }, 0);`
-yieldAff :: forall e. Aff e Unit
+yieldAff :: Aff Unit
 yieldAff = delay (Milliseconds 0.0)
 
-foreign import getTotalListeners :: forall e. Eff e Int
-foreign import modifyTotalListeners :: forall e. (Int -> Int) -> Eff e Unit
+foreign import getTotalListeners :: Effect Int
+foreign import modifyTotalListeners :: (Int -> Int) -> Effect Unit
 
-withLeakCheck :: forall e a. Aff e a -> Aff e a
+withLeakCheck :: forall a. Aff a -> Aff a
 withLeakCheck = withLeakCheck' ""
 
-withLeakCheck' :: forall e a. String -> Aff e a -> Aff e a
+withLeakCheck' :: forall a. String -> Aff a -> Aff a
 withLeakCheck' msg action = do
-  totalBefore <- liftEff getTotalListeners
+  totalBefore <- liftEffect getTotalListeners
   result <- action
-  totalAfter <- liftEff getTotalListeners
+  totalAfter <- liftEffect getTotalListeners
   let msg' = if msg == "" then "" else " (" <> msg <> ")"
   when (totalBefore /= totalAfter) $
     fail $ "Subscriber leak" <> msg' <> "! listeners before=" <> show totalBefore <> " after=" <> show totalAfter

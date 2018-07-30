@@ -1,4 +1,4 @@
-// dispatchEvent :: Node -> EventType -> Foreign -> IOSync Unit
+// dispatchEvent :: Node -> EventType -> Foreign -> Effect Unit
 exports.dispatchEvent = function(node) {
   return function(eventType) {
     return function(options) {
@@ -9,7 +9,7 @@ exports.dispatchEvent = function(node) {
   };
 };
 
-// querySelector :: String -> Node -> IOSync Node
+// querySelector :: String -> Node -> Effect Node
 exports.querySelector = function(selector) {
   return function(parent) {
     return function() {
@@ -22,7 +22,7 @@ exports.querySelector = function(selector) {
   };
 };
 
-// setInputValueWithChange :: String -> Node -> IOSync Unit
+// setInputValueWithChange :: String -> Node -> Effect Unit
 exports.setInputValueWithChange = function(value) {
   return function(node) {
     return function() {

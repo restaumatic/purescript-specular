@@ -3,46 +3,44 @@ module InputWidgetsSpec where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
-import Data.Foreign (toForeign)
-import Specular.Internal.Effect (newRef)
-import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
+import Foreign (unsafeToForeign)
 import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter)
 import Specular.FRP (never, newEvent)
 import Specular.FRP.Base (subscribeDyn_, subscribeEvent_)
+import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it, pending')
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
+import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (dispatchEvent, dispatchTrivialEvent, querySelector, runBuilderInDiv)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = describe "Input widgets" $ do
   describe "textInput" $ do
     let makeTextInput config = do
           Tuple div widget <- runBuilderInDiv $ textInput config
-          node <- ioSync $ querySelector "input" div
+          node <- liftEffect $ querySelector "input" div
           pure {node,widget}
 
     it "sets initial value" $ do
       {node} <- makeTextInput
         { initialValue: "foo", setValue: never, attributes: pure mempty }
-      ioSync (getTextInputValue node) `shouldReturn` "foo"
+      liftEffect (getTextInputValue node) `shouldReturn` "foo"
 
     it "changes value on event" $ do
-      {event,fire} <- ioSync newEvent
+      {event,fire} <- liftEffect newEvent
       {node} <- makeTextInput
         { initialValue: "foo", setValue: event, attributes: pure mempty }
 
-      ioSync $ fire "bar"
-      ioSync (getTextInputValue node) `shouldReturn` "bar"
+      liftEffect $ fire "bar"
+      liftEffect (getTextInputValue node) `shouldReturn` "bar"
 
     it "return value changes when setValue fires" $ do
-      {event,fire} <- ioSync newEvent
-      log <- ioSync $ newRef []
+      {event,fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: event, attributes: pure mempty }
 
-      ioSync $ do
+      liftEffect $ do
         void $ runCleanupT $ subscribeDyn_ (append log) (textInputValue widget)
         fire "setValue"
         setTextInputValue node "oninput"
@@ -52,18 +50,18 @@ spec = describe "Input widgets" $ do
 
     pending' "textInputValueEventOnEnter" $ do
       -- FIXME: unable to simulate the keypress event correctly
-      log <- ioSync $ newRef []
+      log <- liftEffect $ newRef []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: never, attributes: pure mempty }
-      void $ ioSync $ runCleanupT $ do
+      void $ liftEffect $ runCleanupT $ do
         event <- textInputValueEventOnEnter widget
         subscribeEvent_ (append log) event
 
-      ioSync $ do
+      liftEffect $ do
         setTextInputValue node "changed1"
-        dispatchEvent node "keypress" (toForeign { key: "A" })
+        dispatchEvent node "keypress" (unsafeToForeign { key: "A" })
 
         setTextInputValue node "changed2"
-        dispatchEvent node "keypress" (toForeign { key: "Enter" })
+        dispatchEvent node "keypress" (unsafeToForeign { key: "Enter" })
       
       log `shouldHaveValue` ["changed2"]
