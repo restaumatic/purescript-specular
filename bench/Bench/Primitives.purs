@@ -7,9 +7,7 @@ import Prelude
 
 import Bench.Types (Tests)
 import Control.Monad.Cleanup (CleanupT, runCleanupT)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
-import Control.Monad.IOSync (IOSync, runIOSync)
+import Effect (Effect)
 import Data.Tuple (Tuple(..), fst)
 import Specular.FRP (Dynamic, WeakDynamic, holdDyn, holdWeakDyn, never, newEvent, subscribeWeakDyn_)
 import Specular.FRP.Base (subscribeDyn_)
@@ -25,16 +23,16 @@ dynamicTests =
   , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
   ]
 
-testDynFn1 :: forall e. (Dynamic Int -> Host (Dynamic Int)) -> Eff e (Eff e Unit)
+testDynFn1 :: (Dynamic Int -> Host (Dynamic Int)) -> Effect (Effect Unit)
 testDynFn1 fn =
   runHost do
     event <- newEvent
     dyn <- holdDyn 0 event.event
     dyn' <- fn dyn
     subscribeDyn_ (\_ -> pure unit) dyn'
-    pure (runIOSync'' $ event.fire 1)
+    pure (event.fire 1)
 
-testDynFn2 :: forall e. (Dynamic Int -> Dynamic Int -> Host (Dynamic Int)) -> Eff e (Eff e Unit)
+testDynFn2 :: (Dynamic Int -> Dynamic Int -> Host (Dynamic Int)) -> Effect (Effect Unit)
 testDynFn2 fn =
   runHost do
     event <- newEvent
@@ -42,15 +40,12 @@ testDynFn2 fn =
     dyn2 <- holdDyn 0 never
     dyn' <- fn dyn dyn2
     subscribeDyn_ (\_ -> pure unit) dyn'
-    pure (runIOSync'' $ event.fire 1)
+    pure (event.fire 1)
 
-type Host = CleanupT IOSync
+type Host = CleanupT Effect
 
-runIOSync'' :: forall e a. IOSync a -> Eff e a
-runIOSync'' = unsafeCoerceEff <<< runIOSync
-
-runHost :: forall e a. Host a -> Eff e a
-runHost = runIOSync'' <<< map fst <<< runCleanupT
+runHost :: forall a. Host a -> Effect a
+runHost = map fst <<< runCleanupT
 
 weakDynamicTests :: Tests
 weakDynamicTests =
@@ -63,11 +58,11 @@ weakDynamicTests =
   , Tuple "weak dyn bind outer" $ testWeakDynFn1 \d -> pure (d >>= \_ -> pure 10)
   ]
 
-testWeakDynFn1 :: forall e. (WeakDynamic Int -> Host (WeakDynamic Int)) -> Eff e (Eff e Unit)
+testWeakDynFn1 :: (WeakDynamic Int -> Host (WeakDynamic Int)) -> Effect (Effect Unit)
 testWeakDynFn1 fn =
   runHost do
     event <- newEvent
     dyn <- holdWeakDyn event.event
     dyn' <- fn dyn
     subscribeWeakDyn_ (\_ -> pure unit) dyn'
-    pure (runIOSync'' $ event.fire 1)
+    pure ( event.fire 1)

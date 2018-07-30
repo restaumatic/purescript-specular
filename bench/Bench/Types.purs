@@ -5,9 +5,8 @@ module Bench.Types
 
 import Prelude
 
-import Control.Monad.Eff (Eff)
-import Control.Monad.IO.Effect (INFINITY)
 import Data.Tuple (Tuple)
+import Effect (Effect)
 
-type Test e = Tuple String (Eff (infinity :: INFINITY | e) (Eff (infinity :: INFINITY | e) Unit))
+type Test e = Tuple String (Effect (Effect Unit))
 type Tests = forall e. Array (Test e)
