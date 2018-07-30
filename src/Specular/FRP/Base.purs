@@ -51,14 +51,14 @@ module Specular.FRP.Base (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Control.Monad.Eff.Unsafe (unsafePerformEff)
-import Control.Monad.IOSync (IOSync, runIOSync)
-import Control.Monad.IOSync.Class (class MonadIOSync, liftIOSync)
 import Control.Monad.Reader (ask)
 import Data.Array as Array
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
+import Effect (Effect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO, rio, runRIO)
@@ -72,7 +72,7 @@ import Specular.Internal.UniqueMap.Mutable as UMM
 -- | Invariant: Pull computations are always idempotent (`forall x :: Pull a. x *> x = x`).
 newtype Pull a = MkPull (RIO Time a)
 
-runPull :: forall a. Time -> Pull a -> IOSync a
+runPull :: forall a. Time -> Pull a -> Effect a
 runPull time (MkPull x) = runRIO time x
 
 derive newtype instance functorPull :: Functor Pull
@@ -89,9 +89,9 @@ getTime =
 pullReadRef :: forall a. Ref a -> Pull a
 pullReadRef ref =
   -- readRef is idempotent
-  MkPull (liftIOSync (readRef ref))
+  MkPull (liftEffect (readRef ref))
 
-unsafeMkPull :: forall a. (Time -> IOSync a) -> Pull a
+unsafeMkPull :: forall a. (Time -> Effect a) -> Pull a
 unsafeMkPull f = MkPull (rio f)
 
 data CacheState a =
@@ -104,7 +104,7 @@ data CacheState a =
 -- |
 -- | It is an error to run the computation returned from `oncePerFrame` inside
 -- | the passed action.
-oncePerFramePull :: forall a. Pull a -> IOSync (Pull a)
+oncePerFramePull :: forall a. Pull a -> Effect (Pull a)
 oncePerFramePull action = oncePerFramePullWithIO action pure
 
 -- | Create a computation that will run the given Pull action and chain it to
@@ -113,7 +113,7 @@ oncePerFramePull action = oncePerFramePullWithIO action pure
 -- |
 -- | It is an error to run the computation returned from `oncePerFrame` inside
 -- | the passed action.
-oncePerFramePullWithIO :: forall a b. Pull a -> (a -> IOSync b) -> IOSync (Pull b)
+oncePerFramePullWithIO :: forall a b. Pull a -> (a -> Effect b) -> Effect (Pull b)
 oncePerFramePullWithIO action io = do
   ref <- newRef Fresh
   pure $ unsafeMkPull $ \time -> do
@@ -131,8 +131,8 @@ oncePerFramePullWithIO action io = do
         writeRef ref (Cached time value)
         pure value
 
-pull :: forall m a. MonadIOSync m => Pull a -> m a
-pull p = liftIOSync do
+pull :: forall m a. MonadEffect m => Pull a -> m a
+pull p = liftEffect do
   time <- freshTime
   runPull time p
 
@@ -156,10 +156,10 @@ framePull :: forall a. Pull a -> Frame a
 framePull (MkPull x) = Frame (RIO.local _.time x)
 
 frameWriteRef :: forall a. Ref a -> a -> Frame Unit
-frameWriteRef ref value = Frame (liftIOSync (writeRef ref value))
+frameWriteRef ref value = Frame (liftEffect (writeRef ref value))
 
 -- | Schedule an effect to be executed after the Frame completed.
-effect :: IOSync Unit -> Frame Unit
+effect :: Effect Unit -> Frame Unit
 effect action = Frame $ rio $ \{effects} ->
   -- HACK: briefly creating a Pull that is not idempotent;
   -- But it's immediately lifted to Frame, so it's OK
@@ -172,7 +172,7 @@ derive newtype instance bindFrame :: Bind Frame
 derive newtype instance monadFrame :: Monad Frame
 
 -- | Run a Frame computation and then run its effects.
-runFrame :: forall a. Time -> Frame a -> IOSync a
+runFrame :: forall a. Time -> Frame a -> Effect a
 runFrame currentTime (Frame x) = do
   effectsMutable <- emptyDelayed
   value <- runRIO { effects: effectsMutable, time: currentTime } x
@@ -180,21 +180,21 @@ runFrame currentTime (Frame x) = do
   sequenceEffects effects
   pure value
 
-freshTime :: IOSync Time
+freshTime :: Effect Time
 freshTime = do
   time <- readRef nextTimeRef
   writeRef nextTimeRef (case time of Time t -> Time (t + 1))
   pure time
 
 -- | Run a Frame computation with a fresh time value and then run its effects.
-runNextFrame :: forall a. Frame a -> IOSync a
+runNextFrame :: forall a. Frame a -> Effect a
 runNextFrame frame = do
   time <- freshTime
   runFrame time frame
 
 -- | Create a computation that will run the given action at most once during
 -- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
-oncePerFrame_ :: Frame Unit -> IOSync (Frame Unit)
+oncePerFrame_ :: Frame Unit -> Effect (Frame Unit)
 oncePerFrame_ action = do
   ref <- newRef Nothing
   pure $ do
@@ -217,7 +217,7 @@ derive newtype instance eqTime :: Eq Time
 
 -- | The global time counter.
 nextTimeRef :: Ref Time
-nextTimeRef = unsafePerformEff $ runIOSync $ newRef (Time 0)
+nextTimeRef = unsafePerformEffect $ newRef (Time 0)
 
 -------------------------------------------------------------
 
@@ -242,7 +242,7 @@ instance monadBehavior :: Monad Behavior
 -------------------------------------------------------------
 
 type Listener = Frame Unit
-type Unsubscribe = IOSync Unit
+type Unsubscribe = Effect Unit
 
 -- | A source of occurences.
 -- |
@@ -254,7 +254,7 @@ type Unsubscribe = IOSync Unit
 -- | events coincide), but it's not very useful.
 newtype Event a = Event
   { occurence :: Behavior (Maybe a)
-  , subscribe :: Listener -> IOSync Unsubscribe
+  , subscribe :: Listener -> Effect Unsubscribe
   }
 -- We represent an Event with:
 --  - a Behavior that tells whether this Event occurs during a given frame,
@@ -328,12 +328,12 @@ mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
 mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
-subscribeEvent_ :: forall m a. MonadIOSync m => MonadCleanup m => (a -> IOSync Unit) -> Event a -> m Unit
+subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
 subscribeEvent_ = subscribeEvent_Impl
 
-subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadIOSync m => (a -> IOSync Unit) -> Event a -> m Unit
+subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadEffect m => (a -> Effect Unit) -> Event a -> m Unit
 subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
-  unsub <- liftIOSync $ subscribe $ do
+  unsub <- liftEffect $ subscribe $ do
     m_value <- framePull $ readBehavior occurence
     for_ m_value $ \value ->
       effect $ handler value
@@ -341,8 +341,8 @@ subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
-newEvent :: forall m a. MonadIOSync m => m { event :: Event a, fire :: a -> IOSync Unit }
-newEvent = liftIOSync do
+newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effect Unit }
+newEvent = liftEffect do
   occurenceRef <- newRef Nothing
   listenerMap <- UMM.new
   let
@@ -363,13 +363,13 @@ newEvent = liftIOSync do
     }
 
 -- | Create a new Behavior whose value can be modified outside a frame.
-newBehavior :: forall m a. MonadIOSync m => a -> m { behavior :: Behavior a, set :: a -> IOSync Unit }
-newBehavior initialValue = liftIOSync $ newBehaviorIOSync initialValue
+newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
+newBehavior initialValue = liftEffect $ newBehaviorEffect initialValue
 
 foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
 
-newBehaviorIOSync :: forall a. a -> IOSync { behavior :: Behavior a, set :: a -> IOSync Unit }
-newBehaviorIOSync initialValue = do
+newBehaviorEffect :: forall a. a -> Effect { behavior :: Behavior a, set :: a -> Effect Unit }
+newBehaviorEffect initialValue = do
   ref <- newRef initialValue
   pure
     { behavior: Behavior $ pullReadRef ref
@@ -452,11 +452,11 @@ foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynam
 foldDyn = foldDynImpl
 
 foldDynImpl
-  :: forall m a b. MonadCleanup m => MonadIOSync m
+  :: forall m a b. MonadCleanup m => MonadEffect m
   => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 foldDynImpl f initial (Event event) = do
-  ref <- liftIOSync $ newRef initial
-  updateOrReadValue <- liftIOSync $
+  ref <- liftEffect $ newRef initial
+  updateOrReadValue <- liftEffect $
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
       oldValue <- readRef ref
       case m_newValue of
@@ -467,7 +467,7 @@ foldDynImpl f initial (Event event) = do
         Nothing ->
           pure oldValue
 
-  unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
+  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
 
   pure $ Dynamic
@@ -481,11 +481,11 @@ foldDynMaybe :: forall m a b. MonadFRP m => (a -> b -> Maybe b) -> b -> Event a 
 foldDynMaybe = foldDynMaybeImpl
 
 foldDynMaybeImpl
-  :: forall m a b. MonadCleanup m => MonadIOSync m
+  :: forall m a b. MonadCleanup m => MonadEffect m
    => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
 foldDynMaybeImpl f initial (Event event) = do
-  ref <- liftIOSync $ newRef initial
-  (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftIOSync $
+  ref <- liftEffect $ newRef initial
+  (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftEffect $
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
       oldValue <- readRef ref
       case m_newValue of
@@ -495,7 +495,7 @@ foldDynMaybeImpl f initial (Event event) = do
         _ ->
           pure { changing: false, value: oldValue }
 
-  unsub <- liftIOSync $ event.subscribe $ void $ framePull $ updateOrReadValue
+  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
 
   pure $ Dynamic
@@ -539,7 +539,7 @@ switch (Dynamic { value, change: Event change }) = Event
       isDoneRef <- newRef false
 
       let
-        cleanup :: IOSync Unit
+        cleanup :: Effect Unit
         cleanup = join (readRef unsubRef)
 
         replaceWith :: Event a -> Frame Unit
@@ -594,29 +594,29 @@ instance monadDynamic :: Monad Dynamic
 subscribeDyn_
   :: forall m a
    . MonadFRP m
-  => (a -> IOSync Unit)
+  => (a -> Effect Unit)
   -> Dynamic a
   -> m Unit
 subscribeDyn_ handler (Dynamic {value, change}) = do
   currentValue <- pull $ readBehavior value
-  liftIOSync $ handler currentValue
+  liftEffect $ handler currentValue
   subscribeEvent_ handler (mapEventB (\_ -> value) change)
 
 subscribeDyn ::
      forall m a b
    . MonadFRP m
-  => (a -> IOSync b)
+  => (a -> Effect b)
   -> Dynamic a
   -> m (Dynamic b)
 subscribeDyn handler dyn = do
   {event,fire} <- newEvent
   currentValue <- pull $ readBehavior $ current dyn
-  initialResult <- liftIOSync $ handler currentValue
+  initialResult <- liftEffect $ handler currentValue
   subscribeEvent_ (handler >=> fire) $ changed dyn
   holdDyn initialResult event
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
-tagDyn dyn event = sampleAt (id <$ event) (current dyn)
+tagDyn dyn event = sampleAt (identity <$ event) (current dyn)
 
 attachDynWith :: forall a b c. (a -> b -> c) -> Dynamic a -> Event b -> Event c
 attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
@@ -633,8 +633,8 @@ latestJust dyn = do
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
 -- | A "type class alias" for the constraints required by most FRP primitives.
-class (MonadIOSync m, MonadCleanup m) <= MonadFRP m
-instance monadFRP :: (MonadIOSync m, MonadCleanup m) => MonadFRP m
+class (MonadEffect m, MonadCleanup m) <= MonadFRP m
+instance monadFRP :: (MonadEffect m, MonadCleanup m) => MonadFRP m
 
 -- | Flipped `map`.
 -- |
@@ -645,7 +645,7 @@ for :: forall f a b. Functor f => f a -> (a -> b) -> f b
 for = flip map
 
 
-traceEventIO :: forall a. (a -> IOSync Unit) -> Event a -> Event a
+traceEventIO :: forall a. (a -> Effect Unit) -> Event a -> Event a
 traceEventIO handler (Event {occurence, subscribe}) =
   Event
     { occurence
@@ -659,7 +659,7 @@ traceEventIO handler (Event {occurence, subscribe}) =
     }
 
 
-traceDynIO :: forall a. (a -> IOSync Unit) -> Dynamic a -> Dynamic a
+traceDynIO :: forall a. (a -> Effect Unit) -> Dynamic a -> Dynamic a
 traceDynIO handler (Dynamic {value, change}) =
   Dynamic
     { value

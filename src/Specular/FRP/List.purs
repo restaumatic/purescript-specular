@@ -11,8 +11,8 @@ module Specular.FRP.List
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (liftIOSync)
+import Effect (Effect)
+import Effect.Class (liftEffect)
 import Control.Monad.Replace (class MonadReplace, Slot, newSlot, unSlot)
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
@@ -42,7 +42,7 @@ dynamicListWithIndex :: forall m a b
   -> m (Dynamic (Array b))
 dynamicListWithIndex dynArray handler = do
   (latestRef :: Ref (Array (ListEntry m a b)))
-    <- liftIOSync $ newRef []
+    <- liftEffect $ newRef []
 
   mainSlot <- newSlot
   resultChanged <- newEvent
@@ -60,7 +60,7 @@ weakDynamicListWithIndex :: forall m a b
   -> m (WeakDynamic (Array b))
 weakDynamicListWithIndex dynArray handler = do
   (latestRef :: Ref (Array (ListEntry m a b)))
-    <- liftIOSync $ newRef []
+    <- liftEffect $ newRef []
 
   mainSlot <- newSlot
   resultChanged <- newEvent
@@ -72,7 +72,7 @@ weakDynamicListWithIndex dynArray handler = do
 
 type ListEntry m a b =
   { slot :: Slot m
-  , fire :: a -> IOSync Unit
+  , fire :: a -> Effect Unit
   , result :: b }
   
 updateList
@@ -82,7 +82,7 @@ updateList
   -> Slot m                        -- ^ slot to add new entries
   -> (Int -> Dynamic a -> m b)     -- ^ item handler
   -> Array a                       -- ^ new array value
-  -> IOSync (Array b)              -- ^ new resulting array is returned
+  -> Effect (Array b)              -- ^ new resulting array is returned
 updateList latestRef mainSlot handler newArray = do
   latest <- readRef latestRef
   newEntries <- map Array.concat $ flip traverse (Array.range 0 (max (Array.length newArray) (Array.length latest))) $ \i -> do

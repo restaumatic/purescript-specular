@@ -1,5 +1,5 @@
 module Specular.Internal.Effect
-  ( Effect
+  ( module Effect
 
   , Ref
   , newRef
@@ -16,12 +16,7 @@ module Specular.Internal.Effect
 
 import Prelude
 
-import Control.Monad.IO.Effect (INFINITY)
-import Control.Monad.IOSync (IOSync)
-
-type Effect = IOSync
-
-type E = (infinity :: INFINITY)
+import Effect (Effect)
 
 -- effects
 

@@ -23,9 +23,8 @@ module Specular.Dom.Widgets.Input (
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (liftIOSync)
-import Data.Monoid (mempty)
+import Effect (Effect)
+import Effect.Class (liftEffect)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Browser as Browser
@@ -89,7 +88,7 @@ booleanInputView type_ dchecked dattrs = do
   Tuple node _ <- elDynAttr' "input" dattrs' (pure unit)
   domEventWithSample (\_ -> getCheckboxChecked node) "change" node
 
-foreign import getCheckboxChecked :: Node -> IOSync Boolean
+foreign import getCheckboxChecked :: Node -> Effect Boolean
 
 type TextInputConfig =
   { initialValue :: String
@@ -107,7 +106,7 @@ textInput :: forall m. MonadWidget m
   -> m TextInput
 textInput config = do
   Tuple element _ <- elDynAttr' "input" config.attributes (pure unit)
-  liftIOSync $ setTextInputValue element config.initialValue
+  liftEffect $ setTextInputValue element config.initialValue
   subscribeEvent_ (setTextInputValue element) config.setValue
   domChanged <- domEventWithSample (\_ -> getTextInputValue element) "input" element
   value <- holdDyn config.initialValue (leftmost [ domChanged, config.setValue ])
@@ -120,7 +119,7 @@ textInputValueOnChange :: forall m. MonadFRP m
   => TextInput
   -> m (Dynamic String)
 textInputValueOnChange (TextInput {element}) = do
-  initial <- liftIOSync $ getTextInputValue element
+  initial <- liftEffect $ getTextInputValue element
   changed <- domEventWithSample (\_ -> getTextInputValue element) "change" element
   holdDyn initial changed
 
@@ -132,8 +131,8 @@ textInputValueEventOnEnter (TextInput {element,value}) = do
   let enter = void $ filterEvent (_ == "Enter") keypress
   pure $ tagDyn value enter
 
-unsafeEventKey :: Browser.Event -> IOSync String
+unsafeEventKey :: Browser.Event -> Effect String
 unsafeEventKey event = pure (unsafeCoerce event).key
 
-foreign import getTextInputValue :: Node -> IOSync String
-foreign import setTextInputValue :: Node -> String -> IOSync Unit
+foreign import getTextInputValue :: Node -> Effect String
+foreign import setTextInputValue :: Node -> String -> Effect Unit

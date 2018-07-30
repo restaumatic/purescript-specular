@@ -3,15 +3,15 @@ module Control.Monad.Replace where
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup)
-import Control.Monad.IOSync (IOSync)
+import Effect (Effect)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 
 newtype Slot m = Slot (SlotInternal m)
 
 type SlotInternal m =
-  { replace :: forall a. m a -> IOSync a
-  , destroy :: IOSync Unit
-  , append :: IOSync (Slot m)
+  { replace :: forall a. m a -> Effect a
+  , destroy :: Effect Unit
+  , append :: Effect (Slot m)
   }
 
 unSlot :: forall m. Slot m -> SlotInternal m

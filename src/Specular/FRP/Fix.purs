@@ -10,13 +10,13 @@ module Specular.FRP.Fix (
 
 import Prelude
 
-import Data.Record (delete, get, insert)
-import Data.Symbol (SProxy(..))
+import Data.Symbol (class IsSymbol, SProxy(..))
 import Data.Tuple (Tuple(Tuple), snd)
+import Prim.Row as Row
+import Record (delete, get, insert)
 import Specular.FRP.Base (class MonadFRP, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn)
 import Type.Equality (class TypeEquals, to)
-import Type.Prelude (class IsSymbol, class RowLacks)
 import Type.Row (class RowToList, Cons, Nil, RLProxy(..))
 
 fixEvent ::
@@ -69,10 +69,10 @@ instance fixFRPRecordNil :: TypeEquals {} (Record empty) => FixFRPRecord Nil emp
 
 instance fixFRPRecordCons ::
     ( IsSymbol label
-    , RowLacks label tail_ri
-    , RowCons label input tail_ri ri
-    , RowLacks label tail_ro
-    , RowCons label output tail_ro ro
+    , Row.Lacks label tail_ri
+    , Row.Cons label input tail_ri ri
+    , Row.Lacks label tail_ro
+    , Row.Cons label output tail_ro ro
     , FixFRP input output
     , FixFRPRecord tail_ro_list tail_ri tail_ro
     ) => FixFRPRecord (Cons label output tail_ro_list) ri ro where

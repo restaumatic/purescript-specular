@@ -3,13 +3,12 @@ module Specular.Dom.Builder.Class where
 import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
-import Control.Monad.IOSync (IOSync)
-import Control.Monad.IOSync.Class (liftIOSync)
+import Effect (Effect)
+import Effect.Class (liftEffect)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (mempty)
 import Data.Tuple (Tuple, snd)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, Namespace, TagName, addEventListener)
 import Specular.FRP (class MonadFRP, Event, WeakDynamic, newEvent, weakDynamic_)
@@ -94,7 +93,7 @@ domEventWithSample ::
      forall event node m a
    . EventDOM event node
   => MonadFRP m
-  => (event -> IOSync a)
+  => (event -> Effect a)
   -> EventType
   -> node
   -> m (Event a)
@@ -121,10 +120,10 @@ onDomEvent
   => MonadFRP m
   => EventType
   -> node
-  -> (event -> IOSync Unit)
+  -> (event -> Effect Unit)
   -> m Unit
 onDomEvent eventType node handler = do
-  unsub <- liftIOSync $ addEventListener eventType handler node
+  unsub <- liftEffect $ addEventListener eventType handler node
   onCleanup unsub
 
 instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder node (ReaderT r m) where

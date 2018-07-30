@@ -8,7 +8,7 @@ module Specular.Dom.Widgets.Select
 
 import Prelude
 
-import Control.Monad.IOSync.Class (liftIOSync)
+import Effect.Class (liftEffect)
 import Data.Array as Array
 import Data.Foldable (for_)
 import Data.FoldableWithIndex (traverseWithIndex_)
@@ -39,7 +39,7 @@ selectInput :: forall m a. MonadWidget m
 selectInput config = do
   let toOption index value = elAttr "option" ("value" := show index) $ text $ config.display value
   Tuple element _ <- elDynAttr' "select" config.attributes $ traverseWithIndex_ toOption config.options
-  liftIOSync $ setTextInputValue element $ show config.initialValueIndex
+  liftEffect $ setTextInputValue element $ show config.initialValueIndex
   domChanged <- domEventWithSample (\_ -> getTextInputValue element) "change" element
   let
     valueChanged = filterMapEvent (Int.fromString >=> Array.index config.options) domChanged
@@ -68,7 +68,7 @@ selectView config valueD = do
 
   flip subscribeWeakDyn_ valueD $ \value ->
     for_ (Array.findIndex (eq value) config.options) $ \index ->
-      liftIOSync $ setTextInputValue element $ show index
+      liftEffect $ setTextInputValue element $ show index
 
   domChanged <- domEventWithSample (\_ -> getTextInputValue element) "change" element
   pure $ filterMapEvent (Int.fromString >=> Array.index config.options) domChanged

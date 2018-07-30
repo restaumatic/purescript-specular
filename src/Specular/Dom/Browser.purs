@@ -8,10 +8,10 @@ module Specular.Dom.Browser
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync)
+import Effect (Effect)
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Data.StrMap as SM
+import Foreign.Object as Object
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Node.Class (class DOM, class EventDOM, TagName, Namespace)
 
@@ -25,7 +25,7 @@ instance domNode :: DOM Node where
   createElementNS Nothing = createElementImpl
 
   setAttributes node attrs =
-    for_ (SM.toUnfoldable attrs :: Array (Tuple String String)) $ \(Tuple name value) ->
+    for_ (Object.toUnfoldable attrs :: Array (Tuple String String)) $ \(Tuple name value) ->
       setAttributeImpl node name value
 
   removeAttributes = removeAttributesImpl
@@ -41,30 +41,30 @@ instance domNode :: DOM Node where
 
   moveAllBetweenInclusive = moveAllBetweenInclusiveImpl
 
-foreign import createTextNodeImpl :: String -> IOSync Node
-foreign import setTextImpl :: Node -> String -> IOSync Unit
-foreign import createDocumentFragmentImpl :: IOSync Node
-foreign import createElementNSImpl :: Namespace -> TagName -> IOSync Node
-foreign import createElementImpl :: TagName -> IOSync Node
-foreign import setAttributeImpl :: Node -> String -> String -> IOSync Unit
-foreign import removeAttributesImpl :: Node -> Array String -> IOSync Unit
-foreign import parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> IOSync (Maybe Node)
-foreign import insertBeforeImpl :: Node -> Node -> Node -> IOSync Unit
-foreign import appendChildImpl :: Node -> Node -> IOSync Unit
-foreign import removeAllBetweenImpl :: Node -> Node -> IOSync Unit
-foreign import appendRawHtmlImpl :: String -> Node -> IOSync Unit
-foreign import childNodesImpl :: Node -> IOSync (Array Node)
-foreign import moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> IOSync Unit
+foreign import createTextNodeImpl :: String -> Effect Node
+foreign import setTextImpl :: Node -> String -> Effect Unit
+foreign import createDocumentFragmentImpl :: Effect Node
+foreign import createElementNSImpl :: Namespace -> TagName -> Effect Node
+foreign import createElementImpl :: TagName -> Effect Node
+foreign import setAttributeImpl :: Node -> String -> String -> Effect Unit
+foreign import removeAttributesImpl :: Node -> Array String -> Effect Unit
+foreign import parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> Effect (Maybe Node)
+foreign import insertBeforeImpl :: Node -> Node -> Node -> Effect Unit
+foreign import appendChildImpl :: Node -> Node -> Effect Unit
+foreign import removeAllBetweenImpl :: Node -> Node -> Effect Unit
+foreign import appendRawHtmlImpl :: String -> Node -> Effect Unit
+foreign import childNodesImpl :: Node -> Effect (Array Node)
+foreign import moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> Effect Unit
 
 foreign import data Event :: Type
 
 instance eventDomNode :: EventDOM Event Node where
   addEventListener = addEventListenerImpl
 
-foreign import addEventListenerImpl :: String -> (Event -> IOSync Unit) -> Node -> IOSync (IOSync Unit)
+foreign import addEventListenerImpl :: String -> (Event -> Effect Unit) -> Node -> Effect (Effect Unit)
 
 -- | JS `Event.preventDefault()`.
-foreign import preventDefault :: Event -> IOSync Unit
+foreign import preventDefault :: Event -> Effect Unit
 
 -- | Get `innerHTML` of a node.
-foreign import innerHTML :: Node -> IOSync String
+foreign import innerHTML :: Node -> Effect String
