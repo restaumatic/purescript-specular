@@ -28,7 +28,7 @@ jobs:
 
       - run: |
           export PATH=./node_modules/.bin:$PATH
-          yarn install
+          yarn
           npm install bower
           node_modules/.bin/bower install
 
