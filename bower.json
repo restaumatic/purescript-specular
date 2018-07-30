@@ -7,6 +7,10 @@
     "bower_components",
     "output"
   ],
+  "repository": {                                                           
+    "type": "git",                                                          
+    "url": "https://github.com/restaumatic/purescript-specular.git"         
+  },
   "dependencies": {
     "purescript-prelude": "^3.1.1",
     "purescript-console": "^3.0.0",
