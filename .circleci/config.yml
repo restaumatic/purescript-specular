@@ -22,20 +22,18 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-          - v1-dependencies-{{ checksum "package.json" }}
-          # fallback to using the latest cache if no exact match is found
-          - v1-dependencies-
+          - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "bower.json" }}
 
       - run: |
-          export PATH=./node_modules/.bin:$PATH
           yarn
-          npm install bower
-          node_modules/.bin/bower install
+
+          yarn global add bower
+          ~/.yarn/bin/bower install
 
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-{{ checksum "package.json" }}
+          key: v1-dependencies-{{ checksum "package.json" }}}-{{ checksum "bower.json" }}
         
       # run tests!
       - run: |
