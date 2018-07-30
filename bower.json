@@ -1,5 +1,6 @@
 {
   "name": "purescript-specular",
+  "license": "MIT",
   "ignore": [
     "**/.*",
     "node_modules",
