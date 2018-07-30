@@ -1,3 +1,10 @@
+## v0.2.0
+
+- 2018-07-31 **(breaking change)** Updated to PureScript 0.12. This induced some breaking API changes:
+  
+   - Effectful functions now use `Effect` instead of `IOSync`
+   - `Attrs` is now `Foreign.Object`, not `StrMap`
+
 ## Pre-release
 
 - 2018-06-04 `dynamicList`, `dynamicListWithIndex`, `dynamicList_` and
