@@ -5,7 +5,6 @@ import Prelude
 import Bench.Builder (builderTests)
 import Bench.Primitives (dynamicTests, weakDynamicTests)
 import Bench.Types (Tests)
-import Benchmark (fnEff, runBench)
 import Data.List.Lazy (replicateM)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(Tuple))
@@ -14,7 +13,6 @@ import Effect.Console as Console
 
 main :: Effect Unit
 main = do
-  exportBenchmark
   bench builderTests
   bench dynamicTests
   bench weakDynamicTests
@@ -31,10 +29,6 @@ bench tests = do
 
   Console.log "Benchmarking..."
 
-  runBench do
-    for tests' $ \(Tuple name fn) ->
-      fnEff name fn
+  runBenchmark $ map (\(Tuple name fn) -> { name, fn }) tests'
 
--- Something randomly breaks inside the benchmarking library when
--- `window.Benchmark` is not available. This function exports it.
-foreign import exportBenchmark :: Effect Unit
+foreign import runBenchmark :: Array { name :: String, fn :: Effect Unit } -> Effect Unit
