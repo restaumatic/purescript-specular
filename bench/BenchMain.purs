@@ -13,12 +13,14 @@ import Effect.Console as Console
 
 main :: Effect Unit
 main = do
-  bench builderTests
-  bench dynamicTests
-  bench weakDynamicTests
+  bench "Builder" builderTests
+  bench "Dynamic" dynamicTests
+  bench "WeakDynamic" weakDynamicTests
 
-bench :: Tests -> Effect Unit
-bench tests = do
+bench :: String -> Tests -> Effect Unit
+bench name tests = do
+
+  Console.log $ "------ " <> name
 
   Console.log "Warmup..."
 
