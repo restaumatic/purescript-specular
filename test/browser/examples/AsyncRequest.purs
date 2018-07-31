@@ -3,19 +3,14 @@ module Examples.AsyncRequest (spec, mainWidget) where
 import Prelude hiding (append)
 
 import BuilderSpec (newDynamic)
-import Control.Monad.Aff (delay)
-import Control.Monad.Aff.AVar (makeEmptyVar, putVar, takeVar)
-import Control.Monad.Aff.Class (liftAff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (log)
-import Control.Monad.IO (IO)
-import Control.Monad.IOSync.Class (liftIOSync)
-import Specular.Internal.Effect (newRef, readRef, writeRef)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (mempty)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Effect.Aff (Aff, delay)
+import Effect.Aff.AVar as AVar
+import Effect.Class (liftEffect)
+import Effect.Class.Console as Console
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (el, text)
 import Specular.Dom.Widget (class MonadWidget)
@@ -24,60 +19,60 @@ import Specular.FRP (Dynamic, current, pull, readBehavior, weakDynamic_)
 import Specular.FRP.Async (RequestState(Loaded, Loading, NotRequested), asyncRequestMaybe)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
+import Specular.Internal.Effect (newRef, readRef, writeRef)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (ioSync, shouldReturn, yieldAff)
+import Test.Utils (shouldReturn, yieldAff)
 import Test.Utils.Dom (runBuilderInDiv)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = describe "AsyncRequest" $ do
   it "initially renders empty form and empty result" $ do
     Tuple node _ <- runBuilderInDiv (mainWidgetWith instantBackend)
 
-    ioSync (innerHTML node) `shouldReturn`
+    liftEffect (innerHTML node) `shouldReturn`
       ( """<div><label>Input: </label><input></div>""" <>
         """<div></div>"""
       )
 
   describe "logic" $ do
     it "renders request state" $ do
-      avar <- makeEmptyVar
-      let backend = { toUpper: \_ -> liftAff $ takeVar avar }
-      Tuple query setQuery <- ioSync $ newDynamic ""
+      avar <- AVar.empty
+      let backend = { toUpper: \_ -> AVar.take avar }
+      Tuple query setQuery <- liftEffect $ newDynamic ""
 
       Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
-      ioSync (pull $ readBehavior $ current result) `shouldReturn` NotRequested
+      liftEffect (pull $ readBehavior $ current result) `shouldReturn` NotRequested
 
-      ioSync $ setQuery "foo"
+      liftEffect $ setQuery "foo"
       yieldAff
-      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loading
+      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loading
 
-      putVar "FOO" avar
-      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loaded "FOO"
+      AVar.put "FOO" avar
+      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loaded "FOO"
 
     it "always displays the latest request" $ do
-      firstRequest <- makeEmptyVar
-      secondRequest <- makeEmptyVar
-      currentRequestVar <- ioSync $ newRef firstRequest
+      firstRequest <- AVar.empty
+      secondRequest <- AVar.empty
+      currentRequestVar <- liftEffect $ newRef firstRequest
       let backend = { toUpper: \_ -> do
-                        var <- liftIOSync $ readRef currentRequestVar
-                        liftAff $ takeVar var
+                        var <- liftEffect $ readRef currentRequestVar
+                        AVar.take var
                     }
-      Tuple query setQuery <- ioSync $ newDynamic ""
+      Tuple query setQuery <- liftEffect $ newDynamic ""
 
       Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
 
-      ioSync $ setQuery "foo"
-      ioSync $ writeRef currentRequestVar secondRequest
-      ioSync $ setQuery "bar"
+      liftEffect $ setQuery "foo"
+      liftEffect $ writeRef currentRequestVar secondRequest
+      liftEffect $ setQuery "bar"
 
-      putVar "FOO" firstRequest
+      AVar.put "FOO" firstRequest
       yieldAff
-      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loading
+      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loading
 
-      putVar "BAR" secondRequest
+      AVar.put "BAR" secondRequest
       yieldAff
-      ioSync (pull $ readBehavior $ current result) `shouldReturn` Loaded "BAR"
+      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loaded "BAR"
 
 
 instantBackend :: Backend
@@ -87,13 +82,13 @@ slowBackend :: Backend
 slowBackend = { toUpper }
   where
     toUpper s = do
-      liftEff $ log $ "Request started:  " <> show s
-      liftAff $ delay (Milliseconds 1200.0)
-      liftEff $ log $ "Request finished: " <> show s
+      Console.log $ "Request started:  " <> show s
+      delay (Milliseconds 1200.0)
+      Console.log $ "Request finished: " <> show s
       pure (String.toUpper s)
 
 type Backend =
-  { toUpper :: String -> IO String
+  { toUpper :: String -> Aff String
   }
 
 mainWidget :: forall m. MonadWidget m => m Unit

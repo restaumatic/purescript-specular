@@ -14,10 +14,10 @@ module Specular.FRP.WeakDynamic (
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync)
 import Control.Monad.Maybe.Trans (MaybeT(..))
 import Data.Foldable (traverse_)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Effect (Effect)
 import Specular.FRP.Base (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterMapEvent, holdDyn, never, newEvent, subscribeDyn_, switch, uniqDynBy)
 
 -- | A primitive similar to Dynamic. The difference is: while Dynamic always
@@ -48,7 +48,7 @@ weaken = WeakDynamic <<< MaybeT <<< map Just
 
 -- | An Event that fires every time a WeakDynamic changes, with the new value.
 changedW :: forall a. WeakDynamic a -> Event a
-changedW = filterMapEvent id <<< changed <<< unWeakDynamic
+changedW = filterMapEvent identity <<< changed <<< unWeakDynamic
 
 -- | Make a WeakDynamic that will have no value, but will acquire one when the Event fires.
 -- | It will also change every time the Event fires.
@@ -65,7 +65,7 @@ switchWeakDyn (WeakDynamic (MaybeT mdyn)) = switch $ map (fromMaybe never) mdyn
 subscribeWeakDyn_ ::
      forall m a
    . MonadFRP m
-  => (a -> IOSync Unit)
+  => (a -> Effect Unit)
   -> WeakDynamic a
   -> m Unit
 subscribeWeakDyn_ handler (WeakDynamic (MaybeT mdyn)) =
@@ -76,7 +76,7 @@ subscribeWeakDyn_ handler (WeakDynamic (MaybeT mdyn)) =
 subscribeWeakDyn ::
      forall m a b
    . MonadFRP m
-  => (a -> IOSync b)
+  => (a -> Effect b)
   -> WeakDynamic a
   -> m (WeakDynamic b)
 subscribeWeakDyn handler wdyn = do
@@ -87,11 +87,11 @@ subscribeWeakDyn handler wdyn = do
 
 attachWeakDynWith :: forall a b c. (a -> b -> c) -> WeakDynamic a -> Event b -> Event c
 attachWeakDynWith f wdyn event =
-  filterMapEvent id $ attachDynWith (\a b -> f <$> a <*> pure b) (unWeakDynamic wdyn) event
+  filterMapEvent identity $ attachDynWith (\a b -> f <$> a <*> pure b) (unWeakDynamic wdyn) event
 
 tagWeakDyn :: forall a. WeakDynamic a -> Event Unit -> Event a
 tagWeakDyn wdyn event =
-  filterMapEvent id $ attachDynWith (\a b -> a) (unWeakDynamic wdyn) event
+  filterMapEvent identity $ attachDynWith (\a b -> a) (unWeakDynamic wdyn) event
 
 -- | Make a WeakDynamic that only changes value when the input WeakDynamic changes
 -- | value, and the new value is not equal to the previous value with respect to

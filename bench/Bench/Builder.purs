@@ -5,12 +5,10 @@ module Bench.Builder
 import Prelude
 
 import Bench.Types (Tests)
-import Control.Monad.Eff (Eff)
-import Control.Monad.IO.Effect (INFINITY)
-import Control.Monad.IOSync (IOSync, runIOSync')
 import Control.Monad.Reader (runReaderT)
 import Data.List.Lazy (replicateM)
 import Data.Tuple (Tuple(Tuple))
+import Effect (Effect)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (elAttr, text)
 import Specular.Dom.Node.Class (createElement, (:=))
@@ -58,9 +56,9 @@ staticWidgetMonoOptReplicate n =
 foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 
 -- See comments in the FFI module.
-foreign import staticJS :: forall e. Int -> Eff e Unit
-foreign import staticJS_c :: forall e. Int -> Eff e Unit
-foreign import staticJS_m :: forall e. Int -> Eff e Unit
+foreign import staticJS :: Int -> Effect Unit
+foreign import staticJS_c :: Int -> Effect Unit
+foreign import staticJS_m :: Int -> Effect Unit
 
 builderTests :: Tests
 builderTests =
@@ -80,14 +78,14 @@ builderTests =
 
 -- mechanics
 
-runBuilderInDiv' :: forall a. Widget a -> IOSync (T3 Node a (IOSync Unit))
+runBuilderInDiv' :: forall a. Widget a -> Effect (T3 Node a (Effect Unit))
 runBuilderInDiv' widget = do
   parent <- createElement "div"
   Tuple result unsub <- runWidgetInNode parent widget
   pure (T3 parent result unsub)
 
-runWidget :: forall a e. Widget a -> Eff (infinity :: INFINITY | e) Unit
-runWidget w = void $ runIOSync' $ runBuilderInDiv' w
+runWidget :: forall a. Widget a -> Effect Unit
+runWidget w = void $ runBuilderInDiv' w
 
 -- | Identity function, but prevents purs-opt from monomorphizing the widget.
 -- | Used to test the impact of monomorphization on Builder.

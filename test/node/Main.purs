@@ -2,18 +2,18 @@ module Test.Main where
 
 import Prelude
 
-import Control.Monad.Eff (Eff)
-import Test.Spec.Reporter (consoleReporter)
-import Test.Spec.Runner (RunnerEffects, run)
-import UniqueMapMutableSpec as UniqueMapMutableSpec
-import EventSpec as EventSpec
 import DynamicSpec as DynamicSpec
+import Effect (Effect)
+import EventSpec as EventSpec
 import FixSpec as FixSpec
-import WeakDynamicSpec as WeakDynamicSpec
 import RIOSpec as RIOSpec
+import Test.Spec.Reporter (consoleReporter)
+import Test.Spec.Runner (run)
 import TraceSpec as TraceSpec
+import UniqueMapMutableSpec as UniqueMapMutableSpec
+import WeakDynamicSpec as WeakDynamicSpec
 
-main :: Eff (RunnerEffects ()) Unit
+main :: Effect Unit
 main = run [consoleReporter] do
   FixSpec.spec
   EventSpec.spec

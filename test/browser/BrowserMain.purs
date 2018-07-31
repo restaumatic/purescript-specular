@@ -2,20 +2,20 @@ module BrowserMain where
 
 import Prelude
 
+import AsyncSpec as AsyncSpec
 import BuilderSpec as BuilderSpec
-import Control.Monad.Eff (Eff)
+import Effect (Effect)
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
 import Examples.RegistrationForm as RegistrationForm
 import InputWidgetsSpec as InputWidgetsSpec
 import ListSpec as ListSpec
 import RadioGroupSpec as RadioGroupSpec
-import AsyncSpec as AsyncSpec
 import Test.Spec (describe)
 import Test.Spec.Reporter (consoleReporter)
-import Test.Spec.Runner (RunnerEffects, run)
+import Test.Spec.Runner (run)
 
-main :: Eff (RunnerEffects ()) Unit
+main :: Effect Unit
 main = run [consoleReporter] do
   BuilderSpec.spec
   InputWidgetsSpec.spec

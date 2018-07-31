@@ -8,44 +8,43 @@ import Specular.FRP (holdDyn, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.Base (traceDynIO, traceEventIO)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, ioSync, shouldHaveValue, withLeakCheck)
+import Test.Utils (append, liftEffect, shouldHaveValue, withLeakCheck)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = describe "Trace" $ do
 
   describe "event" $ do
     it "some tracing" $ withLeakCheck do
-      {event, fire} <- ioSync newEvent
-      log <- ioSync $ newRef []
+      {event, fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
 
       let event' = traceEventIO (append log <<< show) event
 
-      unsub <- ioSync $ execCleanupT $ subscribeEvent_ (\_ -> pure unit) event'
+      unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (\_ -> pure unit) event'
 
-      ioSync $ fire 1
-      ioSync $ fire 2
-      ioSync $ fire 5
+      liftEffect $ fire 1
+      liftEffect $ fire 2
+      liftEffect $ fire 5
 
       log `shouldHaveValue` ["1", "2", "5"]
 
-      ioSync unsub
+      liftEffect unsub
 
   describe "dynamic" $ do
     it "some tracing" $ withLeakCheck do
-      {event, fire} <- ioSync newEvent
-      log <- ioSync $ newRef []
+      {event, fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
 
-      Tuple dyn unsub1 <- ioSync $ runCleanupT $ holdDyn 0 event
+      Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
       let dyn' = traceDynIO (append log <<< show) dyn
 
-      unsub <- ioSync $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn'
+      unsub <- liftEffect $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn'
 
-      ioSync $ fire 1
-      ioSync $ fire 2
-      ioSync $ fire 5
+      liftEffect $ fire 1
+      liftEffect $ fire 2
+      liftEffect $ fire 5
 
       log `shouldHaveValue` ["1", "2", "5"]
 
-      ioSync unsub
-      ioSync unsub1
+      liftEffect unsub
+      liftEffect unsub1

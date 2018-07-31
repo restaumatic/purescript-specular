@@ -3,7 +3,7 @@ module Examples.RegistrationForm (spec, mainWidget) where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (class MonadCleanup, runCleanupT)
-import Control.Monad.IOSync.Class (class MonadIOSync)
+import Effect.Class (class MonadEffect)
 import Specular.Internal.Effect (newRef)
 import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
@@ -18,16 +18,15 @@ import Specular.FRP.Base (subscribeEvent_)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, ioSync, shouldHaveValue, shouldReturn)
+import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (dispatchTrivialEvent, querySelector, runBuilderInDiv, setInputValueWithChange)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = describe "RegistrationForm" $ do
   it "initially renders empty form" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
 
-    ioSync (innerHTML node) `shouldReturn`
+    liftEffect (innerHTML node) `shouldReturn`
       ( """<div><label>Login: </label><input class="login"></div>""" <>
         """<div><label>Password: </label><input class="password" type="password"></div>""" <>
         """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>""" <>
@@ -37,11 +36,11 @@ spec = describe "RegistrationForm" $ do
   it "reacts to password change" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
 
-    passwordInput <- ioSync $ querySelector ".password" node
-    ioSync $ setInputValueWithChange "foo" passwordInput
+    passwordInput <- liftEffect $ querySelector ".password" node
+    liftEffect $ setInputValueWithChange "foo" passwordInput
 
     -- NB: Input values are not present in innerHTML
-    ioSync (innerHTML node) `shouldReturn`
+    liftEffect (innerHTML node) `shouldReturn`
       ( """<div><label>Login: </label><input class="login"></div>""" <>
         """<div><label>Password: </label><input class="password" type="password"></div>""" <>
         """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>""" <>
@@ -53,20 +52,20 @@ spec = describe "RegistrationForm" $ do
     let showFormResult {login,password} = "login: " <> login <> ", password: " <> password
 
     Tuple node event <- runBuilderInDiv mainWidget
-    log <- ioSync $ newRef []
-    _ <- ioSync $ runCleanupT $ subscribeEvent_ (append log <<< showFormResult) event
+    log <- liftEffect $ newRef []
+    _ <- liftEffect $ runCleanupT $ subscribeEvent_ (append log <<< showFormResult) event
 
 
-    loginInput <- ioSync $ querySelector ".login" node
-    ioSync $ setInputValueWithChange "user" loginInput
+    loginInput <- liftEffect $ querySelector ".login" node
+    liftEffect $ setInputValueWithChange "user" loginInput
 
-    passwordInput <- ioSync $ querySelector ".password" node
-    repeatPasswordInput <- ioSync $ querySelector ".repeat-password" node
-    ioSync $ setInputValueWithChange "hunter2" passwordInput
-    ioSync $ setInputValueWithChange "hunter2" repeatPasswordInput
+    passwordInput <- liftEffect $ querySelector ".password" node
+    repeatPasswordInput <- liftEffect $ querySelector ".repeat-password" node
+    liftEffect $ setInputValueWithChange "hunter2" passwordInput
+    liftEffect $ setInputValueWithChange "hunter2" repeatPasswordInput
 
-    submitButton <- ioSync $ querySelector "button" node
-    ioSync $ dispatchTrivialEvent submitButton "click"
+    submitButton <- liftEffect $ querySelector "button" node
+    liftEffect $ dispatchTrivialEvent submitButton "click"
 
     log `shouldHaveValue` [ "login: user, password: hunter2" ]
     
@@ -119,7 +118,7 @@ view {loginIsTaken, passwordsMatch} = do
 
 control ::
      forall m
-   . MonadIOSync m
+   . MonadEffect m
   => MonadCleanup m
   => { login :: Dynamic String
      , password :: Dynamic String

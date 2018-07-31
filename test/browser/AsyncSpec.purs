@@ -5,30 +5,28 @@ module AsyncSpec where
 import Prelude hiding (append)
 
 import BuilderSpec (newDynamic)
-import Control.Monad.Aff.AVar (makeEmptyVar, putVar, takeVar)
-import Control.Monad.Aff.Class (liftAff)
 import Control.Monad.Cleanup (runCleanupT)
-import Control.Monad.IO (IO)
-import Control.Monad.IOSync.Class (liftIOSync)
-import Specular.Internal.Effect (newRef)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
+import Effect.Aff (Aff)
+import Effect.Aff.AVar as AVar
+import Effect.Class (liftEffect)
 import Specular.FRP (current, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
 import Specular.FRP.Base (readBehavior, subscribeDyn_)
+import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, clear, ioSync, shouldHaveValue, shouldReturn, yieldAff)
+import Test.Utils (append, clear, shouldHaveValue, shouldReturn, yieldAff)
 import Test.Utils.Dom (runBuilderInDiv)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = do
   describe "asyncRequestMaybe" $ do
     it "makes a request for initial value" $ do
-      avar <- makeEmptyVar
-      log <- ioSync $ newRef []
+      avar <- AVar.empty
+      log <- liftEffect $ newRef []
 
-      let request = liftAff $ takeVar avar
+      let request =  AVar.take avar
 
       _ <- runBuilderInDiv $ do
         result <- asyncRequestMaybe $ pure $ Just request
@@ -37,17 +35,17 @@ spec = do
       log `shouldHaveValue` [Loading]
 
       clear log
-      putVar "result" avar
+      AVar.put "result" avar
       yieldAff
       log `shouldHaveValue` [Loaded "result"]
 
     it "makes a request when the value changes" $ do
-      avar <- makeEmptyVar
-      log <- ioSync $ newRef []
+      avar <- AVar.empty
+      log <- liftEffect $ newRef []
 
-      let request = liftAff $ takeVar avar
+      let request =  AVar.take avar
 
-      Tuple dyn setDyn <- ioSync $ newDynamic Nothing
+      Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
       _ <- runBuilderInDiv $ do
         result <- asyncRequestMaybe dyn
@@ -56,20 +54,20 @@ spec = do
       log `shouldHaveValue` [NotRequested]
 
       clear log
-      ioSync $ setDyn (Just request)
+      liftEffect $ setDyn (Just request)
       log `shouldHaveValue` [Loading]
 
       clear log
-      putVar "result" avar
+      AVar.put "result" avar
       yieldAff
       log `shouldHaveValue` [Loaded "result"]
 
     it "ignores responses to requests older than the current" $ do
-      avar1 <- makeEmptyVar
-      avar2 <- makeEmptyVar
-      log <- ioSync $ newRef []
+      avar1 <- AVar.empty
+      avar2 <- AVar.empty
+      log <- liftEffect $ newRef []
 
-      Tuple dyn setDyn <- ioSync $ newDynamic Nothing
+      Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
       _ <- runBuilderInDiv $ do
         result <- asyncRequestMaybe dyn
@@ -78,40 +76,40 @@ spec = do
       log `shouldHaveValue` [NotRequested]
 
       clear log
-      ioSync $ setDyn $ Just $ liftAff $ takeVar avar1
-      ioSync $ setDyn $ Just $ liftAff $ takeVar avar2
+      liftEffect $ setDyn $ Just $  AVar.take avar1
+      liftEffect $ setDyn $ Just $  AVar.take avar2
       log `shouldHaveValue` [Loading, Loading]
 
       clear log
-      putVar "result1" avar1
+      AVar.put "result1" avar1
       log `shouldHaveValue` [] -- should be ignored, as new request is going on
 
       clear log
-      putVar "result2" avar2
+      AVar.put "result2" avar2
       yieldAff
       log `shouldHaveValue` [Loaded "result2"]
 
     it "ignores out-of-order responses" $ do
-      avar1 <- makeEmptyVar
-      avar2 <- makeEmptyVar
-      log <- ioSync $ newRef []
+      avar1 <- AVar.empty
+      avar2 <- AVar.empty
+      log <- liftEffect $ newRef []
 
-      Tuple dyn setDyn <- ioSync $ newDynamic Nothing
+      Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
       _ <- runBuilderInDiv $ do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
 
-      ioSync $ setDyn $ Just $ liftAff $ takeVar avar1
-      ioSync $ setDyn $ Just $ liftAff $ takeVar avar2
+      liftEffect $ setDyn $ Just $  AVar.take avar1
+      liftEffect $ setDyn $ Just $  AVar.take avar2
 
       clear log
-      putVar "result2" avar2
+      AVar.put "result2" avar2
       yieldAff
       log `shouldHaveValue` [Loaded "result2"]
 
       clear log
-      putVar "result1" avar1
+      AVar.put "result1" avar1
       log `shouldHaveValue` [] -- should be ignored, as this request was replaced by avar2
 
     it "request dynamic and status dynamic are consistent" $ do
@@ -125,18 +123,18 @@ spec = do
       -- A naive implementation would expose intermediate states where these
       -- invariants don't hold. This test checks for this.
 
-      avar <- makeEmptyVar
+      avar <- AVar.empty
 
-      -- In `dyn` we'll store pairs of (String, IO String).
+      -- In `dyn` we'll store pairs of (String, Aff String).
       -- The first string is a description, and goes to the log;
       -- the action is the request.
-      Tuple dyn setDyn <- ioSync $ newDynamic $ Tuple "Nothing" (Nothing :: Maybe (IO String))
+      Tuple dyn setDyn <- liftEffect $ newDynamic $ Tuple "Nothing" (Nothing :: Maybe (Aff String))
 
-      let readDyn = ioSync <<< pull <<< readBehavior <<< current
+      let readDyn = liftEffect <<< pull <<< readBehavior <<< current
 
       -- In `log` we'll have pairs of (String, String)
       -- The first String is the request description, the second is the result.
-      log <- ioSync $ newRef []
+      log <- liftEffect $ newRef []
 
       Tuple _ result <- runBuilderInDiv $ do
         status <- asyncRequestMaybe $ map snd dyn
@@ -149,41 +147,41 @@ spec = do
 
       -- Test with immediately executed action
       clear log
-      ioSync $ setDyn $ Tuple "pure A" $ Just $ pure "A"
+      liftEffect $ setDyn $ Tuple "pure A" $ Just $ pure "A"
       yieldAff
       log `shouldHaveValue` [Tuple "pure A" Loading, Tuple "pure A" (Loaded "A")]
       readDyn result `shouldReturn` Tuple "pure A" (Loaded "A")
 
       -- Test with asynchronous action
       clear log
-      ioSync $ setDyn $ Tuple "async B" $ Just $ liftAff $ takeVar avar
+      liftEffect $ setDyn $ Tuple "async B" $ Just $  AVar.take avar
       log `shouldHaveValue` [Tuple "async B" Loading]
       readDyn result `shouldReturn` Tuple "async B" Loading
 
       clear log
-      putVar "B" avar
+      AVar.put "B" avar
       yieldAff
       log `shouldHaveValue` [Tuple "async B" (Loaded "B")]
       readDyn result `shouldReturn` Tuple "async B" (Loaded "B")
 
       -- Test with change to Nothing
       clear log
-      ioSync $ setDyn $ Tuple "Nothing again" Nothing
+      liftEffect $ setDyn $ Tuple "Nothing again" Nothing
       log `shouldHaveValue` [Tuple "Nothing again" NotRequested]
       readDyn result `shouldReturn` Tuple "Nothing again" NotRequested
 
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
-      {event,fire} <- ioSync newEvent
-      log <- ioSync $ newRef []
-      _ <- ioSync $ runCleanupT $ do
+      {event,fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
+      _ <- liftEffect $ runCleanupT $ do
         result <- performEvent $ map
-          (\x -> liftIOSync (append log ("handler:" <> x)) *> pure x)
+          (\x -> liftEffect (append log ("handler:" <> x)) *> pure x)
           event
         subscribeEvent_ (\x -> append log $ "result:" <> x) result
 
-      ioSync $ fire "A"
-      ioSync $ fire "B"
+      liftEffect $ fire "A"
+      liftEffect $ fire "B"
 
       log `shouldHaveValue` ["handler:A", "result:A", "handler:B", "result:B"]
 

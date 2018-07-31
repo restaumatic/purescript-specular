@@ -2,15 +2,15 @@ module Specular.Dom.Node.Class where
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync)
+import Effect (Effect)
 import Data.Maybe (Maybe(..))
-import Data.StrMap (StrMap)
-import Data.StrMap as StrMap
+import Foreign.Object (Object)
+import Foreign.Object as Object
 
-type Attrs = StrMap String
+type Attrs = Object String
 
 -- | Convenient syntax for building Attrs
-infix 8 StrMap.singleton as :=
+infix 8 Object.singleton as :=
 
 type TagName = String
 
@@ -18,30 +18,30 @@ type TagName = String
 type Namespace = String
 
 class DOM node where
-  createTextNode :: String -> IOSync node
-  setText :: node -> String -> IOSync Unit
+  createTextNode :: String -> Effect node
+  setText :: node -> String -> Effect Unit
 
-  createDocumentFragment :: IOSync node
+  createDocumentFragment :: Effect node
 
   -- | Create an element, optionally with namespace.
-  createElementNS :: Maybe Namespace -> TagName -> IOSync node
+  createElementNS :: Maybe Namespace -> TagName -> Effect node
 
-  setAttributes :: node -> Attrs -> IOSync Unit
-  removeAttributes :: node -> Array String -> IOSync Unit
+  setAttributes :: node -> Attrs -> Effect Unit
+  removeAttributes :: node -> Array String -> Effect Unit
 
   -- | Return parent node of the node,
   -- | or Nothing if it has been detached.
-  parentNode :: node -> IOSync (Maybe node)
+  parentNode :: node -> Effect (Maybe node)
 
   -- | `insertBefore newNode nodeAfter parent`
   -- | Insert `newNode` before `nodeAfter` in `parent`
-  insertBefore :: node -> node -> node -> IOSync Unit
+  insertBefore :: node -> node -> node -> Effect Unit
 
   -- | `appendChild newNode parent`
-  appendChild :: node -> node -> IOSync Unit
+  appendChild :: node -> node -> Effect Unit
 
   -- | Append a chunk of raw HTML to the end of the node.
-  appendRawHtml :: String -> node -> IOSync Unit
+  appendRawHtml :: String -> node -> Effect Unit
 
   -- | `removeAllBetween from to`
   -- |
@@ -50,7 +50,7 @@ class DOM node where
   -- |
   -- | Assumes that `from` and `to` have the same parent,
   -- | and `from` is before `to`.
-  removeAllBetween :: node -> node -> IOSync Unit
+  removeAllBetween :: node -> node -> Effect Unit
 
   -- | `moveAllBetweenInclusive from to parent`
   -- |
@@ -59,15 +59,15 @@ class DOM node where
   -- |
   -- | Assumes that `from` and `to` have the same parent,
   -- | and `from` is before `to`.
-  moveAllBetweenInclusive :: node -> node -> node -> IOSync Unit
+  moveAllBetweenInclusive :: node -> node -> node -> Effect Unit
 
-  childNodes :: node -> IOSync (Array node)
+  childNodes :: node -> Effect (Array node)
 
 type EventType = String
 
 class DOM node <= EventDOM event node | node -> event where
   -- | Register an event listener. Returns unregister action.
-  addEventListener :: EventType -> (event -> IOSync Unit) -> node -> IOSync (IOSync Unit)
+  addEventListener :: EventType -> (event -> Effect Unit) -> node -> Effect (Effect Unit)
 
-createElement :: forall node. DOM node => TagName -> IOSync node
+createElement :: forall node. DOM node => TagName -> Effect node
 createElement = createElementNS Nothing

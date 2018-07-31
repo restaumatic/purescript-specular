@@ -8,17 +8,17 @@
     "node-test-w": "pulp -w test",
     "browser-test": "pulp test --main BrowserMain --runtime phantomjs",
     "browser-test-w": "pulp -w test --main BrowserMain --runtime phantomjs",
-    "test": "npm run node-test && npm run browser-test",
+    "test": "pulp --version && yarn run node-test && yarn run browser-test",
     "build-demo": "pulp browserify -O -I test --main DemoMain --to output/demo.js",
-    "build-bench": "pulp browserify -O -I test --main BenchMain --to output/benchmark.js",
-    "build-bench-w": "pulp -w browserify -O -I test --main BenchMain --to output/benchmark.js"
+    "build-bench": "pulp browserify -O -I test:bench --main BenchMain --to output/benchmark.js",
+    "build-bench-w": "pulp -w browserify -O -I test:bench --main BenchMain --to output/benchmark.js"
   },
   "author": "Maciej Bielecki <zyla@prati.pl>",
   "license": "MIT",
   "devDependencies": {
     "benchmark": "^2.1.4",
     "phantomjs-prebuilt": "^2.1.16",
-    "pulp": "^12.0.1",
-    "purescript": "^0.11.7"
+    "pulp": "12.2.0",
+    "purescript": "0.12.0"
   }
 }

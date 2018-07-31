@@ -2,17 +2,14 @@ module DemoMain where
 
 import Prelude
 
-import Control.Monad.Eff (Eff)
-import Control.Monad.IO.Effect (INFINITY)
-import Control.Monad.IOSync (runIOSync)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (mempty)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
+import Effect (Effect)
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
-import Examples.RegistrationForm as RegistrationForm
 import Examples.Radio as Radio
+import Examples.RegistrationForm as RegistrationForm
 import Specular.Dom.Builder.Class (el, text)
 import Specular.Dom.Widget (class MonadWidget, runMainWidgetInBody)
 import Specular.Dom.Widgets.Button (buttonOnClick)
@@ -58,5 +55,5 @@ mainWidget = fixFRP $ \view -> do
 
   pure (Tuple {currentDemo} unit)
 
-main :: Eff (infinity :: INFINITY) Unit
-main = runIOSync $ runMainWidgetInBody mainWidget
+main :: Effect Unit
+main = runMainWidgetInBody mainWidget

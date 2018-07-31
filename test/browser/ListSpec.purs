@@ -15,17 +15,16 @@ import Specular.FRP.WeakDynamic (attachWeakDynWith)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
-import Test.Spec.Runner (RunnerEffects)
-import Test.Utils (append, ioSync, shouldHaveValue)
+import Test.Utils (append, liftEffect, shouldHaveValue)
 import Test.Utils.Dom (runBuilderInDiv)
 
-spec :: forall eff. Spec (RunnerEffects eff) Unit
+spec :: Spec Unit
 spec = do
   describe "weakDynamicList_" $ do
     it "builds and updates DOM correctly" $ do
       let states = [[1], [], [1,2,3,4], [2,3,4], [2]]
 
-      Tuple dyn fire <- ioSync $ newDynamic []
+      Tuple dyn fire <- liftEffect $ newDynamic []
       let wdyn = weaken dyn
 
       Tuple node1 _ <- runBuilderInDiv $
@@ -38,16 +37,16 @@ spec = do
           el "p" $ dynText $ map show item
 
       for_ states $ \state -> do
-        ioSync (fire state)
-        html1 <- ioSync (innerHTML node1)
-        html2 <- ioSync (innerHTML node2)
+        liftEffect (fire state)
+        html1 <- liftEffect (innerHTML node1)
+        html2 <- liftEffect (innerHTML node2)
         html1 `shouldEqual` html2 
 
   describe "dynamicList_" $ do
     it "builds and updates DOM correctly" $ do
       let states = [[1], [], [1,2,3,4], [2,3,4], [2]]
 
-      Tuple dyn fire <- ioSync $ newDynamic []
+      Tuple dyn fire <- liftEffect $ newDynamic []
 
       Tuple node1 _ <- runBuilderInDiv $
         dynamic_ $ for dyn $ \array ->
@@ -59,19 +58,19 @@ spec = do
           el "p" $ dynText $ weaken $ map show item
 
       for_ states $ \state -> do
-        ioSync (fire state)
-        html1 <- ioSync (innerHTML node1)
-        html2 <- ioSync (innerHTML node2)
+        liftEffect (fire state)
+        html1 <- liftEffect (innerHTML node1)
+        html2 <- liftEffect (innerHTML node2)
         html1 `shouldEqual` html2 
 
   describe "weakDynamicList" $ do
     it "updates return value if input changes" $ do
       let states = [[1], [], [1,2,3,4], [2,3,4], [2]]
 
-      Tuple dyn fire <- ioSync $ newDynamic []
+      Tuple dyn fire <- liftEffect $ newDynamic []
       let wdyn = weaken dyn
 
-      log <- ioSync $ newRef []
+      log <- liftEffect $ newRef []
 
       _ <- runBuilderInDiv do
         resultDyn <- weakDynamicList wdyn pure
@@ -81,6 +80,6 @@ spec = do
             -- individual array elements
           changedW resultDyn
 
-      traverse_ (ioSync <<< fire) states
+      traverse_ (liftEffect <<< fire) states
 
       log `shouldHaveValue` states

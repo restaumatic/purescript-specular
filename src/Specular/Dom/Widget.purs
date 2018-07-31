@@ -9,7 +9,7 @@ module Specular.Dom.Widget (
 
 import Prelude
 
-import Control.Monad.IOSync (IOSync)
+import Effect (Effect)
 import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
 import Specular.Dom.Browser (Node)
@@ -20,20 +20,20 @@ import Specular.FRP (class MonadFRP)
 type Widget = Builder Node
 
 -- | Runs a widget in the specified parent element. Returns the result and cleanup action.
-runWidgetInNode :: forall a. Node -> Widget a -> IOSync (Tuple a (IOSync Unit))
+runWidgetInNode :: forall a. Node -> Widget a -> Effect (Tuple a (Effect Unit))
 runWidgetInNode parent widget = runBuilder parent widget
 
 -- | Runs a widget in the specified parent element and discards cleanup action.
-runMainWidgetInNode :: forall a. Node -> Widget a -> IOSync a
+runMainWidgetInNode :: forall a. Node -> Widget a -> Effect a
 runMainWidgetInNode parent widget = fst <$> runWidgetInNode parent widget
 
 -- | Runs a widget in `document.body` and discards cleanup action.
-runMainWidgetInBody :: forall a. Widget a -> IOSync a
+runMainWidgetInBody :: forall a. Widget a -> Effect a
 runMainWidgetInBody widget = do
   body <- documentBody
   runMainWidgetInNode body widget
 
-foreign import documentBody :: IOSync Node
+foreign import documentBody :: Effect Node
 
 -- A handy alias for all the typeclasses you'll need
 class (MonadDomBuilder Node m, MonadFRP m, MonadReplace m, MonadDetach m) <= MonadWidget m
