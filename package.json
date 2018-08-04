@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "postinstall": "bower install",
     "node-test": "pulp test",
     "node-test-w": "pulp -w test",
     "browser-test": "pulp test --main BrowserMain --runtime phantomjs",
@@ -17,6 +18,7 @@
   "license": "MIT",
   "devDependencies": {
     "benchmark": "^2.1.4",
+    "bower": "^1.8.4",
     "phantomjs-prebuilt": "^2.1.16",
     "pulp": "12.2.0",
     "purescript": "0.12.0"
