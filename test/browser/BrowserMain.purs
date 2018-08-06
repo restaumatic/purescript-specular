@@ -2,7 +2,6 @@ module BrowserMain where
 
 import Prelude
 
-import AsyncSpec as AsyncSpec
 import BuilderSpec as BuilderSpec
 import Effect (Effect)
 import Examples.AsyncRequest as AsyncRequest
@@ -21,7 +20,6 @@ main = run [consoleReporter] do
   InputWidgetsSpec.spec
   ListSpec.spec
   RadioGroupSpec.spec
-  AsyncSpec.spec
 
   describe "example apps" $ do
     Counter.spec

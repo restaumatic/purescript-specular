@@ -2,6 +2,7 @@ module Test.Main where
 
 import Prelude
 
+import AsyncSpec as AsyncSpec
 import DynamicSpec as DynamicSpec
 import Effect (Effect)
 import EventSpec as EventSpec
@@ -22,3 +23,4 @@ main = run [consoleReporter] do
   WeakDynamicSpec.spec
   RIOSpec.spec
   TraceSpec.spec
+  AsyncSpec.spec

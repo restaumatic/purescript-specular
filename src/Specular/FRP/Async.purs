@@ -13,15 +13,15 @@ module Specular.FRP.Async
 import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
-import Control.Monad.Replace (class MonadReplace)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (Aff, delay, error, killFiber, launchAff, launchAff_)
 import Effect.Class (class MonadEffect, liftEffect)
-import Specular.FRP (class MonadFRP, Dynamic, Event, changed, current, dynamic_, holdDyn, leftmost, newEvent, pull)
+import Specular.FRP (class MonadFRP, Dynamic, Event, changed, current, holdDyn, leftmost, newEvent, pull, subscribeDyn_)
 import Specular.FRP.Base (readBehavior, subscribeEvent_)
+import Specular.Internal.Effect (newRef, writeRef, readRef)
 
 -- | Start an asynchronous Aff computation. It will be cancelled on cleanup.
 startAff :: forall m. MonadFRP m => Aff Unit -> m Unit
@@ -54,25 +54,33 @@ fromLoaded _ = Nothing
 asyncRequestMaybe :: forall m a
    . MonadEffect m
   => MonadFRP m
-  => MonadReplace m
   => Dynamic (Maybe (Aff a))
   -> m (Dynamic (RequestState a))
 asyncRequestMaybe dquery = do
   loadStateChanged <- newEvent
+  cancelCurrentRef <- liftEffect $ newRef (pure unit)
 
-  dynamic_ $ flip map dquery $ \mquery ->
-    case mquery of
-      Nothing ->
-        pure unit
-      Just query ->
-        startAff $ do
+  let
+    update m_query = do
+      cancelCurrent <- readRef cancelCurrentRef
+      cancelCurrent
 
-          -- FIXME: very hacky workaround for
-          -- https://github.com/restaumatic/purescript-specular/issues/10
-          yieldAff
+      case m_query of
+        Nothing ->
+          writeRef cancelCurrentRef (pure unit)
+        Just query -> do
+          fiber <- launchAff $ runAndUpdateResult query
+          writeRef cancelCurrentRef $ launchAff_ $ killFiber (error "Cancelled") fiber
 
-          value <- query
-          liftEffect $ loadStateChanged.fire (Loaded value)
+    runAndUpdateResult query = do
+      -- FIXME: very hacky workaround for
+      -- https://github.com/restaumatic/purescript-specular/issues/10
+      yieldAff
+
+      value <- query
+      liftEffect $ loadStateChanged.fire (Loaded value)
+
+  subscribeDyn_ update dquery
 
   let
     -- Status when the request starts.
@@ -97,7 +105,6 @@ yieldAff = delay (Milliseconds 0.0)
 asyncRequest :: forall m a
    . MonadEffect m
   => MonadFRP m
-  => MonadReplace m
   => Dynamic (Aff a)
   -> m (Dynamic (RequestState a))
 asyncRequest dquery = asyncRequestMaybe (map Just dquery)
