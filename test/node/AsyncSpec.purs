@@ -1,11 +1,9 @@
--- NB: this module is in browser tests, not node tests, because `asyncRequest`
--- requires MonadWidget. This should change in the future.
 module AsyncSpec where
 
 import Prelude hiding (append)
 
 import BuilderSpec (newDynamic)
-import Control.Monad.Cleanup (runCleanupT)
+import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect.Aff (Aff)
@@ -17,7 +15,6 @@ import Specular.FRP.Base (readBehavior, subscribeDyn_)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, shouldHaveValue, shouldReturn, yieldAff)
-import Test.Utils.Dom (runBuilderInDiv)
 
 spec :: Spec Unit
 spec = do
@@ -28,7 +25,7 @@ spec = do
 
       let request =  AVar.take avar
 
-      _ <- runBuilderInDiv $ do
+      _ <- execCleanupT do
         result <- asyncRequestMaybe $ pure $ Just request
         subscribeDyn_ (append log) result
 
@@ -47,7 +44,7 @@ spec = do
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
-      _ <- runBuilderInDiv $ do
+      _ <- execCleanupT do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
 
@@ -69,7 +66,7 @@ spec = do
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
-      _ <- runBuilderInDiv $ do
+      _ <- execCleanupT do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
 
@@ -96,7 +93,7 @@ spec = do
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
-      _ <- runBuilderInDiv $ do
+      _ <- execCleanupT do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
 
@@ -136,7 +133,7 @@ spec = do
       -- The first String is the request description, the second is the result.
       log <- liftEffect $ newRef []
 
-      Tuple _ result <- runBuilderInDiv $ do
+      Tuple result _ <- runCleanupT do
         status <- asyncRequestMaybe $ map snd dyn
         let result = Tuple <$> map fst dyn <*> status
         subscribeDyn_ (append log) $ result
