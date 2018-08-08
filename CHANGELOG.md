@@ -1,5 +1,7 @@
 ## v0.2.0
 
+- 2018-08-08 `Debug.Specular` renamed to `Specular.Debug` (issue #30).
+
 - 2018-08-08 `asyncRequest` and `asyncRequestMaybe` no longer require `MonadReplace` constraint.
 
 - 2018-07-31 **(breaking change)** Updated to PureScript 0.12. This induced some breaking API changes:
