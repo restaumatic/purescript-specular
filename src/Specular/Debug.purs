@@ -1,4 +1,4 @@
-module Debug.Specular
+module Specular.Debug
   ( traceEventWith
   , traceEvent
   , traceDynWith
