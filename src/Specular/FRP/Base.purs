@@ -50,10 +50,12 @@ module Specular.FRP.Base (
 
 import Prelude
 
+import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask)
 import Data.Array as Array
 import Data.Foldable (for_)
+import Data.HeytingAlgebra (ff, implies, tt)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
@@ -667,3 +669,14 @@ traceDynIO handler (Dynamic {value, change}) =
           <<< traceEventIO handler
           <<< filterMapEventB (\_ -> Just <$> value) $ change
     }
+
+--- Lifted instances
+
+-- | This instance allows use of the Boolean operators `(||)` and `(&&)` directly on `Dynamic Bool`.
+instance heytingAlgebraDynamic :: HeytingAlgebra a => HeytingAlgebra (Dynamic a) where
+  tt = pure tt
+  ff = pure ff
+  implies = lift2 implies
+  conj = lift2 conj
+  disj = lift2 disj
+  not = map not
