@@ -1,5 +1,7 @@
 ## v0.2.0
 
+- 2018-08-30 Added HeytingAlgebra instance for Dynamic that just lifts the operations via Applicative.
+
 - 2018-08-08 `Debug.Specular` renamed to `Specular.Debug` (issue #30).
 
 - 2018-08-08 `asyncRequest` and `asyncRequestMaybe` no longer require `MonadReplace` constraint.
