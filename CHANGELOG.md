@@ -1,3 +1,7 @@
+## Next
+
+- 2018-09-04 Added lifted Semigroup and Monoid instances for Builder, and a constraint `Monoid (m Unit)` to MonadWidget.
+
 ## v0.2.0
 
 - 2018-08-08 `Debug.Specular` renamed to `Specular.Debug` (issue #30).
