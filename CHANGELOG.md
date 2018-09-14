@@ -1,3 +1,7 @@
+## Next release
+
+- 2018-09-14 `RequestState` now has a `Functor` instance.
+
 ## v0.2.0
 
 - 2018-08-30 Added HeytingAlgebra instance for Dynamic that just lifts the operations via Applicative.
