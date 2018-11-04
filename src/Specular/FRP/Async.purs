@@ -33,6 +33,7 @@ data RequestState a = NotRequested | Loading | Loaded a
 
 derive instance eqRequestState :: Eq a => Eq (RequestState a)
 derive instance genericRequestState :: Generic (RequestState a) _
+derive instance functorRequestState :: Functor RequestState
 
 instance showRequestState :: Show a => Show (RequestState a) where
   show = genericShow

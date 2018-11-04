@@ -1,8 +1,11 @@
-## Next
+## Next release
 
+- 2018-09-14 `RequestState` now has a `Functor` instance.
 - 2018-09-04 Added lifted Semigroup and Monoid instances for Builder, and a constraint `Monoid (m Unit)` to MonadWidget.
 
 ## v0.2.0
+
+- 2018-08-30 Added HeytingAlgebra instance for Dynamic that just lifts the operations via Applicative.
 
 - 2018-08-08 `Debug.Specular` renamed to `Specular.Debug` (issue #30).
 
