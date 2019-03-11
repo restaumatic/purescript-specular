@@ -1,0 +1,22 @@
+{
+  "name": "purescript-specular",
+  "set": "psc-0.12.0",
+  "source": "https://github.com/purescript/package-sets.git",
+  "depends": [
+    "prelude",
+    "aff",
+    "typelevel-prelude",
+    "record",
+    "unsafe-reference",
+    "random",
+    "generics-rep",
+    "debug",
+    "foreign-object",
+    "avar",
+
+    "psci-support",
+    "console",
+    "spec",
+    "foreign"
+  ]
+}
