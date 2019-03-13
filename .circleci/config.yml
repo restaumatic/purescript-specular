@@ -31,7 +31,7 @@ jobs:
           paths:
             - node_modules
             - .psc-package
-          key: v1-dependencies-{{ checksum "package.json" }}}-{{ checksum "psc-package.json" }}
+          key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "psc-package.json" }}
         
       # run tests!
       - run: |
