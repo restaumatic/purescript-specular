@@ -6,11 +6,13 @@ import Prelude
 
 import Bench.Types (Tests)
 import Control.Monad.Reader (runReaderT)
+import Data.Array (replicate)
 import Data.List.Lazy (replicateM)
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (elAttr, text)
+import Specular.Dom.Element as E
 import Specular.Dom.Node.Class (createElement, (:=))
 import Specular.Dom.Widget (class MonadWidget, Widget, runWidgetInNode)
 import Test.Utils.Dom (T3(T3))
@@ -55,6 +57,17 @@ staticWidgetMonoOptReplicate n =
 
 foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 
+staticWidgetNewApi :: Int -> Widget Unit
+staticWidgetNewApi n =
+  replicateM_Widget_ n $
+    E.el "div" [E.attr ("class" := "foo")] do
+      E.el "div" [E.attr ("class" := "bar")] do
+        text "foo"
+      E.el "div" [E.attr ("class" := "baz")] do
+        text "foo"
+      E.el "div" [E.attr ("class" := "thud")] do
+        text "foo"
+
 -- See comments in the FFI module.
 foreign import staticJS :: Int -> Effect Unit
 foreign import staticJS_c :: Int -> Effect Unit
@@ -62,18 +75,27 @@ foreign import staticJS_m :: Int -> Effect Unit
 
 builderTests :: Tests
 builderTests =
+  {-
   [ Tuple "js 10" (pure $ staticJS 10)
   , Tuple "js_c 10" (pure $ staticJS_c 10)
   , Tuple "js_m 10" (pure $ staticJS_m 10)
   , Tuple "static mono 10" (pure $ runWidget $ staticWidgetMono 10)
   , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
-  , Tuple "static opt replicateM_" (pure $ runWidget $ staticWidgetMonoOptReplicate 10)
-  , Tuple "static ReaderT 10"
+  ]-}
+
+  join $ replicate 5 $
+  [ Tuple "static opt replicateM_" (pure $ runWidget $ staticWidgetMonoOptReplicate 10)
+  , Tuple "static new element api" (pure $ runWidget $ staticWidgetNewApi 10)
+  ]
+
+{-
+  [ Tuple "static ReaderT 10"
       (pure $ runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
   , Tuple "static 2x ReaderT 10"
       (pure $ runWidget $ deoptimizeWidget
         (flip runReaderT unit $ flip runReaderT unit $ staticWidget 10))
   ]
+-}
 
 
 -- mechanics
