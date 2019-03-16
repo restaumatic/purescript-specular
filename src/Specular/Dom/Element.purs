@@ -5,9 +5,9 @@ import Prelude
 import Control.Monad.Cleanup (runCleanupT')
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
-import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn2)
+import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as Object
-import Specular.Dom.Browser (Node)
+import Specular.Dom.Browser (Node, createElementImpl)
 import Specular.Dom.Builder.Class (liftBuilderWithRun)
 import Specular.Dom.Node.Class (Attrs, TagName, createElementNS, removeAttributes, setAttributes)
 import Specular.Dom.Widget (class MonadWidget)
@@ -18,7 +18,7 @@ newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
 el :: forall m a. MonadWidget m => TagName -> Array Prop -> m a -> m a
 el tagName props body = liftBuilderWithRun $ mkEffectFn2 \env run -> do
-  node <- createElementNS Nothing tagName
+  node <- runEffectFn1 createElementImpl tagName
   runEffectFn2 foreachEFn props $ mkEffectFn1 \(Prop prop) ->
     runEffectFn2 prop node env.cleanup
   runEffectFn2 run (env { parent = node }) body

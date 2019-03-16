@@ -21,11 +21,9 @@ exports.createDocumentFragmentImpl = function() {
   return document.createDocumentFragment();
 };
 
-// createElementImpl :: TagName -> IOSync Node
+// createElementImpl :: EffectFn1 TagName Node
 exports.createElementImpl = function(tag) {
-  return function() {
-    return document.createElement(tag);
-  };
+  return document.createElement(tag);
 };
 
 // createElementNSImpl :: Namespace -> TagName -> IOSync Node
