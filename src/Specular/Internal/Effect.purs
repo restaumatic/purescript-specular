@@ -5,6 +5,9 @@ module Specular.Internal.Effect
   , newRef
   , readRef
   , writeRef
+  , _newRef
+  , _readRef
+  , _writeRef
   , modifyRef
 
   , DelayedEffects
@@ -17,16 +20,26 @@ module Specular.Internal.Effect
 import Prelude
 
 import Effect (Effect)
+import Effect.Uncurried (EffectFn1, EffectFn2, runEffectFn1, runEffectFn2)
 
 -- effects
 
 foreign import data Ref :: Type -> Type
 
-foreign import newRef :: forall a. a -> Effect (Ref a)
+newRef :: forall a. a -> Effect (Ref a)
+newRef x = runEffectFn1 _newRef x
 
-foreign import readRef :: forall a. Ref a -> Effect a
+foreign import _newRef :: forall a. EffectFn1 a (Ref a)
 
-foreign import writeRef :: forall a. Ref a -> a -> Effect Unit
+readRef :: forall a. Ref a -> Effect a
+readRef x = runEffectFn1 _readRef x
+
+foreign import _readRef :: forall a. EffectFn1 (Ref a) a
+
+writeRef :: forall a. Ref a -> a -> Effect Unit
+writeRef x y = runEffectFn2 _writeRef x y
+
+foreign import _writeRef :: forall a. EffectFn2 (Ref a) a Unit
 
 modifyRef :: forall a. Ref a -> (a -> a) -> Effect Unit
 modifyRef ref f = do
