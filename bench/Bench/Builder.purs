@@ -5,7 +5,7 @@ module Bench.Builder
 import Prelude
 
 import Bench.Types (Tests)
-import Data.Array (replicate)
+import Control.Monad.Reader (runReaderT)
 import Data.List.Lazy (replicateM)
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
@@ -96,30 +96,23 @@ foreign import staticJS_m :: Int -> Effect Unit
 
 builderTests :: Tests
 builderTests =
-  {-
-  [ Tuple "js 10" (pure $ staticJS 10)
-  , Tuple "js_c 10" (pure $ staticJS_c 10)
-  , Tuple "js_m 10" (pure $ staticJS_m 10)
-  , Tuple "static mono 10" (pure $ runWidget $ staticWidgetMono 10)
-  , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
-  ]-}
-
-  join $ replicate 5 $
-  [ Tuple "static opt replicateM_" (pure $ runWidget $ staticWidgetMonoOptReplicate 10)
-  , Tuple "static opt replicateM_ - elDynAttr" (pure $ runWidget $ staticWidgetMonoOptReplicateD 10)
-  , Tuple "static new element api" (pure $ runWidget $ staticWidgetNewApi 10)
-  , Tuple "static new element api - attrD" (pure $ runWidget $ staticWidgetNewApiD 10)
-  ]
-
-{-
-  [ Tuple "static ReaderT 10"
-      (pure $ runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
+  [ Tuple "js 10" (pure $ delay \_ -> staticJS 10)
+  , Tuple "js_c 10" (pure $ delay \_ -> staticJS_c 10)
+  , Tuple "js_m 10" (pure $ delay \_ -> staticJS_m 10)
+  , Tuple "static mono 10" (pure $ delay \_ -> runWidget $ staticWidgetMono 10)
+  , Tuple "static 10" (pure $ delay \_ -> runWidget $ deoptimizeWidget (staticWidget 10))
+  , Tuple "static opt replicateM_" (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicate 10)
+  , Tuple "static opt replicateM_ - elDynAttr" (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicateD 10)
+  , Tuple "static new element api" (pure $ delay \_ -> runWidget $ staticWidgetNewApi 10)
+  , Tuple "static new element api - attrD" (pure $ delay \_ -> runWidget $ staticWidgetNewApiD 10)
+  , Tuple "static ReaderT 10"
+      (pure $ delay \_ -> runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
   , Tuple "static 2x ReaderT 10"
-      (pure $ runWidget $ deoptimizeWidget
+      (pure $ delay \_ -> runWidget $ deoptimizeWidget
         (flip runReaderT unit $ flip runReaderT unit $ staticWidget 10))
   ]
--}
 
+  where delay x = pure unit >>= x
 
 -- mechanics
 
