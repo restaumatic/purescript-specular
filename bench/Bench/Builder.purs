@@ -10,7 +10,7 @@ import Data.List.Lazy (replicateM)
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder.Class (elAttr, text)
+import Specular.Dom.Builder.Class (elAttr, elDynAttr, text)
 import Specular.Dom.Element as E
 import Specular.Dom.Node.Class (createElement, (:=))
 import Specular.Dom.Widget (class MonadWidget, Widget, runWidgetInNode)
@@ -54,6 +54,17 @@ staticWidgetMonoOptReplicate n =
       elAttr "div" ("class" := "thud") $ do
         text "foo"
 
+staticWidgetMonoOptReplicateD :: Int -> Widget Unit
+staticWidgetMonoOptReplicateD n =
+  replicateM_Widget_ n $
+    elDynAttr "div" (pure $ "class" := "foo") do
+      elDynAttr "div" (pure $ "class" := "bar") do
+        text "foo"
+      elDynAttr "div" (pure $ "class" := "baz") do
+        text "foo"
+      elDynAttr "div" (pure $ "class" := "thud") do
+        text "foo"
+
 foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 
 staticWidgetNewApi :: Int -> Widget Unit
@@ -95,6 +106,7 @@ builderTests =
 
   join $ replicate 5 $
   [ Tuple "static opt replicateM_" (pure $ runWidget $ staticWidgetMonoOptReplicate 10)
+  , Tuple "static opt replicateM_ - elDynAttr" (pure $ runWidget $ staticWidgetMonoOptReplicateD 10)
   , Tuple "static new element api" (pure $ runWidget $ staticWidgetNewApi 10)
   , Tuple "static new element api - attrD" (pure $ runWidget $ staticWidgetNewApiD 10)
   ]

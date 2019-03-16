@@ -23,6 +23,8 @@ module Specular.FRP.Base (
   , attachDynWith
   , latestJust
 
+  , _readDynamic
+
   , holdDyn
   , foldDyn
   , foldDynMaybe
@@ -33,6 +35,7 @@ module Specular.FRP.Base (
   , newBehavior
 
   , subscribeEvent_
+  , _subscribeEvent
   , subscribeDyn_
   , subscribeDyn
 
@@ -40,7 +43,6 @@ module Specular.FRP.Base (
 
   , for
 
-  , subscribeEvent_Impl
   , foldDynImpl
   , foldDynMaybeImpl
 
@@ -60,6 +62,7 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
@@ -331,15 +334,16 @@ mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
 subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
-subscribeEvent_ = subscribeEvent_Impl
+subscribeEvent_ handler event = do
+  unsub <- liftEffect $ runEffectFn2 _subscribeEvent handler event
+  onCleanup unsub
 
-subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadEffect m => (a -> Effect Unit) -> Event a -> m Unit
-subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
-  unsub <- liftEffect $ subscribe $ do
+_subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
+_subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) ->
+  subscribe do
     m_value <- framePull $ readBehavior occurence
     for_ m_value $ \value ->
       effect $ handler value
-  onCleanup unsub
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
@@ -616,6 +620,9 @@ subscribeDyn handler dyn = do
   initialResult <- liftEffect $ handler currentValue
   subscribeEvent_ (handler >=> fire) $ changed dyn
   holdDyn initialResult event
+
+_readDynamic :: forall a. EffectFn1 (Dynamic a) a
+_readDynamic = mkEffectFn1 \(Dynamic {value}) -> pull (readBehavior value)
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (identity <$ event) (current dyn)
