@@ -10,7 +10,7 @@ import Data.List.Lazy (replicateM)
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder.Class (elAttr, text)
+import Specular.Dom.Builder.Class (elAttr, elDynAttr, text)
 import Specular.Dom.Node.Class (createElement, (:=))
 import Specular.Dom.Widget (class MonadWidget, Widget, runWidgetInNode)
 import Test.Utils.Dom (T3(T3))
@@ -53,6 +53,17 @@ staticWidgetMonoOptReplicate n =
       elAttr "div" ("class" := "thud") $ do
         text "foo"
 
+staticWidgetMonoOptReplicateD :: Int -> Widget Unit
+staticWidgetMonoOptReplicateD n =
+  replicateM_Widget_ n $
+    elDynAttr "div" (pure $ "class" := "foo") do
+      elDynAttr "div" (pure $ "class" := "bar") do
+        text "foo"
+      elDynAttr "div" (pure $ "class" := "baz") do
+        text "foo"
+      elDynAttr "div" (pure $ "class" := "thud") do
+        text "foo"
+
 foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 
 -- See comments in the FFI module.
@@ -68,6 +79,7 @@ builderTests =
   , Tuple "static mono 10" (pure $ delay \_ -> runWidget $ staticWidgetMono 10)
   , Tuple "static 10" (pure $ delay \_ -> runWidget $ deoptimizeWidget (staticWidget 10))
   , Tuple "static opt replicateM_" (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicate 10)
+  , Tuple "static opt replicateM_ - elDynAttr" (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicateD 10)
   , Tuple "static ReaderT 10"
       (pure $ delay \_ -> runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
   , Tuple "static 2x ReaderT 10"
