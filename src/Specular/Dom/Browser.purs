@@ -2,13 +2,10 @@ module Specular.Dom.Browser where
 
 import Prelude
 
-import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Effect.Uncurried (EffectFn1, runEffectFn1)
-import Foreign.Object as Object
-import Specular.Dom.Node.Class (class DOM, class EventDOM, TagName, Namespace)
+import Effect.Uncurried (EffectFn1, EffectFn2, runEffectFn1, runEffectFn2)
+import Specular.Dom.Node.Class (class DOM, class EventDOM, Namespace, TagName, Attrs)
 
 foreign import data Node :: Type
 
@@ -19,9 +16,7 @@ instance domNode :: DOM Node where
   createElementNS (Just namespace) = createElementNSImpl namespace
   createElementNS Nothing = runEffectFn1 createElementImpl
 
-  setAttributes node attrs =
-    for_ (Object.toUnfoldable attrs :: Array (Tuple String String)) $ \(Tuple name value) ->
-      setAttributeImpl node name value
+  setAttributes node attrs = runEffectFn2 setAttributesImpl node attrs
 
   removeAttributes = removeAttributesImpl
 
@@ -41,7 +36,7 @@ foreign import setTextImpl :: Node -> String -> Effect Unit
 foreign import createDocumentFragmentImpl :: Effect Node
 foreign import createElementNSImpl :: Namespace -> TagName -> Effect Node
 foreign import createElementImpl :: EffectFn1 TagName Node
-foreign import setAttributeImpl :: Node -> String -> String -> Effect Unit
+foreign import setAttributesImpl :: EffectFn2 Node Attrs Unit
 foreign import removeAttributesImpl :: Node -> Array String -> Effect Unit
 foreign import parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> Effect (Maybe Node)
 foreign import insertBeforeImpl :: Node -> Node -> Node -> Effect Unit

@@ -7,9 +7,9 @@ import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as Object
-import Specular.Dom.Browser (Node, createElementImpl)
+import Specular.Dom.Browser (Node, createElementImpl, setAttributesImpl)
 import Specular.Dom.Builder.Class (liftBuilderWithRun)
-import Specular.Dom.Node.Class (Attrs, TagName, createElementNS, removeAttributes, setAttributes)
+import Specular.Dom.Node.Class (Attrs, TagName, removeAttributes, setAttributes)
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (Dynamic, subscribeDyn_)
 import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef)
@@ -27,7 +27,7 @@ foreign import foreachEFn :: forall a. EffectFn2 (Array a) (EffectFn1 a Unit) Un
 
 attr :: Attrs -> Prop
 attr attrs = Prop $ mkEffectFn2 \node _ ->
-  setAttributes node attrs
+  runEffectFn2 setAttributesImpl node attrs
 
 attrD :: Dynamic Attrs -> Prop
 attrD dynAttrs = Prop $ mkEffectFn2 \node cleanups -> do
