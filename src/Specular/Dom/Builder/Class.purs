@@ -3,15 +3,22 @@ module Specular.Dom.Builder.Class where
 import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
-import Effect (Effect)
-import Effect.Class (liftEffect)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple, snd)
+import Effect (Effect)
+import Effect.Class (liftEffect)
+import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn2)
 import Specular.Dom.Node.Class (class EventDOM, Attrs, EventType, Namespace, TagName, addEventListener)
 import Specular.FRP (class MonadFRP, Event, WeakDynamic, newEvent, weakDynamic_)
+import Specular.Internal.Effect (DelayedEffects)
+
+type BuilderEnv node =
+  { parent :: node
+  , cleanup :: DelayedEffects
+  }
 
 class Monad m <= MonadDomBuilder node m | m -> node where
   text :: String -> m Unit
@@ -20,6 +27,9 @@ class Monad m <= MonadDomBuilder node m | m -> node where
   rawHtml :: String -> m Unit
 
   elAttr :: forall a. TagName -> Attrs -> m a -> m a
+
+  liftBuilder :: forall a. EffectFn1 (BuilderEnv node) a -> m a
+  liftBuilderWithRun :: forall a b. EffectFn2 (BuilderEnv node) (EffectFn2 (BuilderEnv node) (m b) b) a -> m a
 
 elDynAttr'
   :: forall m node a. MonadDomBuilder node m
@@ -133,6 +143,11 @@ instance monadDomBuilderReaderT :: MonadDomBuilder node m => MonadDomBuilder nod
   rawHtml = lift <<< rawHtml
   elAttr tag attrs body =
     ReaderT $ \env -> elAttr tag attrs $ runReaderT body env
+  liftBuilder = lift <<< liftBuilder
+  liftBuilderWithRun fn = ReaderT \e ->
+    liftBuilderWithRun (mkEffectFn2 \benv run ->
+      runEffectFn2 fn benv (mkEffectFn2 \benv' m ->
+        runEffectFn2 run benv' (runReaderT m e)))
 
 class MonadDetach m where
   -- | Initialize a widget without displaying it immediately.

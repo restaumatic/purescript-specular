@@ -30,6 +30,9 @@ runCleanupT (CleanupT m) = do
   actions <- liftEffect $ unsafeFreezeDelayed actionsMutable
   pure (Tuple result (sequenceEffects actions))
 
+runCleanupT' :: forall m a. DelayedEffects -> CleanupT m a -> m a
+runCleanupT' cleanups (CleanupT m) = runReaderT m cleanups
+
 execCleanupT :: forall m. MonadEffect m => CleanupT m Unit -> m (Effect Unit)
 execCleanupT = map snd <<< runCleanupT
 

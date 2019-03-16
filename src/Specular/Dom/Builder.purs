@@ -6,20 +6,22 @@ module Specular.Dom.Builder (
 import Prelude
 
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Effect (Effect)
-import Effect.Class (class MonadEffect, liftEffect)
 import Control.Monad.Reader (ask)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
-import Foreign.Object as SM
 import Data.Tuple (Tuple(Tuple))
+import Effect (Effect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Uncurried (EffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
+import Foreign.Object as SM
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
-import Specular.Internal.RIO (RIO, rio, runRIO)
+import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
+import Unsafe.Coerce (unsafeCoerce)
 
 newtype Builder node a = Builder (RIO (BuilderEnv node) a)
 
@@ -163,6 +165,11 @@ instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder nod
     result <- Builder $ RIO.local (setParent node) $ unBuilder inner
     liftEffect $ appendChild node env.parent
     pure result
+
+  liftBuilder = unsafeCoerce :: forall a. EffectFn1 (BuilderEnv node) a -> Builder node a
+  liftBuilderWithRun fn =
+    Builder $ rio \env ->
+      runEffectFn2 fn env (mkEffectFn2 \env' (Builder (RIO m)) -> runEffectFn1 m env')
 
 instance monadDetachBuilder :: DOM node => MonadDetach (Builder node) where
   detach inner = do
