@@ -7,8 +7,11 @@ import Prelude
 
 import Bench.Types (Tests)
 import Control.Monad.Cleanup (CleanupT, runCleanupT)
-import Effect (Effect)
+import Data.Array (replicate)
+import Data.Foldable (sum)
+import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst)
+import Effect (Effect)
 import Specular.FRP (Dynamic, WeakDynamic, holdDyn, holdWeakDyn, never, newEvent, subscribeWeakDyn_)
 import Specular.FRP.Base (subscribeDyn_)
 
@@ -22,6 +25,35 @@ dynamicTests =
   , Tuple "dyn bind inner" $ testDynFn1 \d -> pure (pure 10 >>= \_ -> d)
   , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
   ]
+
+nestedApplyTests :: Tests
+nestedApplyTests =
+  [ Tuple "dyn 1ap  - fire first" $ test_n_ap_first 1
+  , Tuple "dyn 5ap  - fire first" $ test_n_ap_first 5
+  , Tuple "dyn 10ap - fire first" $ test_n_ap_first 10
+  , Tuple "dyn 15ap - fire first" $ test_n_ap_first 15
+
+  , Tuple "dyn 1ap  - fire last" $ test_n_ap_last 1
+  , Tuple "dyn 5ap  - fire last" $ test_n_ap_last 5
+  , Tuple "dyn 10ap - fire last" $ test_n_ap_last 10
+  , Tuple "dyn 15ap - fire last" $ test_n_ap_last 15
+  ]
+
+  where
+  test_n_ap_first n =
+    testDynFn1 \d -> do
+      dynamics <- sequence $ replicate n do
+        event <- newEvent
+        holdDyn 0 event.event
+      pure $ map sum $ sequence ([d] <> dynamics)
+
+  test_n_ap_last n =
+    testDynFn1 \d -> do
+      dynamics <- sequence $ replicate n do
+        event <- newEvent
+        holdDyn 0 event.event
+      pure $ map sum $ sequence (dynamics <> [d])
+
 
 testDynFn1 :: (Dynamic Int -> Host (Dynamic Int)) -> Effect (Effect Unit)
 testDynFn1 fn =

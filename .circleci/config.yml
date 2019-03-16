@@ -22,18 +22,16 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-          - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "bower.json" }}
+          - v1-dependencies-{{ checksum "package.json" }}-{{ checksum "psc-package.json" }}
 
       - run: |
           yarn
 
-          yarn global add bower
-          ~/.yarn/bin/bower install
-
       - save_cache:
           paths:
             - node_modules
-          key: v1-dependencies-{{ checksum "package.json" }}}-{{ checksum "bower.json" }}
+            - .psc-package
+          key: v1-dependencies-{{ checksum "package.json" }}-{{ checksum "psc-package.json" }}
         
       # run tests!
       - run: |

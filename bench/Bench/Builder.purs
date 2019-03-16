@@ -62,19 +62,20 @@ foreign import staticJS_m :: Int -> Effect Unit
 
 builderTests :: Tests
 builderTests =
-  [ Tuple "js 10" (pure $ staticJS 10)
-  , Tuple "js_c 10" (pure $ staticJS_c 10)
-  , Tuple "js_m 10" (pure $ staticJS_m 10)
-  , Tuple "static mono 10" (pure $ runWidget $ staticWidgetMono 10)
-  , Tuple "static 10" (pure $ runWidget $ deoptimizeWidget (staticWidget 10))
-  , Tuple "static opt replicateM_" (pure $ runWidget $ staticWidgetMonoOptReplicate 10)
+  [ Tuple "js 10" (pure $ delay \_ -> staticJS 10)
+  , Tuple "js_c 10" (pure $ delay \_ -> staticJS_c 10)
+  , Tuple "js_m 10" (pure $ delay \_ -> staticJS_m 10)
+  , Tuple "static mono 10" (pure $ delay \_ -> runWidget $ staticWidgetMono 10)
+  , Tuple "static 10" (pure $ delay \_ -> runWidget $ deoptimizeWidget (staticWidget 10))
+  , Tuple "static opt replicateM_" (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicate 10)
   , Tuple "static ReaderT 10"
-      (pure $ runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
+      (pure $ delay \_ -> runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
   , Tuple "static 2x ReaderT 10"
-      (pure $ runWidget $ deoptimizeWidget
+      (pure $ delay \_ -> runWidget $ deoptimizeWidget
         (flip runReaderT unit $ flip runReaderT unit $ staticWidget 10))
   ]
 
+  where delay x = pure unit >>= x
 
 -- mechanics
 

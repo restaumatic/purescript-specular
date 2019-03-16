@@ -4,23 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "bower install",
-    "node-test": "pulp test",
-    "node-test-w": "pulp -w test",
-    "browser-test": "pulp test --main BrowserMain --runtime phantomjs",
-    "browser-test-w": "pulp -w test --main BrowserMain --runtime phantomjs",
+    "postinstall": "psc-package install",
+    "node-test": "pulp --psc-package test",
+    "node-test-w": "pulp --psc-package -w test",
+    "browser-test": "pulp --psc-package test --main BrowserMain --runtime phantomjs",
+    "browser-test-w": "pulp --psc-package -w test --main BrowserMain --runtime phantomjs",
     "test": "pulp --version && yarn run node-test && yarn run browser-test",
-    "build-demo": "pulp browserify -O -I test --main DemoMain --to output/demo.js",
-    "build-bench": "pulp browserify -O -I test:bench --main BenchMain --to output/benchmark.js",
-    "build-bench-w": "pulp -w browserify -O -I test:bench --main BenchMain --to output/benchmark.js"
+    "build-demo": "pulp --psc-package browserify -O -I test --main DemoMain --to output/demo.js",
+    "build-bench": "pulp --psc-package browserify -O -I test:bench --main BenchMain --to output/benchmark.js",
+    "build-bench-w": "pulp --psc-package -w browserify -O -I test:bench --main BenchMain --to output/benchmark.js"
   },
   "author": "Maciej Bielecki <zyla@prati.pl>",
   "license": "MIT",
   "devDependencies": {
     "benchmark": "^2.1.4",
-    "bower": "^1.8.4",
     "phantomjs-prebuilt": "^2.1.16",
-    "pulp": "12.2.0",
+    "psc-package": "^3.0.1",
+    "pulp": "12.3.0",
     "purescript": "0.12.0"
   }
 }
