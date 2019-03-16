@@ -1,28 +1,20 @@
 // data Ref :: Type -> Type
 
 // newRef :: forall a. a -> Effect (Ref a)
-exports.newRef = function(initial) {
-  return function() {
-    return {
-      value: initial
-    };
+exports._newRef = function(initial) {
+  return {
+    value: initial
   };
 };
 
 // readRef :: forall a. Ref a -> Effect a
-exports.readRef = function(ref) {
-  return function() {
-    return ref.value;
-  };
+exports._readRef = function(ref) {
+  return ref.value;
 };
 
 // writeRef :: forall a. Ref a -> a -> Effect Unit
-exports.writeRef = function(ref) {
-  return function(newValue) {
-    return function() {
-      ref.value = newValue;
-    };
-  };
+exports._writeRef = function(ref, newValue) {
+  ref.value = newValue;
 };
 
 // data DelayedEffects :: Type
