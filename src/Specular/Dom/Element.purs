@@ -9,10 +9,10 @@ import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn1, mkEffectFn2, runEffe
 import Foreign.Object as Object
 import Specular.Dom.Browser (Node, createElementImpl, setAttributesImpl)
 import Specular.Dom.Builder.Class (liftBuilderWithRun)
-import Specular.Dom.Node.Class (Attrs, TagName, removeAttributes, setAttributes)
+import Specular.Dom.Node.Class (Attrs, TagName, removeAttributes)
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (Dynamic, subscribeDyn_)
-import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef)
+import Specular.Internal.Effect (DelayedEffects, _newRef, _readRef, _writeRef)
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
@@ -31,16 +31,16 @@ attr attrs = Prop $ mkEffectFn2 \node _ ->
 
 attrD :: Dynamic Attrs -> Prop
 attrD dynAttrs = Prop $ mkEffectFn2 \node cleanups -> do
-  attrsRef <- newRef mempty
+  attrsRef <- runEffectFn1 _newRef Object.empty
   let
     resetAttributes newAttrs = do
-      oldAttrs <- readRef attrsRef
-      writeRef attrsRef newAttrs
+      oldAttrs <- runEffectFn1 _readRef attrsRef
+      runEffectFn2 _writeRef attrsRef newAttrs
       let
         changed = Object.filterWithKey (\k v -> Object.lookup k oldAttrs /= Just v) newAttrs
         removed = Array.filter (\k -> not (k `Object.member` newAttrs)) $ Object.keys oldAttrs
 
       removeAttributes node removed
-      setAttributes node changed
+      runEffectFn2 setAttributesImpl node changed
 
   runCleanupT' cleanups $ subscribeDyn_ resetAttributes dynAttrs
