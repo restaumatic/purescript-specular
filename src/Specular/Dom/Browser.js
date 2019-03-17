@@ -37,15 +37,13 @@ exports.createElementNSImpl = function(namespace) {
   };
 };
 
-// setAttributeImpl :: Node -> String -> String -> IOSync Unit
-exports.setAttributeImpl = function(node) {
-  return function(name) {
-    return function(value) {
-      return function() {
-        node.setAttribute(name, value);
-      };
-    };
-  };
+// _setAttributes :: EffectFn2 Node (Object String) Unit
+exports._setAttributes = function(node, attrs) {
+  for (var k in attrs) {
+    if (attrs.hasOwnProperty(k)) {
+      node.setAttribute(k, attrs[k]);
+    }
+  }
 };
 
 // removeAttributesImpl :: Node -> Array String -> IOSync Unit
