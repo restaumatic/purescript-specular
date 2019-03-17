@@ -24,7 +24,8 @@ dynamicTests =
   , Tuple "dyn bind self" $ testDynFn1 \d -> pure (d >>= \_ -> d)
   , Tuple "dyn bind inner" $ testDynFn1 \d -> pure (pure 10 >>= \_ -> d)
   , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
-  ]
+  ] <>
+  nestedApplyTests
 
 nestedApplyTests :: Tests
 nestedApplyTests =
