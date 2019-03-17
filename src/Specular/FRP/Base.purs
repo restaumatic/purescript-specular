@@ -60,9 +60,10 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Uncurried (runEffectFn1, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
-import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
+import Specular.Internal.Effect (DelayedEffects, Ref, _newRef, _readRef, _writeRef, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO, rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
@@ -117,9 +118,9 @@ oncePerFramePull action = oncePerFramePullWithIO action pure
 -- | the passed action.
 oncePerFramePullWithIO :: forall a b. Pull a -> (a -> Effect b) -> Effect (Pull b)
 oncePerFramePullWithIO action io = do
-  ref <- newRef Fresh
+  ref <- runEffectFn1 _newRef Fresh
   pure $ unsafeMkPull $ \time -> do
-    cache <- readRef ref
+    cache <- runEffectFn1 _readRef ref
     case cache of
       Cached lastTime value | lastTime == time ->
         pure value
@@ -128,9 +129,9 @@ oncePerFramePullWithIO action io = do
         unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
 
       _ -> do
-        writeRef ref BlackHole
+        runEffectFn2 _writeRef ref BlackHole
         value <- runPull time action >>= io
-        writeRef ref (Cached time value)
+        runEffectFn2 _writeRef ref (Cached time value)
         pure value
 
 pull :: forall m a. MonadEffect m => Pull a -> m a
