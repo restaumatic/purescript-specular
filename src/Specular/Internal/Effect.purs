@@ -2,13 +2,16 @@ module Specular.Internal.Effect
   ( module Effect
 
   , Ref
+
   , newRef
   , readRef
   , writeRef
+  , modifyRef
+
+  -- EffectFn versions
   , _newRef
   , _readRef
   , _writeRef
-  , modifyRef
 
   , DelayedEffects
   , emptyDelayed
@@ -52,8 +55,17 @@ foreign import data DelayedEffects :: Type
 
 foreign import emptyDelayed :: Effect DelayedEffects
 
-foreign import pushDelayed :: DelayedEffects -> Effect Unit -> Effect Unit
+pushDelayed :: DelayedEffects -> Effect Unit -> Effect Unit
+pushDelayed x y = runEffectFn2 _pushDelayed x y
 
-foreign import unsafeFreezeDelayed :: DelayedEffects -> Effect (Array (Effect Unit))
+foreign import _pushDelayed :: EffectFn2 DelayedEffects (Effect Unit) Unit
 
-foreign import sequenceEffects :: Array (Effect Unit) -> Effect Unit
+unsafeFreezeDelayed :: DelayedEffects -> Effect (Array (Effect Unit))
+unsafeFreezeDelayed x = runEffectFn1 _unsafeFreezeDelayed x
+
+foreign import _unsafeFreezeDelayed :: EffectFn1 DelayedEffects (Array (Effect Unit))
+
+sequenceEffects :: Array (Effect Unit) -> Effect Unit
+sequenceEffects x = runEffectFn1 _sequenceEffects x
+
+foreign import _sequenceEffects :: EffectFn1 (Array (Effect Unit)) Unit

@@ -1,51 +1,42 @@
 // data Ref :: Type -> Type
 
-// newRef :: forall a. a -> Effect (Ref a)
+// _newRef :: forall a. EffectFn1 a (Ref a)
 exports._newRef = function(initial) {
   return {
     value: initial
   };
 };
 
-// readRef :: forall a. Ref a -> Effect a
+// _readRef :: forall a. EffectFn1 (Ref a) a
 exports._readRef = function(ref) {
   return ref.value;
 };
 
-// writeRef :: forall a. Ref a -> a -> Effect Unit
+// _writeRef :: forall a. EffectFn2 (Ref a) a Unit
 exports._writeRef = function(ref, newValue) {
   ref.value = newValue;
 };
 
 // data DelayedEffects :: Type
 
-
 // emptyDelayed :: Effect DelayedEffects
 exports.emptyDelayed = function() {
   return [];
 };
 
-// pushDelayed :: DelayedEffects -> Effect Unit -> Effect Unit
-exports.pushDelayed = function(effs) {
-  return function(eff) {
-    return function() {
-      effs.push(eff);
-    };
-  };
+// _pushDelayed :: EffectFn2 DelayedEffects (Effect Unit) Unit
+exports._pushDelayed = function(effs, eff) {
+  effs.push(eff);
 };
 
-// unsafeFreezeDelayed :: DelayedEffects -> Effect (Array (Effect Unit))
-exports.unsafeFreezeDelayed = function(x) {
-  return function() {
-    return x;
-  };
+// _unsafeFreezeDelayed :: EffectFn1 DelayedEffects (Array (Effect Unit))
+exports._unsafeFreezeDelayed = function(x) {
+  return x;
 };
 
-// sequenceEffects :: Array (Effect Unit) -> Effect Unit
-exports.sequenceEffects = function(effects) {
-  return function sequenceEffects_eff() {
-    for(var i = 0; i < effects.length; i++) {
-      effects[i]();
-    }
-  };
+// _sequenceEffects :: EffectFn1 (Array (Effect Unit)) Unit
+exports._sequenceEffects = function(effects) {
+  for(var i = 0; i < effects.length; i++) {
+    effects[i]();
+  }
 };
