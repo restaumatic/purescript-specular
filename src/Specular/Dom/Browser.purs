@@ -2,10 +2,9 @@ module Specular.Dom.Browser where
 
 import Prelude
 
-import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple(..))
 import Effect (Effect)
+import Effect.Uncurried (EffectFn2, runEffectFn2)
 import Foreign.Object (Object)
 import Foreign.Object as Object
 
@@ -50,9 +49,7 @@ createElement :: TagName -> Effect Node
 createElement = createElementNS Nothing
 
 setAttributes :: Node -> Attrs -> Effect Unit
-setAttributes node attrs =
-  for_ (Object.toUnfoldable attrs :: Array (Tuple String String)) $ \(Tuple name value) ->
-    setAttributeImpl node name value
+setAttributes node attrs = runEffectFn2 _setAttributes node attrs
 
 removeAttributes :: Node -> Array String -> Effect Unit
 removeAttributes = removeAttributesImpl
@@ -100,7 +97,7 @@ foreign import setTextImpl :: Node -> String -> Effect Unit
 foreign import createDocumentFragmentImpl :: Effect Node
 foreign import createElementNSImpl :: Namespace -> TagName -> Effect Node
 foreign import createElementImpl :: TagName -> Effect Node
-foreign import setAttributeImpl :: Node -> String -> String -> Effect Unit
+foreign import _setAttributes :: EffectFn2 Node Attrs Unit
 foreign import removeAttributesImpl :: Node -> Array String -> Effect Unit
 foreign import parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> Effect (Maybe Node)
 foreign import insertBeforeImpl :: Node -> Node -> Node -> Effect Unit
