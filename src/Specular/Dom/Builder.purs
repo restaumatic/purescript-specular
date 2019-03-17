@@ -5,15 +5,16 @@ module Specular.Dom.Builder (
 
 import Prelude
 
+import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Effect (Effect)
-import Effect.Class (class MonadEffect, liftEffect)
 import Control.Monad.Reader (ask)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
-import Foreign.Object as SM
 import Data.Tuple (Tuple(Tuple))
+import Effect (Effect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Foreign.Object as SM
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
@@ -181,3 +182,9 @@ instance monadDetachBuilder :: DOM node => MonadDetach (Builder node) where
         moveAllBetweenInclusive placeholderBefore placeholderAfter env.parent
 
     pure { value: result, widget: attach }
+
+instance semigroupBuilder :: Semigroup a => Semigroup (Builder node a) where
+  append = lift2 append
+
+instance monoidBuilder :: Monoid a => Monoid (Builder node a) where
+  mempty = pure mempty

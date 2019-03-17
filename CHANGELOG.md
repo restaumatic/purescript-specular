@@ -1,6 +1,7 @@
 ## Next release
 
 - 2018-09-14 `RequestState` now has a `Functor` instance.
+- 2018-09-04 Added lifted Semigroup and Monoid instances for Builder, and a constraint `Monoid (m Unit)` to MonadWidget.
 
 ## v0.2.0
 
