@@ -23,6 +23,7 @@ module Specular.FRP.Base (
   , attachDynWith
   , latestJust
   , readDynamic
+  , newDynamic
 
   , holdDyn
   , foldDyn
@@ -479,6 +480,22 @@ foldDynImpl f initial (Event event) = do
   pure $ Dynamic
     { value: Behavior updateOrReadValue
     , change: map (\_ -> unit) (Event event)
+    }
+
+-- | Construct a new root Dynamic that can be changed from `Effect`-land.
+newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit }
+newDynamic initial = liftEffect do
+  change <- newEvent
+  ref <- newRef initial
+  pure
+    { dynamic: Dynamic
+        { value: Behavior $ pullReadRef ref
+        , change: change.event
+        }
+    , read: readRef ref
+    , set: \x -> do
+        writeRef ref x
+        change.fire unit
     }
 
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
