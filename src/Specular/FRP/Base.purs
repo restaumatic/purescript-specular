@@ -60,11 +60,11 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Uncurried (runEffectFn1, runEffectFn2)
+import Effect.Uncurried (mkEffectFn1, runEffectFn1, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Effect (DelayedEffects, Ref, _newRef, _readRef, _writeRef, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
-import Specular.Internal.RIO (RIO, rio, runRIO)
+import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
 
@@ -185,8 +185,8 @@ runFrame currentTime (Frame x) = do
 
 freshTime :: Effect Time
 freshTime = do
-  time <- readRef nextTimeRef
-  writeRef nextTimeRef (case time of Time t -> Time (t + 1))
+  time <- runEffectFn1 _readRef nextTimeRef
+  runEffectFn2 _writeRef nextTimeRef (case time of Time t -> Time (t + 1))
   pure time
 
 -- | Run a Frame computation with a fresh time value and then run its effects.
@@ -198,17 +198,17 @@ runNextFrame frame = do
 -- | Create a computation that will run the given action at most once during
 -- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
 oncePerFrame_ :: Frame Unit -> Effect (Frame Unit)
-oncePerFrame_ action = do
-  ref <- newRef Nothing
-  pure $ do
-    time <- framePull $ getTime
-    m_lastTime <- framePull $ pullReadRef ref
+oncePerFrame_ (Frame (RIO action)) = do
+  ref <- runEffectFn1 _newRef Nothing
+  pure $ Frame $ RIO $ mkEffectFn1 \env -> do
+    let time = env.time
+    m_lastTime <- runEffectFn1 _readRef ref
     case m_lastTime of
       Just lastTime | lastTime == time ->
         pure unit
       _ -> do
-        frameWriteRef ref (Just time)
-        action
+        runEffectFn2 _writeRef ref (Just time)
+        runEffectFn1 action env
 
 -------------------------------------------------------------
 
