@@ -5,7 +5,7 @@ import Prelude
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Effect (foreachE)
-import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
+import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as Object
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (liftBuilderWithRun)
@@ -22,8 +22,6 @@ el tagName props body = liftBuilderWithRun $ mkEffectFn2 \env run -> do
   foreachE props \(Prop prop) ->
     runEffectFn2 prop node env.cleanup
   runEffectFn2 run (env { parent = node }) body
-
-foreign import foreachEFn :: forall a. EffectFn2 (Array a) (EffectFn1 a Unit) Unit
 
 attr :: Attrs -> Prop
 attr attrs = Prop $ mkEffectFn2 \node _ ->
