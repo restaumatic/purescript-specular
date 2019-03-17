@@ -20,9 +20,9 @@ main = launchAff_ do
   bench "WeakDynamic" weakDynamicTests
 
 bench :: String -> Tests -> Aff Unit
-bench name tests = do
+bench suiteName tests = do
 
-  Console.log $ "------ " <> name
+  Console.log $ "------ " <> suiteName
 
   Console.log "Warmup..."
 
@@ -30,11 +30,11 @@ bench name tests = do
     delay (Milliseconds 100.0)
     liftEffect do
       fn <- setupFn
-      forE 0 100 \_ -> fn
+      forE 0 1000 \_ -> fn
       pure (Tuple name fn)
 
   Console.log "Benchmarking..."
 
-  liftEffect $ runBenchmark $ map (\(Tuple name fn) -> { name, fn }) tests'
+  liftEffect $ forE 0 2 \_ -> runBenchmark $ map (\(Tuple name fn) -> { name, fn }) tests'
 
 foreign import runBenchmark :: Array { name :: String, fn :: Effect Unit } -> Effect Unit
