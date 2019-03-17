@@ -22,6 +22,7 @@ module Specular.FRP.Base (
   , tagDyn
   , attachDynWith
   , latestJust
+  , readDynamic
 
   , holdDyn
   , foldDyn
@@ -36,11 +37,12 @@ module Specular.FRP.Base (
   , subscribeDyn_
   , subscribeDyn
 
+  , _subscribeEvent
+
   , class MonadFRP
 
   , for
 
-  , subscribeEvent_Impl
   , foldDynImpl
   , foldDynMaybeImpl
 
@@ -60,6 +62,7 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
@@ -331,15 +334,16 @@ mergePulses :: Event Unit -> Event Unit -> Event Unit
 mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
 
 subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
-subscribeEvent_ = subscribeEvent_Impl
+subscribeEvent_ handler event = do
+  unsub <- liftEffect $ runEffectFn2 _subscribeEvent handler event
+  onCleanup unsub
 
-subscribeEvent_Impl :: forall m a. MonadCleanup m => MonadEffect m => (a -> Effect Unit) -> Event a -> m Unit
-subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
-  unsub <- liftEffect $ subscribe $ do
+_subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
+_subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) ->
+  subscribe do
     m_value <- framePull $ readBehavior occurence
     for_ m_value $ \value ->
       effect $ handler value
-  onCleanup unsub
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
@@ -633,6 +637,9 @@ latestJust :: forall m a. MonadFRP m => Dynamic (Maybe a) -> m (Dynamic (Maybe a
 latestJust dyn = do
   currentValue <- pull $ readBehavior $ current dyn
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
+
+readDynamic :: forall m a. MonadEffect m => Dynamic a -> m a
+readDynamic = pull <<< readBehavior <<< current
 
 -- | A "type class alias" for the constraints required by most FRP primitives.
 class (MonadEffect m, MonadCleanup m) <= MonadFRP m
