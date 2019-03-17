@@ -346,11 +346,11 @@ subscribeEvent_Impl handler (Event {occurence,subscribe}) = do
 -- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effect Unit }
 newEvent = liftEffect do
-  occurenceRef <- newRef Nothing
+  occurenceRef <- runEffectFn1 _newRef Nothing
   listenerMap <- UMM.new
   let
     fire value = do
-      writeRef occurenceRef (Just value)
+      runEffectFn2 _writeRef occurenceRef (Just value)
       listeners <- UMM.values listenerMap
       runNextFrame $ do
         sequenceFrame_ listeners
@@ -460,12 +460,12 @@ foldDynImpl
 foldDynImpl f initial (Event event) = do
   ref <- liftEffect $ newRef initial
   updateOrReadValue <- liftEffect $
-    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readRef ref
+    oncePerFramePullWithIO (readBehavior event.occurence) \m_newValue -> do
+      oldValue <- runEffectFn1 _readRef ref
       case m_newValue of
         Just occurence -> do
           let newValue = f occurence oldValue
-          writeRef ref newValue
+          runEffectFn2 _writeRef ref newValue
           pure newValue
         Nothing ->
           pure oldValue
@@ -490,10 +490,10 @@ foldDynMaybeImpl f initial (Event event) = do
   ref <- liftEffect $ newRef initial
   (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftEffect $
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readRef ref
+      oldValue <- runEffectFn1 _readRef ref
       case m_newValue of
         Just occurence | Just newValue <- f occurence oldValue -> do
-          writeRef ref newValue
+          runEffectFn2 _writeRef ref newValue
           pure { changing: true, value: newValue }
         _ ->
           pure { changing: false, value: oldValue }
