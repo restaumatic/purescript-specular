@@ -3,6 +3,7 @@ module BrowserMain where
 import Prelude
 
 import BuilderSpec as BuilderSpec
+import NewBuilderSpec as NewBuilderSpec
 import Effect (Effect)
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
@@ -17,6 +18,7 @@ import Test.Spec.Runner (run)
 main :: Effect Unit
 main = run [consoleReporter] do
   BuilderSpec.spec
+  NewBuilderSpec.spec
   InputWidgetsSpec.spec
   ListSpec.spec
   RadioGroupSpec.spec
