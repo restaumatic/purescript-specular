@@ -5,6 +5,7 @@ module Specular.Dom.Builder (
 
 import Prelude
 
+import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
@@ -182,3 +183,9 @@ instance monadDetachBuilder :: MonadDetach (Builder Node) where
         moveAllBetweenInclusive placeholderBefore placeholderAfter env.parent
 
     pure { value: result, widget: attach }
+
+instance semigroupBuilder :: Semigroup a => Semigroup (Builder node a) where
+  append = lift2 append
+
+instance monoidBuilder :: Monoid a => Monoid (Builder node a) where
+  mempty = pure mempty
