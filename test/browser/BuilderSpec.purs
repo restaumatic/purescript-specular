@@ -2,7 +2,7 @@ module BuilderSpec where
 
 import Prelude hiding (append)
 
-import Control.Monad.Cleanup (execCleanupT, runCleanupT)
+import Control.Monad.Cleanup (execCleanupT)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
@@ -10,15 +10,17 @@ import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elAttr, elDynAttr, elDynAttr', elDynAttrNS', rawHtml, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Button (buttonOnClick)
-import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, for, holdDyn, never, newEvent, subscribeEvent_, switch, weaken)
+import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, for, never, subscribeEvent_, switch, weaken)
+import Specular.FRP as FRP
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
-import Test.Utils (append, liftEffect, modifyTotalListeners, shouldHaveValue, shouldReturn, withLeakCheck)
+import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv, runBuilderInDiv')
 import Unsafe.Coerce (unsafeCoerce)
+
 spec :: Spec Unit
 spec = describe "Builder" $ do
   it "builds static DOM" $ withLeakCheck $ do
@@ -315,10 +317,5 @@ spec = describe "Builder" $ do
 
 newDynamic :: forall a. a -> Effect (Tuple (Dynamic a) (a -> Effect Unit))
 newDynamic initial = do
-  {event,fire} <- newEvent
-  Tuple dyn _ <- runCleanupT $ holdDyn initial event
-
-  -- HACK: We're discarding the cleanup here,
-  -- but to avoid threading it through we just decrement the counter manually.
-  modifyTotalListeners (_ - 1)
-  pure (Tuple dyn fire)
+  {dynamic, set} <- FRP.newDynamic initial
+  pure (Tuple dynamic set)

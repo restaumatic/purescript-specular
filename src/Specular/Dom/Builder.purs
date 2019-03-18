@@ -16,8 +16,9 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
+import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
-import Specular.Dom.Node.Class (class DOM, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
+import Specular.Dom.Node.Class (appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
@@ -61,7 +62,7 @@ getEnv = Builder ask
 setParent :: forall node. node -> BuilderEnv node -> BuilderEnv node
 setParent parent env = env { parent = parent }
 
-instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
+instance monadReplaceBuilder :: MonadReplace (Builder Node) where
 
   newSlot = do
     env <- getEnv
@@ -73,7 +74,7 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
     cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
 
     let
-      replace :: forall a. Builder node a -> Effect a
+      replace :: forall a. Builder Node a -> Effect a
       replace inner = do
         fragment <- createDocumentFragment
         Tuple result cleanup <- runBuilder fragment inner
@@ -102,7 +103,7 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
       destroy = do
         join $ readRef cleanupRef
 
-      append :: Effect (Slot (Builder node))
+      append :: Effect (Slot (Builder Node))
       append = do
         fragment <- createDocumentFragment
         Tuple slot cleanup <- runBuilder fragment newSlot
@@ -122,7 +123,7 @@ instance monadReplaceBuilder :: DOM node => MonadReplace (Builder node) where
 
     pure $ Slot { replace, destroy, append }
 
-instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder node) where
+instance monadDomBuilderBuilder :: MonadDomBuilder (Builder Node) where
 
   text str = mkBuilder \env -> do
     node <- createTextNode str
@@ -167,12 +168,12 @@ instance monadDomBuilderBuilder :: DOM node => MonadDomBuilder node (Builder nod
     liftEffect $ appendChild node env.parent
     pure result
 
-  liftBuilder = unsafeCoerce :: forall a. EffectFn1 (BuilderEnv node) a -> Builder node a
+  liftBuilder = unsafeCoerce :: forall a. EffectFn1 (BuilderEnv Node) a -> Builder Node a
   liftBuilderWithRun fn =
     Builder $ rio \env ->
       runEffectFn2 fn env (mkEffectFn2 \env' (Builder (RIO m)) -> runEffectFn1 m env')
 
-instance monadDetachBuilder :: DOM node => MonadDetach (Builder node) where
+instance monadDetachBuilder :: MonadDetach (Builder Node) where
   detach inner = do
     fragment <- liftEffect createDocumentFragment
 

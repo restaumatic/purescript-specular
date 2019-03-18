@@ -158,13 +158,6 @@ exports.appendRawHtmlImpl = function(html) {
   };
 };
 
-// childNodesImpl :: Node -> IOSync (Array Node)
-exports.childNodesImpl = function(node) {
-  return function() {
-    return Array.prototype.slice.call(node.childNodes);
-  };
-};
-
 // moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> IOSync Unit
 exports.moveAllBetweenInclusiveImpl = function(from) {
   return function(to) {

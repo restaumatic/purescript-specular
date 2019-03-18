@@ -35,6 +35,6 @@ runMainWidgetInBody widget = do
 
 foreign import documentBody :: Effect Node
 
--- A handy alias for all the typeclasses you'll need
-class (MonadDomBuilder Node m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) <= MonadWidget m
-instance monadWidget :: (MonadDomBuilder Node m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) => MonadWidget m
+-- A handy alias for all the constraints you'll need
+class (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) <= MonadWidget m
+instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) => MonadWidget m

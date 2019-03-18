@@ -2,6 +2,10 @@
 
 - 2018-09-14 `RequestState` now has a `Functor` instance.
 - 2018-09-04 Added lifted Semigroup and Monoid instances for Builder, and a constraint `Monoid (m Unit)` to MonadWidget.
+- 2019-03-18  **(breaking change)** The `DOM` and `EventDOM` type classes are
+  removed. Member functions are now specialized to `Specular.Dom.Browser.Node`,
+  and are moved to this module. The `node` parameter from `MonadDomBuilder` was
+  removed.
 
 ## v0.2.0
 

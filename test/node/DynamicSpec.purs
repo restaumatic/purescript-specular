@@ -1,15 +1,16 @@
 module DynamicSpec where
 
+import Prelude hiding (append)
+
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
-import Specular.Internal.Effect (newRef)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Prelude hiding (append)
 import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
-import Specular.FRP.Base (latestJust, subscribeDyn)
+import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
+import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck, withLeakCheck')
+import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -47,6 +48,37 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub1
       liftEffect unsub2
+
+  describe "newDynamic" $ do
+    it "updates value when someone is subscribed to changes" $ withLeakCheck $ do
+      {dynamic: dyn, read, set} <- liftEffect $ newDynamic 0
+      log <- liftEffect $ newRef []
+
+      unsub <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+      log `shouldHaveValue` [0]
+
+      clear log
+      liftEffect $ set 1
+      liftEffect unsub
+      liftEffect $ set 2
+
+      log `shouldHaveValue` [1]
+
+      liftEffect read `shouldReturn` 2
+
+    it "updates value when no one is subscribed" $ withLeakCheck $ do
+      {dynamic: dyn, read, set} <- liftEffect $ newDynamic 0
+      log <- liftEffect $ newRef []
+
+      liftEffect $ set 2
+
+      unsub <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+
+      log `shouldHaveValue` [2]
+      liftEffect read `shouldReturn` 2
+
+      -- clean up
+      liftEffect unsub
 
   describe "holdUniqDynBy" $ do
     it "updates value only when it changes" $ withLeakCheck $ do
