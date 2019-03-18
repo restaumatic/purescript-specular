@@ -14,7 +14,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Uncurried (EffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2)
+import Effect.Uncurried (mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
@@ -23,7 +23,6 @@ import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
-import Unsafe.Coerce (unsafeCoerce)
 
 newtype Builder node a = Builder (RIO (BuilderEnv node) a)
 
@@ -168,7 +167,7 @@ instance monadDomBuilderBuilder :: MonadDomBuilder (Builder Node) where
     liftEffect $ appendChild node env.parent
     pure result
 
-  liftBuilder = unsafeCoerce :: forall a. EffectFn1 (BuilderEnv Node) a -> Builder Node a
+  liftBuilder fn = Builder (RIO fn)
   liftBuilderWithRun fn =
     Builder $ rio \env ->
       runEffectFn2 fn env (mkEffectFn2 \env' (Builder (RIO m)) -> runEffectFn1 m env')
