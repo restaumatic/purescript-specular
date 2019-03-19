@@ -10,10 +10,17 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple, snd)
 import Effect (Effect)
 import Effect.Class (liftEffect)
+import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn2)
 import Specular.Dom.Browser (Attrs, EventType, Namespace, Node, TagName, addEventListener)
 import Specular.Dom.Browser as DOM
 import Specular.FRP (class MonadFRP, WeakDynamic, newEvent, weakDynamic_)
 import Specular.FRP as FRP
+import Specular.Internal.Effect (DelayedEffects)
+
+type BuilderEnv =
+  { parent :: Node
+  , cleanup :: DelayedEffects
+  }
 
 class Monad m <= MonadDomBuilder m where
   text :: String -> m Unit
@@ -22,6 +29,9 @@ class Monad m <= MonadDomBuilder m where
   rawHtml :: String -> m Unit
 
   elAttr :: forall a. TagName -> Attrs -> m a -> m a
+
+  liftBuilder :: forall a. EffectFn1 BuilderEnv a -> m a
+  liftBuilderWithRun :: forall a b. EffectFn2 BuilderEnv (EffectFn2 BuilderEnv (m b) b) a -> m a
 
 elDynAttr' :: forall m a. MonadDomBuilder m => String -> WeakDynamic Attrs -> m a -> m (Tuple Node a)
 elDynAttr' = elDynAttrNS' Nothing
@@ -76,6 +86,11 @@ instance monadDomBuilderReaderT :: MonadDomBuilder m => MonadDomBuilder (ReaderT
   rawHtml = lift <<< rawHtml
   elAttr tag attrs body =
     ReaderT $ \env -> elAttr tag attrs $ runReaderT body env
+  liftBuilder = lift <<< liftBuilder
+  liftBuilderWithRun fn = ReaderT \e ->
+    liftBuilderWithRun (mkEffectFn2 \benv run ->
+      runEffectFn2 fn benv (mkEffectFn2 \benv' m ->
+        runEffectFn2 run benv' (runReaderT m e)))
 
 class MonadDetach m where
   -- | Initialize a widget without displaying it immediately.
