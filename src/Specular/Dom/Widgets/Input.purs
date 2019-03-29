@@ -31,7 +31,7 @@ import Specular.Dom.Browser as Browser
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr', text)
 import Specular.Dom.Node.Class (Attrs, (:=))
 import Specular.Dom.Widget (class MonadWidget)
-import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, filterEvent, holdDyn, leftmost, never)
+import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, filterEvent, holdDyn, leftmost, never, subscribeWeakDyn_)
 import Specular.FRP.Base (subscribeEvent_, tagDyn)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -86,9 +86,11 @@ booleanInputView type_ dchecked dattrs = do
                      ) dattrs dchecked
 
   Tuple node _ <- elDynAttr' "input" dattrs' (pure unit)
+  subscribeWeakDyn_ (setCheckboxChecked node) dchecked
   domEventWithSample (\_ -> getCheckboxChecked node) "change" node
 
 foreign import getCheckboxChecked :: Node -> Effect Boolean
+foreign import setCheckboxChecked :: Node -> Boolean -> Effect Unit
 
 type TextInputConfig =
   { initialValue :: String
