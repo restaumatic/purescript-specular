@@ -24,7 +24,6 @@ module Specular.Dom.Widgets.Input (
 
 import Prelude
 
-import Control.Apply (lift2)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Data.Tuple (Tuple(..))
@@ -82,10 +81,7 @@ booleanInputView :: forall m. MonadWidget m
   -> WeakDynamic Attrs
   -> m (Event Boolean)
 booleanInputView type_ dchecked dattrs = do
-  let dattrs' = lift2 (\attrs checked -> attrs <>
-                        ("type" := booleanInputTypeToAttributeValue type_) <>
-                        (if checked then "checked" := "checked" else mempty)
-                     ) dattrs dchecked
+  let dattrs' = map (\attrs -> attrs <> ("type" := booleanInputTypeToAttributeValue type_)) dattrs
 
   Tuple node _ <- elDynAttr' "input" dattrs' (pure unit)
   subscribeWeakDyn_ (setCheckboxChecked node) dchecked
