@@ -5,10 +5,11 @@ import Prelude hiding (append)
 import Control.Monad.Cleanup (runCleanupT)
 import Data.Tuple (Tuple(..))
 import Foreign (unsafeToForeign)
-import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter)
-import Specular.FRP (never, newEvent)
+import Specular.Dom.Browser (Node)
+import Specular.Dom.Widgets.Input (checkboxView, getCheckboxChecked, getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter)
+import Specular.FRP (holdDyn, never, newEvent, weaken)
 import Specular.FRP.Base (subscribeDyn_, subscribeEvent_)
-import Specular.Internal.Effect (newRef)
+import Specular.Internal.Effect (Effect, newRef)
 import Test.Spec (Spec, describe, it, pending')
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (dispatchEvent, dispatchTrivialEvent, querySelector, runBuilderInDiv)
@@ -63,5 +64,39 @@ spec = describe "Input widgets" $ do
 
         setTextInputValue node "changed2"
         dispatchEvent node "keypress" (unsafeToForeign { key: "Enter" })
-      
+
       log `shouldHaveValue` ["changed2"]
+
+  describe "checkboxView" $ do
+    let makeCheckbox value = do
+          Tuple div event <- runBuilderInDiv $ checkboxView value (pure mempty)
+          node <- liftEffect $ querySelector "input" div
+          pure {node,event}
+    it "sets initial value (false)" do
+      {node, event} <- makeCheckbox (pure false)
+      liftEffect (getCheckboxChecked node) `shouldReturn` false
+    it "sets initial value (true)" do
+      {node, event} <- makeCheckbox (pure true)
+      liftEffect (getCheckboxChecked node) `shouldReturn` true
+    it "handle external update when not touched by the user" $ do
+      {event: changeValueEvt, fire: changeValue} <- liftEffect newEvent
+      Tuple valueDyn _ <- runCleanupT $ holdDyn false changeValueEvt
+      {node, event} <- makeCheckbox (weaken valueDyn)
+      liftEffect (getCheckboxChecked node) `shouldReturn` false
+      liftEffect $ changeValue true
+      liftEffect (getCheckboxChecked node) `shouldReturn` true
+      liftEffect $ changeValue false
+      liftEffect (getCheckboxChecked node) `shouldReturn` false
+    it "handle external update after touched by the user" $ do
+      {event: changeValueEvt, fire: changeValue} <- liftEffect newEvent
+      Tuple valueDyn _ <- runCleanupT $ holdDyn false changeValueEvt
+      {node, event} <- makeCheckbox (weaken valueDyn)
+      liftEffect (getCheckboxChecked node) `shouldReturn` false
+      liftEffect $ triggerNodeClicked node
+      liftEffect (getCheckboxChecked node) `shouldReturn` true
+      liftEffect $ changeValue false
+      liftEffect (getCheckboxChecked node) `shouldReturn` false
+      liftEffect $ changeValue true
+      liftEffect (getCheckboxChecked node) `shouldReturn` true
+
+foreign import triggerNodeClicked :: Node -> Effect Unit -- for some reason dispatchTrivialEvent node "click" didn't work

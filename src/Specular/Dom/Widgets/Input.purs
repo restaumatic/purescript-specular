@@ -1,5 +1,5 @@
 module Specular.Dom.Widgets.Input (
-    textInputOnChange  
+    textInputOnChange
   , textInputOnInput
   , textareaOnChange
 
@@ -14,10 +14,12 @@ module Specular.Dom.Widgets.Input (
   , checkboxView
   , BooleanInputType(..)
   , booleanInputView
-  
+
   -- TODO: move to Internal
   , getTextInputValue
   , setTextInputValue
+  , getCheckboxChecked
+  , setCheckboxChecked
 ) where
 
 import Prelude
