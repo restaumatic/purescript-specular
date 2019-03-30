@@ -20,3 +20,12 @@ exports.getCheckboxChecked = function(node) {
     return node.checked;
   };
 };
+
+// setCheckboxChecked :: Node -> Boolean -> IOSync Unit
+exports.setCheckboxChecked = function(node) {
+  return function(value) {
+    return function() {
+      return node.checked = value;
+    };
+  };
+};
