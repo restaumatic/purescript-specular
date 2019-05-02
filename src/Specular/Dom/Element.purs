@@ -21,6 +21,14 @@ import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef, push
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
+instance semigroupProp :: Semigroup Prop where
+  append (Prop fn1) (Prop fn2) = Prop $ mkEffectFn2 \x y -> do
+    runEffectFn2 fn1 x y
+    runEffectFn2 fn2 x y
+
+instance monoidProp :: Monoid Prop where
+  mempty = Prop $ mkEffectFn2 \_ _ -> pure unit
+
 el' :: forall m a. MonadWidget m => TagName -> Array Prop -> m a -> m (Tuple Node a)
 el' tagName props body = liftBuilderWithRun $ mkEffectFn2 \env run -> do
   node <- createElement tagName
