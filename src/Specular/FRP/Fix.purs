@@ -17,7 +17,7 @@ import Record (delete, get, insert)
 import Specular.FRP.Base (class MonadFRP, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn)
 import Type.Equality (class TypeEquals, to)
-import Type.Row (class RowToList, Cons, Nil, RLProxy(..))
+import Type.RowList (class RowToList, Cons, Nil, RLProxy(..))
 
 fixEvent ::
      forall m a b
