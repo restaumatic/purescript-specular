@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -euo pipefail
+
+VERSION=$1
+
+case "$(uname -s)" in
+  Linux)
+  	PLATFORM=linux64
+	;;
+  Darwin)
+  	PLATFORM=macos
+	;;
+esac
+
+SOURCE="https://github.com/purescript/purescript/releases/download/${VERSION}/${PLATFORM}.tar.gz"
+
+CACHE_DIR="${HOME}/.cache/purescript/${VERSION}"
+mkdir -p "$CACHE_DIR"
+
+TARGET_DIR="$(pwd)/node_modules/.bin"
+mkdir -p "$TARGET_DIR"
+
+if [ ! -f "$CACHE_DIR/${PLATFORM}.tar.gz" ]; then
+	echo "Downloading $SOURCE into $CACHE_DIR"
+	curl -sL -o "$CACHE_DIR/${PLATFORM}.tar.gz" "$SOURCE"
+fi
+
+tar xfO "$CACHE_DIR/${PLATFORM}.tar.gz" purescript/purs > "$TARGET_DIR/purs"
+chmod +x "$TARGET_DIR/purs"
+
+echo "Installed $TARGET_DIR/purs"
+"$TARGET_DIR/purs" --version

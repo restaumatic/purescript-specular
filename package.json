@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "psc-package install",
+    "postinstall": "scripts/install-purescript v0.12.0 && psc-package install",
     "node-test": "pulp --psc-package test",
     "node-test-w": "pulp --psc-package -w test",
     "browser-test": "pulp --psc-package test --main BrowserMain --runtime phantomjs",
@@ -21,7 +21,6 @@
     "phantomjs-prebuilt": "^2.1.16",
     "psc-package": "^3.0.1",
     "pulp": "12.3.0",
-    "puppeteer": "^1.13.0",
-    "purescript": "0.12.0"
+    "puppeteer": "^1.13.0"
   }
 }
