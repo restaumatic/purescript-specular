@@ -6,7 +6,7 @@ import Control.Monad.Cleanup (runCleanupT)
 import Data.Tuple (Tuple(..))
 import Foreign (unsafeToForeign)
 import Specular.Dom.Browser (Node)
-import Specular.Dom.Widgets.Input (checkboxView, getCheckboxChecked, getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter)
+import Specular.Dom.Widgets.Input (checkboxView, getCheckboxChecked, getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter, textInputValueOnChange)
 import Specular.FRP (holdDyn, never, newEvent, weaken)
 import Specular.FRP.Base (subscribeDyn_, subscribeEvent_)
 import Specular.Internal.Effect (Effect, newRef)
@@ -48,6 +48,21 @@ spec = describe "Input widgets" $ do
         dispatchTrivialEvent node "input"
 
       log `shouldHaveValue` ["initial", "setValue", "oninput"]
+
+    describe "textInputValueOnChange" do
+      it "return value changes when setValue fires" do
+        {event,fire} <- liftEffect newEvent
+        log <- liftEffect $ newRef []
+        {node,widget} <- makeTextInput
+          { initialValue: "initial", setValue: event, attributes: pure mempty }
+
+        liftEffect $ do
+          void $ runCleanupT $ (textInputValueOnChange widget) >>= subscribeDyn_ (append log)
+          fire "setValue"
+          setTextInputValue node "onchange"
+          dispatchTrivialEvent node "change"
+
+        log `shouldHaveValue` ["initial", "setValue", "onchange"]
 
     pending' "textInputValueEventOnEnter" $ do
       -- FIXME: unable to simulate the keypress event correctly

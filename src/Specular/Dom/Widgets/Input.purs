@@ -99,6 +99,7 @@ type TextInputConfig =
 newtype TextInput = TextInput
   { element :: Node
   , value :: Dynamic String
+  , setValue :: Event String
   }
 
 textInput :: forall m. MonadWidget m
@@ -110,7 +111,7 @@ textInput config = do
   subscribeEvent_ (setTextInputValue element) config.setValue
   domChanged <- domEventWithSample (\_ -> getTextInputValue element) "input" element
   value <- holdDyn config.initialValue (leftmost [ domChanged, config.setValue ])
-  pure $ TextInput { element, value }
+  pure $ TextInput { element, value, setValue: config.setValue }
 
 textInputValue :: TextInput -> Dynamic String
 textInputValue (TextInput {value}) = value
@@ -118,10 +119,10 @@ textInputValue (TextInput {value}) = value
 textInputValueOnChange :: forall m. MonadFRP m
   => TextInput
   -> m (Dynamic String)
-textInputValueOnChange (TextInput {element}) = do
+textInputValueOnChange (TextInput {element, setValue}) = do
   initial <- liftEffect $ getTextInputValue element
   changed <- domEventWithSample (\_ -> getTextInputValue element) "change" element
-  holdDyn initial changed
+  holdDyn initial (leftmost [setValue, changed])
 
 textInputValueEventOnEnter :: forall m. MonadFRP m
   => TextInput
