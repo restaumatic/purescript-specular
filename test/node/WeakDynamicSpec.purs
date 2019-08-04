@@ -9,7 +9,7 @@ import Specular.FRP (holdDyn, newEvent, subscribeWeakDyn_, uniqWeakDynBy, weaken
 import Specular.FRP.WeakDynamic (subscribeWeakDyn)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck)
+import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck, yieldAff)
 
 spec :: Spec Unit
 spec = describe "WeakDynamic" $ do
@@ -38,6 +38,7 @@ spec = describe "WeakDynamic" $ do
       _ <- liftEffect $ execCleanupT $ subscribeWeakDyn_ (\x -> append log (Right x)) derivedDyn
 
       liftEffect $ fire 5
+      yieldAff
 
       log `shouldHaveValue` [Left 1, Right 2, Left 5, Right 10]
 
@@ -50,6 +51,7 @@ spec = describe "WeakDynamic" $ do
          uniqWeakDynBy eq (weaken dyn)
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeWeakDyn_ (\x -> append log x) wdyn
+      yieldAff
       log `shouldHaveValue` [0]
 
       clear log
@@ -57,6 +59,7 @@ spec = describe "WeakDynamic" $ do
       liftEffect $ fire 1
       liftEffect $ fire 2
       liftEffect $ fire 2
+      yieldAff
 
       log `shouldHaveValue` [1,2]
 

@@ -74,10 +74,6 @@ asyncRequestMaybe dquery = do
           writeRef cancelCurrentRef $ launchAff_ $ killFiber (error "Cancelled") fiber
 
     runAndUpdateResult query = do
-      -- FIXME: very hacky workaround for
-      -- https://github.com/restaumatic/purescript-specular/issues/10
-      yieldAff
-
       value <- query
       liftEffect $ loadStateChanged.fire (Loaded value)
 
@@ -96,11 +92,6 @@ asyncRequestMaybe dquery = do
       ]
 
   pure dyn
-
--- | Reschedule the current fiber to the end of event loop.
--- | Equivalent to `setTimeout(function() { ... }, 0);`
-yieldAff :: Aff Unit
-yieldAff = delay (Milliseconds 0.0)
 
 -- | Like `asyncRequestMaybe`, but without the Nothing case.
 asyncRequest :: forall m a

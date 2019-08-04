@@ -3,15 +3,15 @@ module FixSpec where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
-import Effect.Class (liftEffect)
-import Specular.Internal.Effect (newRef)
 import Data.Tuple (Tuple(..))
+import Effect.Class (liftEffect)
 import Specular.FRP (Dynamic, Event, WeakDynamic, holdDyn, never, newEvent, subscribeEvent_, weaken)
 import Specular.FRP.Base (mergeEvents)
 import Specular.FRP.Fix (fixDyn, fixEvent, fixFRP)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
+import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it, pending')
-import Test.Utils (append, liftEffect, shouldHaveInferredType, shouldHaveValue)
+import Test.Utils (append, liftEffect, shouldHaveInferredType, shouldHaveValue, yieldAff)
 import Type.Prelude (Proxy(..))
 
 spec :: Spec Unit
@@ -27,6 +27,7 @@ spec = do
          pure (Tuple output fire)
 
      liftEffect $ fire 1
+     yieldAff
 
      log `shouldHaveValue` [1]
 
@@ -42,6 +43,7 @@ spec = do
          pure (Tuple output fire)
 
      liftEffect $ fire unit
+     yieldAff
 
      -- TODO: the result of this test is doubly wrong:
      -- The "wrong" result is ["output", "input"],
@@ -58,6 +60,7 @@ spec = do
          output <- holdDyn 1 never
          pure (Tuple output unit)
 
+     yieldAff
      log `shouldHaveValue` [1]
 
    it "propagates output changes to input" $ do
@@ -71,6 +74,7 @@ spec = do
          pure (Tuple output unit)
 
      liftEffect $ fire 2
+     yieldAff
 
      log `shouldHaveValue` [1, 2]
 
@@ -84,6 +88,7 @@ spec = do
          pure (Tuple output unit)
 
      liftEffect $ fire 2
+     yieldAff
 
      log `shouldHaveValue` [Tuple 1 1, Tuple 2 2]
 
@@ -119,5 +124,6 @@ spec = do
           pure (Tuple { event, dynamic } fire)
 
       liftEffect $ fire 1
+      yieldAff
 
       log `shouldHaveValue` [0, 1, 1]

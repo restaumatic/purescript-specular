@@ -1,13 +1,15 @@
 module EventSpec where
 
-import Control.Monad.Cleanup (execCleanupT)
-import Specular.Internal.Effect (newRef)
-import Data.Maybe (Maybe(..))
 import Prelude hiding (append)
+
+import Control.Monad.Cleanup (execCleanupT)
+import Data.Maybe (Maybe(..))
+import Effect.Aff (Milliseconds(..), delay)
 import Specular.FRP (filterMapEvent, holdDyn, leftmost, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Specular.FRP.Base (subscribeDyn_)
+import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck)
+import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck, yieldAff)
 
 spec :: Spec Unit
 spec = describe "Event" $ do
@@ -18,8 +20,10 @@ spec = describe "Event" $ do
     unsub1 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "1:" <> x) event
     unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "2:" <> x) event
     liftEffect $ fire "A"
+    yieldAff
     liftEffect unsub1
     liftEffect $ fire "B"
+    yieldAff
 
     log `shouldHaveValue` ["1:A", "2:A", "2:B"]
 
@@ -40,10 +44,12 @@ spec = describe "Event" $ do
 
       clear log
       liftEffect $ root1.fire "left"
+      yieldAff
       log `shouldHaveValue` ["left"]
 
       clear log
       liftEffect $ root1.fire "right"
+      yieldAff
       log `shouldHaveValue` ["right"]
 
       -- clean up
@@ -62,6 +68,7 @@ spec = describe "Event" $ do
       unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect $ root.fire "root"
+      yieldAff
       log `shouldHaveValue` ["both: root, root"]
 
       -- clean up
@@ -76,8 +83,10 @@ spec = describe "Event" $ do
     unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
     liftEffect $ root.fire ("1" <> _)
+    yieldAff
     liftEffect $ b.set "B"
     liftEffect $ root.fire ("2" <> _)
+    yieldAff
     log `shouldHaveValue` ["1A", "2B"]
 
     -- clean up
@@ -94,6 +103,7 @@ spec = describe "Event" $ do
     liftEffect $ root.fire 10
     liftEffect $ root.fire 3
     liftEffect $ root.fire 4
+    yieldAff
     log `shouldHaveValue` [2, 6, 8]
 
     -- clean up
@@ -110,10 +120,12 @@ spec = describe "Event" $ do
 
       clear log
       liftEffect $ root1.fire "left"
+      yieldAff
       log `shouldHaveValue` ["left"]
 
       clear log
       liftEffect $ root1.fire "right"
+      yieldAff
       log `shouldHaveValue` ["right"]
 
       -- clean up
@@ -128,6 +140,7 @@ spec = describe "Event" $ do
       unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect $ root.fire unit
+      yieldAff
       log `shouldHaveValue` [ 1 ]
 
       -- clean up
@@ -145,6 +158,7 @@ spec = describe "Event" $ do
       ) root.event
 
     liftEffect $ root.fire 1
+    yieldAff
     log `shouldHaveValue` [ 0 ]
 
     -- clean up
@@ -161,6 +175,7 @@ spec = describe "Event" $ do
     unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
     liftEffect $ fire "first"
+    yieldAff
 
     log `shouldHaveValue` ["first", "second"]
 
