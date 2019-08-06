@@ -56,16 +56,12 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask)
-import Control.Monad.Rec.Class (forever)
 import Data.Array as Array
 import Data.Foldable (for_)
 import Data.HeytingAlgebra (ff, implies, tt)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
-import Effect.AVar (empty) as AVar
-import Effect.Aff (launchAff_)
-import Effect.Aff.AVar (put, take) as AffAVar
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
@@ -356,15 +352,11 @@ newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effe
 newEvent = liftEffect do
   occurenceRef <- newRef Nothing
   listenerMap <- UMM.new
-  valueQueue <- AVar.empty
   let
-    fire value = launchAff_ $ AffAVar.put value valueQueue
-
-    propagate = forever do
-      val <- AffAVar.take valueQueue
-      liftEffect $ writeRef occurenceRef (Just val)
-      listeners <- liftEffect $ UMM.values listenerMap
-      liftEffect $ runNextFrame $ do
+    fire value = do
+      writeRef occurenceRef (Just value)
+      listeners <- UMM.values listenerMap
+      runNextFrame $ do
         sequenceFrame_ listeners
         frameWriteRef occurenceRef Nothing
 
@@ -372,7 +364,6 @@ newEvent = liftEffect do
       key <- UMM.insert l listenerMap
       pure $ UMM.delete key listenerMap
 
-  launchAff_ propagate
   pure
     { event: Event { occurence: Behavior $ pullReadRef occurenceRef, subscribe }
     , fire

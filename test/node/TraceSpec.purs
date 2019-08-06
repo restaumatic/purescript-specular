@@ -8,7 +8,7 @@ import Specular.FRP (holdDyn, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.Base (traceDynIO, traceEventIO)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (append, liftEffect, shouldHaveValue, withLeakCheck, yieldAff)
+import Test.Utils (append, liftEffect, shouldHaveValue, withLeakCheck)
 
 spec :: Spec Unit
 spec = describe "Trace" $ do
@@ -25,7 +25,6 @@ spec = describe "Trace" $ do
       liftEffect $ fire 1
       liftEffect $ fire 2
       liftEffect $ fire 5
-      yieldAff
 
       log `shouldHaveValue` ["1", "2", "5"]
 
@@ -44,7 +43,6 @@ spec = describe "Trace" $ do
       liftEffect $ fire 1
       liftEffect $ fire 2
       liftEffect $ fire 5
-      yieldAff
 
       log `shouldHaveValue` ["1", "2", "5"]
 

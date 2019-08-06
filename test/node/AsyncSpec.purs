@@ -47,13 +47,11 @@ spec = do
       _ <- execCleanupT do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
-      yieldAff
 
       log `shouldHaveValue` [NotRequested]
 
       clear log
       liftEffect $ setDyn (Just request)
-      yieldAff
       log `shouldHaveValue` [Loading]
 
       clear log
@@ -71,14 +69,12 @@ spec = do
       _ <- execCleanupT do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
-      yieldAff
 
       log `shouldHaveValue` [NotRequested]
 
       clear log
       liftEffect $ setDyn $ Just $  AVar.take avar1
       liftEffect $ setDyn $ Just $  AVar.take avar2
-      yieldAff
       log `shouldHaveValue` [Loading, Loading]
 
       clear log
@@ -100,11 +96,9 @@ spec = do
       _ <- execCleanupT do
         result <- asyncRequestMaybe dyn
         subscribeDyn_ (append log) result
-      yieldAff
 
       liftEffect $ setDyn $ Just $  AVar.take avar1
       liftEffect $ setDyn $ Just $  AVar.take avar2
-      yieldAff
 
       clear log
       AVar.put "result2" avar2
@@ -158,7 +152,6 @@ spec = do
       -- Test with asynchronous action
       clear log
       liftEffect $ setDyn $ Tuple "async B" $ Just $  AVar.take avar
-      yieldAff
       log `shouldHaveValue` [Tuple "async B" Loading]
       readDyn result `shouldReturn` Tuple "async B" Loading
 
@@ -171,7 +164,6 @@ spec = do
       -- Test with change to Nothing
       clear log
       liftEffect $ setDyn $ Tuple "Nothing again" Nothing
-      yieldAff
       log `shouldHaveValue` [Tuple "Nothing again" NotRequested]
       readDyn result `shouldReturn` Tuple "Nothing again" NotRequested
 
@@ -187,7 +179,6 @@ spec = do
 
       liftEffect $ fire "A"
       liftEffect $ fire "B"
-      yieldAff
 
       log `shouldHaveValue` ["handler:A", "result:A", "handler:B", "result:B"]
 

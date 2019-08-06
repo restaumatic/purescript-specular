@@ -10,7 +10,7 @@ import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck', yieldAff)
+import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -26,10 +26,8 @@ spec = describe "Dynamic" $ do
 
       clear log
       liftEffect $ fire 1
-      yieldAff
       liftEffect unsub
       liftEffect $ fire 2
-      yieldAff
 
       log `shouldHaveValue` [1]
 
@@ -42,10 +40,8 @@ spec = describe "Dynamic" $ do
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
 
       liftEffect $ fire 2
-      yieldAff
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
-      yieldAff
 
       log `shouldHaveValue` [2]
 
@@ -59,15 +55,12 @@ spec = describe "Dynamic" $ do
       log <- liftEffect $ newRef []
 
       unsub <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
-      yieldAff
       log `shouldHaveValue` [0]
 
       clear log
       liftEffect $ set 1
-      yieldAff
       liftEffect unsub
       liftEffect $ set 2
-      yieldAff
 
       log `shouldHaveValue` [1]
 
@@ -101,7 +94,6 @@ spec = describe "Dynamic" $ do
       liftEffect $ fire 1
       liftEffect $ fire 2
       liftEffect $ fire 2
-      yieldAff
 
       log `shouldHaveValue` [1,2]
 
@@ -120,7 +112,6 @@ spec = describe "Dynamic" $ do
       liftEffect $ fire 1
       liftEffect $ fire 2
       liftEffect $ fire 3
-      yieldAff
 
       log `shouldHaveValue` [0,1,3,6]
 
@@ -140,12 +131,10 @@ spec = describe "Dynamic" $ do
       unsub3 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       liftEffect $ ev1.fire 1
-      yieldAff
       log `shouldHaveValue` [Tuple 0 10, Tuple 1 10]
 
       clear log
       liftEffect $ ev2.fire 5
-      yieldAff
       log `shouldHaveValue` [Tuple 1 5]
 
       -- clean up
@@ -162,7 +151,6 @@ spec = describe "Dynamic" $ do
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
       liftEffect $ fire 1
-      yieldAff
 
       log `shouldHaveValue` [Tuple 0 10, Tuple 1 11]
 
@@ -185,36 +173,30 @@ spec = describe "Dynamic" $ do
 
       -- inner fires
       liftEffect $ ev1.fire 1
-      yieldAff
       log `shouldHaveValue` [1]
       clear log
 
       -- outer fires
       liftEffect $ ev2.fire (pure 2)
-      yieldAff
       log `shouldHaveValue` [2]
       clear log
 
       -- inner fires when outer not pointing to it
       liftEffect $ ev1.fire 10
-      yieldAff
       log `shouldHaveValue` []
 
       -- outer fires to itself
       liftEffect $ ev2.fire (3 <$ rootDynOuter)
-      yieldAff
       log `shouldHaveValue` [3]
       clear log
 
       -- outer fires to itself again
       liftEffect $ ev2.fire (4 <$ rootDynOuter)
-      yieldAff
       log `shouldHaveValue` [4]
       clear log
 
       -- outer fires to inner
       liftEffect $ ev2.fire rootDynInner
-      yieldAff
       log `shouldHaveValue` [10]
       clear log
 
@@ -222,7 +204,6 @@ spec = describe "Dynamic" $ do
       unsub4 <- liftEffect $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn
       liftEffect $ ev1.fire 15
       liftEffect $ ev2.fire rootDynInner
-      yieldAff
       log `shouldHaveValue` [15, 15]
 
       -- clean up
@@ -264,7 +245,6 @@ spec = describe "Dynamic" $ do
       unsub3 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log (Right x)) derivedDyn
 
       liftEffect $ fire 5
-      yieldAff
 
       log `shouldHaveValue` [Left 1, Right 2, Left 5, Right 10]
 
@@ -285,7 +265,6 @@ spec = describe "Dynamic" $ do
       liftEffect $ fire (Just 1)
       liftEffect $ fire Nothing
       liftEffect $ fire (Just 2)
-      yieldAff
 
       log `shouldHaveValue` [Nothing, Just 1, Just 2]
 
