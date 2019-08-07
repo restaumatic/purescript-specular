@@ -149,3 +149,21 @@ spec = describe "Event" $ do
 
     -- clean up
     liftEffect unsub
+
+  it "events are delivered in order of firing" $ withLeakCheck $ do
+    {event,fire} <- liftEffect newEvent
+    log <- liftEffect $ newRef []
+
+    unsub1 <- liftEffect $ execCleanupT $ flip subscribeEvent_ event \x ->
+      when (x == "first") $
+        fire "second"
+
+    unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
+
+    liftEffect $ fire "first"
+
+    log `shouldHaveValue` ["first", "second"]
+
+    -- clean up
+    liftEffect unsub1
+    liftEffect unsub2

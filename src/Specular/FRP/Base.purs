@@ -56,6 +56,8 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask)
+import Control.Monad.Rec.Class (Step(..), tailRecM)
+import Data.Array (cons, unsnoc)
 import Data.Array as Array
 import Data.Foldable (for_)
 import Data.HeytingAlgebra (ff, implies, tt)
@@ -66,7 +68,7 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
-import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
+import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO, rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
@@ -163,6 +165,9 @@ framePull (MkPull x) = Frame (RIO.local _.time x)
 
 frameWriteRef :: forall a. Ref a -> a -> Frame Unit
 frameWriteRef ref value = Frame (liftEffect (writeRef ref value))
+
+frameModifyRef :: forall a. Ref a -> (a -> a) -> Frame Unit
+frameModifyRef ref value = Frame (liftEffect (modifyRef ref value))
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: Effect Unit -> Frame Unit
@@ -340,11 +345,31 @@ subscribeEvent_ handler event = do
   onCleanup unsub
 
 _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
-_subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) ->
+_subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) -> do
+  arrayRef <- newRef []
   subscribe do
     m_value <- framePull $ readBehavior occurence
     for_ m_value $ \value ->
-      effect $ handler value
+      frameModifyRef arrayRef (cons value)
+    effect do
+      tailRecM (\_ -> do
+        elem <- popRef arrayRef
+        case elem of
+          Just value -> do
+            handler value
+            pure $ Loop unit
+          Nothing -> pure (Done unit)
+        ) unit
+
+  where
+    popRef :: forall s. Ref (Array s) -> Effect (Maybe s)
+    popRef ref = do
+      array <- readRef ref
+      case unsnoc array of
+        Nothing -> pure Nothing
+        Just { init, last } -> do
+          writeRef ref init
+          pure (Just last)
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
