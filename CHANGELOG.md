@@ -1,5 +1,9 @@
 ## Next release
 
+Nothing yet.
+
+## v0.5.0
+
 - 2019-08-07 `asyncRequest` now delivers the change to `Loaded` synchronously if
   the action is synchronous. It was asynchronous before as a workaround for
   events not being delivered in the correct order.
