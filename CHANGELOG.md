@@ -1,6 +1,20 @@
 ## Next release
 
-Nothing yet.
+- 2019-08-07 `asyncRequest` now delivers the change to `Loaded` synchronously if
+  the action is synchronous. It was asynchronous before as a workaround for
+  events not being delivered in the correct order.
+- 2019-08-07 Event subscribers now receive values in order they were fired, even
+  when an event is fired from inside a subscriber (issue #43). Fix by @przembot.
+
+## v0.4.1
+
+- 2019-06-18 Fixed a bug in `textInputValueOnChange`. A value changed by
+  `setValue` event was lost if the user subsequently edited text field. By
+  @przembot
+
+## v0.4.0
+
+- 2019-06-01 **(breaking change)** PureScript updated to `0.13.0`.
 
 ## v0.3.0
 
