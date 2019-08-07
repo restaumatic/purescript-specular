@@ -14,7 +14,7 @@ import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
 import Specular.FRP.Base (readBehavior, subscribeDyn_)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (append, clear, shouldHaveValue, shouldReturn, yieldAff)
+import Test.Utils (append, clear, shouldHaveValue, shouldReturn)
 
 spec :: Spec Unit
 spec = do
@@ -33,7 +33,6 @@ spec = do
 
       clear log
       AVar.put "result" avar
-      yieldAff
       log `shouldHaveValue` [Loaded "result"]
 
     it "makes a request when the value changes" $ do
@@ -56,7 +55,6 @@ spec = do
 
       clear log
       AVar.put "result" avar
-      yieldAff
       log `shouldHaveValue` [Loaded "result"]
 
     it "ignores responses to requests older than the current" $ do
@@ -83,7 +81,6 @@ spec = do
 
       clear log
       AVar.put "result2" avar2
-      yieldAff
       log `shouldHaveValue` [Loaded "result2"]
 
     it "ignores out-of-order responses" $ do
@@ -102,7 +99,6 @@ spec = do
 
       clear log
       AVar.put "result2" avar2
-      yieldAff
       log `shouldHaveValue` [Loaded "result2"]
 
       clear log
@@ -145,7 +141,6 @@ spec = do
       -- Test with immediately executed action
       clear log
       liftEffect $ setDyn $ Tuple "pure A" $ Just $ pure "A"
-      yieldAff
       log `shouldHaveValue` [Tuple "pure A" Loading, Tuple "pure A" (Loaded "A")]
       readDyn result `shouldReturn` Tuple "pure A" (Loaded "A")
 
@@ -157,7 +152,6 @@ spec = do
 
       clear log
       AVar.put "B" avar
-      yieldAff
       log `shouldHaveValue` [Tuple "async B" (Loaded "B")]
       readDyn result `shouldReturn` Tuple "async B" (Loaded "B")
 
@@ -181,13 +175,3 @@ spec = do
       liftEffect $ fire "B"
 
       log `shouldHaveValue` ["handler:A", "result:A", "handler:B", "result:B"]
-
-{-
-Note [yieldAff]
-~~~~~~~~~~~~~~~
-
-The calls to `yieldAff` above are workarounds for the workaround for issue #10 -
-see implementation of `asyncRequestMaybe`. It causes the propagation of
-immediate results to be delivered on next tick, so we must also delay
-inspecting results.
--}

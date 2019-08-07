@@ -21,7 +21,7 @@ import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
 import Specular.Internal.Effect (newRef, readRef, writeRef)
 import Test.Spec (Spec, describe, it)
-import Test.Utils (shouldReturn, yieldAff)
+import Test.Utils (shouldReturn)
 import Test.Utils.Dom (runBuilderInDiv)
 
 spec :: Spec Unit
@@ -44,7 +44,6 @@ spec = describe "AsyncRequest" $ do
       liftEffect (pull $ readBehavior $ current result) `shouldReturn` NotRequested
 
       liftEffect $ setQuery "foo"
-      yieldAff
       liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loading
 
       AVar.put "FOO" avar
@@ -67,11 +66,9 @@ spec = describe "AsyncRequest" $ do
       liftEffect $ setQuery "bar"
 
       AVar.put "FOO" firstRequest
-      yieldAff
       liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loading
 
       AVar.put "BAR" secondRequest
-      yieldAff
       liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loaded "BAR"
 
 
