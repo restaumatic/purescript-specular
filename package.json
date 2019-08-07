@@ -20,7 +20,7 @@
     "benchmark": "^2.1.4",
     "phantomjs-prebuilt": "^2.1.16",
     "psc-package": "^3.0.1",
-    "pulp": "12.3.0",
+    "pulp": "13.0.0",
     "puppeteer": "^1.13.0"
   }
 }
