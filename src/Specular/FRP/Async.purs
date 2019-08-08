@@ -77,8 +77,6 @@ asyncRequestMaybe dquery = do
       value <- query
       liftEffect $ loadStateChanged.fire (Loaded value)
 
-  subscribeDyn_ update dquery
-
   let
     -- Status when the request starts.
     initialStatus (Just _) = Loading
@@ -90,6 +88,10 @@ asyncRequestMaybe dquery = do
       [ initialStatus <$> changed dquery
       , loadStateChanged.event
       ]
+
+  -- Note: we have to subscribe after we start listening to `loadStateChanged`,
+  -- else we could miss the result of an initial synchronous action 
+  subscribeDyn_ update dquery
 
   pure dyn
 

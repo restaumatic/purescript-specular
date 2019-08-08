@@ -11,9 +11,10 @@ import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import Specular.FRP (current, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
-import Specular.FRP.Base (readBehavior, subscribeDyn_)
+import Specular.FRP.Base (readBehavior, subscribeDyn_, readDynamic)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
+import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, clear, shouldHaveValue, shouldReturn)
 
 spec :: Spec Unit
@@ -160,6 +161,13 @@ spec = do
       liftEffect $ setDyn $ Tuple "Nothing again" Nothing
       log `shouldHaveValue` [Tuple "Nothing again" NotRequested]
       readDyn result `shouldReturn` Tuple "Nothing again" NotRequested
+
+  it "works if initial action is synchronous" $ do
+    Tuple result _ <- runCleanupT do
+      status <- asyncRequestMaybe $ pure $ Just $ pure "foo"
+      readDynamic status
+    
+    result `shouldEqual` Loaded "foo"
 
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do

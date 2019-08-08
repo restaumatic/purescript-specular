@@ -1,6 +1,7 @@
 ## Next release
 
-Nothing yet.
+- 2019-08-08 Fixed a bug where `asyncRequestMaybe` would return an incorrect
+  result when passed a synchronous initial action.
 
 ## v0.5.0
 
