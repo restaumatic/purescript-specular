@@ -17,9 +17,10 @@ import Specular.FRP (class MonadFRP, WeakDynamic, newEvent, weakDynamic_)
 import Specular.FRP as FRP
 import Specular.Internal.Effect (DelayedEffects)
 
-type BuilderEnv =
+type BuilderEnv env =
   { parent :: Node
   , cleanup :: DelayedEffects
+  , userEnv :: env
   }
 
 class Monad m <= MonadDomBuilder m where
@@ -30,8 +31,8 @@ class Monad m <= MonadDomBuilder m where
 
   elAttr :: forall a. TagName -> Attrs -> m a -> m a
 
-  liftBuilder :: forall a. EffectFn1 BuilderEnv a -> m a
-  liftBuilderWithRun :: forall a b. EffectFn2 BuilderEnv (EffectFn2 BuilderEnv (m b) b) a -> m a
+  liftBuilder :: forall a. (forall env. EffectFn1 (BuilderEnv env) a) -> m a
+  liftBuilderWithRun :: forall a b. (forall env. EffectFn2 (BuilderEnv env) (EffectFn2 (BuilderEnv env) (m b) b) a) -> m a
 
 elDynAttr' :: forall m a. MonadDomBuilder m => String -> WeakDynamic Attrs -> m a -> m (Tuple Node a)
 elDynAttr' = elDynAttrNS' Nothing
@@ -86,7 +87,7 @@ instance monadDomBuilderReaderT :: MonadDomBuilder m => MonadDomBuilder (ReaderT
   rawHtml = lift <<< rawHtml
   elAttr tag attrs body =
     ReaderT $ \env -> elAttr tag attrs $ runReaderT body env
-  liftBuilder = lift <<< liftBuilder
+  liftBuilder b = lift (liftBuilder b)
   liftBuilderWithRun fn = ReaderT \e ->
     liftBuilderWithRun (mkEffectFn2 \benv run ->
       runEffectFn2 fn benv (mkEffectFn2 \benv' m ->

@@ -22,13 +22,13 @@ import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef, push
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
 el' :: forall m a. MonadWidget m => TagName -> Array Prop -> m a -> m (Tuple Node a)
-el' tagName props body = liftBuilderWithRun $ mkEffectFn2 \env run -> do
+el' tagName props body = liftBuilderWithRun (mkEffectFn2 \env run -> do
   node <- createElement tagName
   result <- runEffectFn2 run (env { parent = node }) body
   foreachE props \(Prop prop) ->
     runEffectFn2 prop node env.cleanup
   appendChild node env.parent
-  pure (Tuple node result)
+  pure (Tuple node result))
 
 el :: forall m a. MonadWidget m => TagName -> Array Prop -> m a -> m a
 el tagName props body = snd <$> el' tagName props body

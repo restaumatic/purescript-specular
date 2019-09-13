@@ -1,5 +1,6 @@
 module Specular.Dom.Widget (
     Widget
+  , RWidget
   , runWidgetInNode 
   , runMainWidgetInNode
   , runMainWidgetInBody
@@ -17,7 +18,9 @@ import Specular.Dom.Builder (Builder, runBuilder)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
 import Specular.FRP (class MonadFRP)
 
-type Widget = Builder Node
+type Widget = RWidget Unit
+
+type RWidget = Builder
 
 -- | Runs a widget in the specified parent element. Returns the result and cleanup action.
 runWidgetInNode :: forall a. Node -> Widget a -> Effect (Tuple a (Effect Unit))
