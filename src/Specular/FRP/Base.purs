@@ -475,6 +475,12 @@ instance applyDynamic :: Apply Dynamic where
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
 
+instance semigroupDynamic :: Semigroup a => Semigroup (Dynamic a) where
+  append = lift2 append
+
+instance monoidDynamic :: Monoid a => Monoid (Dynamic a) where
+  mempty = pure mempty
+
 -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
 -- | and every time `e` fires, its value will update by applying `f` to the
 -- | event occurence value and the old value.
