@@ -2,6 +2,10 @@
 
 Nothing yet.
 
+## v0.5.2
+
+- 2019-09-25 `Dynamic` now has `Semigroup` and `Monoid` instances, lifting operations from the value type.
+
 ## v0.5.1
 
 - 2019-08-08 Fixed a bug where `asyncRequestMaybe` would return an incorrect
