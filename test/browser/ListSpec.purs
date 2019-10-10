@@ -8,7 +8,7 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (dynText, el, text)
-import Specular.FRP (changedW, dynamic_, for, subscribeEvent_, weaken)
+import Specular.FRP (changedW, dynamic_, subscribeEvent_, weaken)
 import Specular.FRP.List (weakDynamicList, weakDynamicList_, dynamicList_)
 import Specular.FRP.Replaceable (weakDynamic_)
 import Specular.FRP.WeakDynamic (attachWeakDynWith)
@@ -28,7 +28,7 @@ spec = do
       let wdyn = weaken dyn
 
       Tuple node1 _ <- runBuilderInDiv $
-        weakDynamic_ $ for wdyn $ \array ->
+        weakDynamic_ $ wdyn <#> \array ->
           for_ array $ \item ->
             el "p" $ text $ show item
 
@@ -49,7 +49,7 @@ spec = do
       Tuple dyn fire <- liftEffect $ newDynamic []
 
       Tuple node1 _ <- runBuilderInDiv $
-        dynamic_ $ for dyn $ \array ->
+        dynamic_ $ dyn <#> \array ->
           for_ array $ \item ->
             el "p" $ text $ show item
 

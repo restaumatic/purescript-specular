@@ -10,7 +10,7 @@ import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elAttr, elDynAttr, elDynAttr', elDynAttrNS', rawHtml, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Button (buttonOnClick)
-import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, for, never, subscribeEvent_, switch, weaken)
+import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, never, subscribeEvent_, switch, weaken)
 import Specular.FRP as FRP
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
@@ -183,7 +183,7 @@ spec = describe "Builder" $ do
         anyCompletedTasks = dyn
 
       T3 node (result :: Dynamic (Event Unit)) unsub1 <- runBuilderInDiv' $ do
-        dynamic $ for anyCompletedTasks $ \anyCompletedTasks' ->
+        dynamic $ anyCompletedTasks <#> \anyCompletedTasks' ->
           if anyCompletedTasks'
             then buttonOnClick (pure mempty) (text "Clear")
             else pure never
@@ -216,7 +216,7 @@ spec = describe "Builder" $ do
         anyCompletedTasks = weaken dyn
 
       T3 node (result :: WeakDynamic (Event Unit)) unsub1 <- runBuilderInDiv' $ do
-        weakDynamic $ for anyCompletedTasks $ \anyCompletedTasks' ->
+        weakDynamic $ anyCompletedTasks <#> \anyCompletedTasks' ->
           if anyCompletedTasks'
             then buttonOnClick (pure mempty) (text "Clear")
             else pure never

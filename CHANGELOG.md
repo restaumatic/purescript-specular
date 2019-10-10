@@ -1,6 +1,6 @@
 ## Next release
 
-Nothing yet.
+- 2019-10-10 **(breaking change)** Removed `Specular.FRP.for`. Use `<#>` from `Data.Functor` instead.
 
 ## v0.5.2
 

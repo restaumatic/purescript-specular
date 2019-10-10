@@ -13,7 +13,7 @@ import Examples.RegistrationForm as RegistrationForm
 import Specular.Dom.Builder.Class (el, text)
 import Specular.Dom.Widget (class MonadWidget, runMainWidgetInBody)
 import Specular.Dom.Widgets.Button (buttonOnClick)
-import Specular.FRP (Event, for, holdDyn, leftmost, weakDynamic_)
+import Specular.FRP (Event, holdDyn, leftmost, weakDynamic_)
 import Specular.FRP.Fix (fixFRP)
 
 newtype Demo = Demo
@@ -39,7 +39,7 @@ demoButton demo@(Demo {name}) = do
 
 mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = fixFRP $ \view -> do
-  weakDynamic_ $ for view.currentDemo $ \m_demo ->
+  weakDynamic_ $ view.currentDemo <#> \m_demo ->
     case m_demo of
       Nothing -> text "(no demo chosen)"
 
