@@ -71,163 +71,6 @@ import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
 import Unsafe.Coerce (unsafeCoerce)
 
--------------------------------------------------
-
--- | Pull is a computation that reads a value given current time.
--- |
--- | Invariant: Pull computations are always idempotent (`forall x :: Pull a. x *> x = x`).
-newtype Pull a = MkPull (RIO Time a)
-
-runPull :: forall a. Time -> Pull a -> Effect a
-runPull time (MkPull x) = runRIO time x
-
-derive newtype instance functorPull :: Functor Pull
-derive newtype instance applyPull :: Apply Pull
-derive newtype instance applicativePull :: Applicative Pull
-derive newtype instance bindPull :: Bind Pull
-derive newtype instance monadPull :: Monad Pull
-
-getTime :: Pull Time
-getTime =
-  -- ask is idempotent
-  MkPull ask
-
-pullReadRef :: forall a. Ref a -> Pull a
-pullReadRef ref =
-  -- readRef is idempotent
-  MkPull (liftEffect (readRef ref))
-
-unsafeMkPull :: forall a. (Time -> Effect a) -> Pull a
-unsafeMkPull f = MkPull (rio f)
-
-data CacheState a =
-    Fresh
-  | Cached Time a
-  | BlackHole
-
--- | Create a computation that will run the given action at most once during
--- | each frame.
--- |
--- | It is an error to run the computation returned from `oncePerFrame` inside
--- | the passed action.
-oncePerFramePull :: forall a. Pull a -> Effect (Pull a)
-oncePerFramePull action = oncePerFramePullWithIO action pure
-
--- | Create a computation that will run the given Pull action and chain it to
--- | the given IO action, at most once per frame. This makes the returned Pull
--- | idempotent by construction.
--- |
--- | It is an error to run the computation returned from `oncePerFrame` inside
--- | the passed action.
-oncePerFramePullWithIO :: forall a b. Pull a -> (a -> Effect b) -> Effect (Pull b)
-oncePerFramePullWithIO action io = do
-  ref <- newRef Fresh
-  pure $ unsafeMkPull $ \time -> do
-    cache <- readRef ref
-    case cache of
-      Cached lastTime value | lastTime == time ->
-        pure value
-
-      BlackHole ->
-        unsafeCrashWith "Illegal self-referential computation passed to oncePerFrame"
-
-      _ -> do
-        writeRef ref BlackHole
-        value <- runPull time action >>= io
-        writeRef ref (Cached time value)
-        pure value
-
-pull :: forall m a. MonadEffect m => Pull a -> m a
-pull p = liftEffect do
-  time <- freshTime
-  runPull time p
-
--------------------------------------------------
-
--- | Computations that occur during a Frame.
---
--- During a frame, no arbitrary effects are performed. Instead they are
--- registered using `effect` to be performed after the frame.
---
--- Frame computations have access to current logical time. See `oncePerFrame`
--- for why this is needed.
-newtype Frame a = Frame (RIO FrameEnv a)
-
-type FrameEnv =
-  { effects :: DelayedEffects
-  , time :: Time
-  }
-
-framePull :: forall a. Pull a -> Frame a
-framePull (MkPull x) = Frame (RIO.local _.time x)
-
-frameWriteRef :: forall a. Ref a -> a -> Frame Unit
-frameWriteRef ref value = Frame (liftEffect (writeRef ref value))
-
-frameModifyRef :: forall a. Ref a -> (a -> a) -> Frame Unit
-frameModifyRef ref value = Frame (liftEffect (modifyRef ref value))
-
--- | Schedule an effect to be executed after the Frame completed.
-effect :: Effect Unit -> Frame Unit
-effect action = Frame $ rio $ \{effects} ->
-  -- HACK: briefly creating a Pull that is not idempotent;
-  -- But it's immediately lifted to Frame, so it's OK
-  void $ pushDelayed effects action
-
-derive newtype instance functorFrame :: Functor Frame
-derive newtype instance applyFrame :: Apply Frame
-derive newtype instance applicativeFrame :: Applicative Frame
-derive newtype instance bindFrame :: Bind Frame
-derive newtype instance monadFrame :: Monad Frame
-
--- | Run a Frame computation and then run its effects.
-runFrame :: forall a. Time -> Frame a -> Effect a
-runFrame currentTime (Frame x) = do
-  effectsMutable <- emptyDelayed
-  value <- runRIO { effects: effectsMutable, time: currentTime } x
-  effects <- unsafeFreezeDelayed effectsMutable
-  sequenceEffects effects
-  pure value
-
-freshTime :: Effect Time
-freshTime = do
-  time <- readRef nextTimeRef
-  writeRef nextTimeRef (case time of Time t -> Time (t + 1))
-  pure time
-
--- | Run a Frame computation with a fresh time value and then run its effects.
-runNextFrame :: forall a. Frame a -> Effect a
-runNextFrame frame = do
-  time <- freshTime
-  runFrame time frame
-
--- | Create a computation that will run the given action at most once during
--- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
-oncePerFrame_ :: Frame Unit -> Effect (Frame Unit)
-oncePerFrame_ action = do
-  ref <- newRef Nothing
-  pure $ do
-    time <- framePull $ getTime
-    m_lastTime <- framePull $ pullReadRef ref
-    case m_lastTime of
-      Just lastTime | lastTime == time ->
-        pure unit
-      _ -> do
-        frameWriteRef ref (Just time)
-        action
-
--------------------------------------------------------------
-
--- | Logical time.
--- There's no monotonicity requirement (for now), so we have only Eq instance.
-newtype Time = Time Int
-
-derive newtype instance eqTime :: Eq Time
-
--- | The global time counter.
-nextTimeRef :: Ref Time
-nextTimeRef = unsafePerformEffect $ newRef (Time 0)
-
 -------------------------------------------------------------
 
 -- | Behaviors are time-changing values that can be read, but not subscribed to.
@@ -235,12 +78,16 @@ nextTimeRef = unsafePerformEffect $ newRef (Time 0)
 -- A Behavior should never change during a frame.
 --
 -- Can be composed using Monad instance.
-newtype Behavior a = Behavior (Pull a)
+newtype Behavior a = Behavior (Dynamic a)
 -- Behavior is represented by a computation that reads its value.
 
 -- | Read a value of a Behavior.
-readBehavior :: forall a. Behavior a -> Pull a
-readBehavior (Behavior read) = read
+readBehavior :: forall a. Behavior a -> Effect a
+readBehavior (Behavior read) = unsafeCrashWith "readBehavior"
+
+type Pull = Effect
+
+pull = identity
 
 derive newtype instance functorBehavior :: Functor Behavior
 derive newtype instance applyBehavior :: Apply Behavior
@@ -250,7 +97,6 @@ instance monadBehavior :: Monad Behavior
 
 -------------------------------------------------------------
 
-type Listener = Frame Unit
 type Unsubscribe = Effect Unit
 
 -- | A source of occurences.
@@ -331,8 +177,6 @@ newEvent = liftEffect do
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
 newBehavior initialValue = liftEffect $ newBehaviorEffect initialValue
 
-foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
-
 newBehaviorEffect :: forall a. a -> Effect { behavior :: Behavior a, set :: a -> Effect Unit }
 newBehaviorEffect initialValue = do
   { dynamic: Dynamic node, set } <- newDynamic initialValue
@@ -389,13 +233,13 @@ instance functorDynamic :: Functor Dynamic where
     runEffectFn2 I.map f node
 
 instance applyDynamic :: Apply Dynamic where
-  apply (Dynamic f) (Dynamic x) = Dynamic
-    { value: f.value <*> x.value
-    , change: mergePulses f.change x.change
-    }
+  apply (Dynamic f) (Dynamic x) =
+    unsafeCrashWith "applyDynamic"
 
 instance applicativeDynamic :: Applicative Dynamic where
-  pure x = Dynamic { value: pure x, change: never }
+  pure x = Dynamic $ unsafePerformEffect do
+    runEffectFn1 I.constant x
+
 
 -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
 -- | and every time `e` fires, its value will update by applying `f` to the
@@ -443,70 +287,11 @@ uniqDynBy eq dyn = do
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
-switch (Dynamic { value, change: Event change }) = Event
-  { occurence: do
-      -- The resulting Event occurs when the current inner Event occurs
-      Event innerEvent <- value
-      innerEvent.occurence
-
-  , subscribe: \l -> do
-      onceListener <- oncePerFrame_ l
-      -- oncePerFrame guards us against the case of coincidence
-      -- of the inner Event and outer Dynamic change
-
-      unsubRef <- newRef (pure unit)
-      isDoneRef <- newRef false
-
-      let
-        cleanup :: Effect Unit
-        cleanup = join (readRef unsubRef)
-
-        replaceWith :: Event a -> Frame Unit
-        replaceWith (Event event) = do
-          effect $ do
-            isDone <- readRef isDoneRef
-            unless isDone do
-              cleanup
-              unsub <- event.subscribe onceListener
-              writeRef unsubRef unsub
-
-        -- Unsubscribe from the previous change event (if any)
-        -- and subscribe to the current one.
-        updateListener :: Frame Unit
-        updateListener = framePull (readBehavior value) >>= replaceWith
-
-      -- First, we subscribe to the current inner Dynamic
-      runNextFrame updateListener
-
-      unsub <- change.subscribe $ do
-        -- when the outer Dynamic changes,
-
-        onceListener
-        -- we notify our listener
-
-        updateListener
-        -- and resubscribe
-
-      pure (writeRef isDoneRef true *> cleanup *> unsub)
-  }
-
-
-joinDyn :: forall a. Dynamic (Dynamic a) -> Dynamic a
-joinDyn dynamic@(Dynamic {change}) = Dynamic
-  { value: current dynamic >>= current
-      -- Value is the current value of the inner Dynamic
-  , change:
-      -- The resulting Dynamic changes when either:
-
-      switch (map (\(Dynamic inner) -> inner.change) dynamic)
-      --  - the inner Dynamic changes,
-
-      `mergePulses` change
-      --  - the outer Dynamic changes.
-  }
+switch (Dynamic _) =
+  unsafeCrashWith "switch"
 
 instance bindDynamic :: Bind Dynamic where
-  bind d f = joinDyn (map f d)
+  bind d f = unsafeCrashWith "bind"
 
 instance monadDynamic :: Monad Dynamic
 
@@ -560,27 +345,10 @@ instance monadFRP :: (MonadEffect m, MonadCleanup m) => MonadFRP m
 
 
 traceEventIO :: forall a. (a -> Effect Unit) -> Event a -> Event a
-traceEventIO handler (Event {occurence, subscribe}) =
-  Event
-    { occurence
-    , subscribe: \l ->
-       subscribe $ do
-         occ <- framePull $ readBehavior occurence
-         effect $ case occ of
-                    (Just x) -> handler x
-                    _        -> pure unit
-         l
-    }
-
+traceEventIO handler e = e
 
 traceDynIO :: forall a. (a -> Effect Unit) -> Dynamic a -> Dynamic a
-traceDynIO handler (Dynamic {value, change}) =
-  Dynamic
-    { value
-    , change: map (const unit)
-          <<< traceEventIO handler
-          <<< filterMapEventB (\_ -> Just <$> value) $ change
-    }
+traceDynIO handler d = d
 
 --- Lifted instances
 
