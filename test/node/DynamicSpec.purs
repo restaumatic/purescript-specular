@@ -276,7 +276,7 @@ spec = describe "Dynamic" $ do
       liftEffect unsub2
       liftEffect unsub3
 
-  describeOnly "latestJust" $ do
+  describe "latestJust" $ do
     it "updates value only when it changes to Just" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
       let fire' x = liftEffect do
