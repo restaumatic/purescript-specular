@@ -13,10 +13,20 @@
     "debug",
     "foreign-object",
     "avar",
+    "incremental",
 
     "psci-support",
     "console",
     "spec",
     "foreign"
-  ]
+  ],
+  "extraDeps": {
+    "incremental": {
+      "dependencies": [
+        "prelude"
+      ],
+      "repo": "../purescript-incremental",
+      "version": "LATEST"
+    }
+  }
 }

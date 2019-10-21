@@ -2,7 +2,7 @@ module Specular.FRP.Base (
     Event
   , never
   , leftmost
-  , mergeEvents
+--  , mergeEvents
 
   , filterEvent
   , filterMapEvent
@@ -42,9 +42,6 @@ module Specular.FRP.Base (
 
   , class MonadFRP
 
-  , foldDynImpl
-  , foldDynMaybeImpl
-
   , traceEventIO
   , traceDynIO
 ) where
@@ -63,13 +60,16 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
+import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
+import Incremental.Internal as I
+import Incremental.Internal.Node as I
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO, rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
+import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------
 
@@ -261,44 +261,26 @@ type Unsubscribe = Effect Unit
 -- | meaningful interpretation of `pure` (when would the event occur?).
 -- | There is an interpretation of `apply` (Event that fires when the input
 -- | events coincide), but it's not very useful.
-newtype Event a = Event
-  { occurence :: Behavior (Maybe a)
-  , subscribe :: Listener -> Effect Unsubscribe
-  }
+newtype Event a = Event (I.Node a)
+
 -- We represent an Event with:
 --  - a Behavior that tells whether this Event occurs during a given frame,
 --    and if so, its occurence value,
 --  - subscription function.
 
-derive instance functorEvent :: Functor Event
+instance functorEvent :: Functor Event where
+  map f (Event e) = unsafeCrashWith "Event.map"
 
 -- | An Event that never occurs.
 never :: forall a. Event a
-never = Event { occurence: pure Nothing, subscribe: \_ -> pure (pure unit) }
+never = unsafeCoerce 1
 
 filterMapEventB :: forall a b. (a -> Behavior (Maybe b)) -> Event a -> Event b
-filterMapEventB f (Event {occurence, subscribe}) = gated $
-  Event
-    { occurence: (map join <<< join <<< map sequence) (map (map f) occurence)
-    , subscribe
-    }
+filterMapEventB f (Event _) = unsafeCrashWith "filterMapEventB"
 
 mapEventB :: forall a b. (a -> Behavior b) -> Event a -> Event b
-mapEventB f (Event {occurence, subscribe}) = gated $
-  Event
-    { occurence: (join <<< map sequence) (map (map f) occurence)
-    , subscribe
-    }
-
-gated :: forall a. Event a -> Event a
-gated (Event {occurence, subscribe}) =
-  Event
-    { occurence
-    , subscribe: \l ->
-        subscribe $ do
-          occ <- framePull $ readBehavior occurence
-          when (isJust occ) l
-    }
+mapEventB f (Event _) =
+  unsafeCrashWith "mapEventB"
 
 sampleAt :: forall a b. Event (a -> b) -> Behavior a -> Event b
 sampleAt event behavior = mapEventB (\f -> f <$> behavior) event
@@ -309,55 +291,25 @@ filterMapEvent f = filterMapEventB (pure <<< f)
 filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
 filterEvent f = filterMapEvent (\x -> if f x then Just x else Nothing)
 
-mergeEvents ::
-     forall a b c
-   . (a -> Behavior c)
-  -> (b -> Behavior c)
-  -> (a -> b -> Behavior c)
-  -> Event a
-  -> Event b
-  -> Event c
-mergeEvents whenLeft whenRight whenBoth (Event left) (Event right) =
-  Event
-    { occurence: do
-        occL <- left.occurence
-        occR <- right.occurence
-        case occL, occR of
-          Just l,  Nothing -> Just <$> whenLeft l
-          Nothing, Just r  -> Just <$> whenRight r
-          Just l,  Just r  -> Just <$> whenBoth l r
-          Nothing, Nothing -> pure Nothing
-    , subscribe: \l -> do
-       onceListener <- oncePerFrame_ l
-       unsubL <- left.subscribe onceListener
-       unsubR <- right.subscribe onceListener
-       pure $ unsubL *> unsubR
-    }
-
-mergePulses :: Event Unit -> Event Unit -> Event Unit
-mergePulses = mergeEvents (\_ -> pure unit) (\_ -> pure unit) (\_ _ -> pure unit)
-
 subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
 subscribeEvent_ handler event = do
   unsub <- liftEffect $ runEffectFn2 _subscribeEvent handler event
   onCleanup unsub
 
 _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
-_subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) -> do
+_subscribeEvent = mkEffectFn2 \handler (Event node) -> do
   arrayRef <- newRef []
-  subscribe do
-    m_value <- framePull $ readBehavior occurence
-    for_ m_value $ \value ->
-      frameModifyRef arrayRef (cons value)
-    effect do
-      tailRecM (\_ -> do
-        elem <- popRef arrayRef
-        case elem of
-          Just value -> do
-            handler value
-            pure $ Loop unit
-          Nothing -> pure (Done unit)
-        ) unit
+  let handler value = do
+        modifyRef arrayRef (cons value)
+        tailRecM (\_ -> do
+          elem <- popRef arrayRef
+          case elem of
+            Just value -> do
+              handler value
+              pure $ Loop unit
+            Nothing -> pure (Done unit)
+          ) unit
+  I.addObserver node handler
 
   where
     popRef :: forall s. Ref (Array s) -> Effect (Maybe s)
@@ -373,24 +325,7 @@ _subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) -> do
 -- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effect Unit }
 newEvent = liftEffect do
-  occurenceRef <- newRef Nothing
-  listenerMap <- UMM.new
-  let
-    fire value = do
-      writeRef occurenceRef (Just value)
-      listeners <- UMM.values listenerMap
-      runNextFrame $ do
-        sequenceFrame_ listeners
-        frameWriteRef occurenceRef Nothing
-
-    subscribe l = do
-      key <- UMM.insert l listenerMap
-      pure $ UMM.delete key listenerMap
-
-  pure
-    { event: Event { occurence: Behavior $ pullReadRef occurenceRef, subscribe }
-    , fire
-    }
+  effectCrash "newEvent"
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
@@ -400,10 +335,10 @@ foreign import sequenceFrame_ :: Array (Frame Unit) -> Frame Unit
 
 newBehaviorEffect :: forall a. a -> Effect { behavior :: Behavior a, set :: a -> Effect Unit }
 newBehaviorEffect initialValue = do
-  ref <- newRef initialValue
+  { dynamic: Dynamic node, set } <- newDynamic initialValue
   pure
-    { behavior: Behavior $ pullReadRef ref
-    , set: writeRef ref
+    { behavior: Behavior node
+    , set
     }
 
 -- | An Event that occurs when any of the events occur.
@@ -411,13 +346,7 @@ newBehaviorEffect initialValue = do
 -- | leftmost one.
 leftmost :: forall a. Array (Event a) -> Event a
 leftmost events =
-  Event
-    { occurence: findFirstM (\(Event event) -> event.occurence) events
-    , subscribe: \l -> do
-       onceListener <- oncePerFrame_ l
-       unsubs <- traverse (\(Event event) -> event.subscribe onceListener) events
-       pure $ sequenceEffects unsubs
-    }
+  unsafeCrashWith "leftmost"
 
 findFirstM :: forall m a b. Monad m => (a -> m (Maybe b)) -> Array a -> m (Maybe b)
 findFirstM f array =
@@ -437,14 +366,7 @@ findFirstM f array =
 -- | `Dynamic a` represents a _dynamically changing value_ of type `a`. The
 -- | current value may be queried at any time (using `current`), and it's
 -- | possible to be notified of changes (using `changed`).
---
--- Dynamic is implemented as a pair of `Behavior` and `Event`. The Event only
--- notifies when a change occurs; the new value is always queried from the
--- behavior.
-newtype Dynamic a = Dynamic
-  { value :: Behavior a
-  , change :: Event Unit
-  }
+newtype Dynamic a = Dynamic (I.Node a)
 
 -- | The Behavior representing the current value of the Dynamic.
 -- | When it is changing (the change event occurs), it has the new value.
@@ -452,17 +374,19 @@ newtype Dynamic a = Dynamic
 -- | The value of `current x` is always the value of the latest occurence of
 -- | `changed x`, if it has ever occured.
 current :: forall a. Dynamic a -> Behavior a
-current (Dynamic {value}) = value
+current (Dynamic _) = unsafeCrashWith "Dynamic.current"
 
 -- | An Event that fires with the new value every time the Dynamic changes.
 changed :: forall a. Dynamic a -> Event a
-changed (Dynamic {value, change}) = mapEventB (\_ -> value) change
+changed (Dynamic _) = unsafeCrashWith "changed"
 
 -- | An Event that fires every time the Dynamic changes.
 changed_ :: forall a. Dynamic a -> Event Unit
-changed_ (Dynamic {value, change}) = change
+changed_ (Dynamic _) = unsafeCrashWith "changed_"
 
-derive instance functorDynamic :: Functor Dynamic
+instance functorDynamic :: Functor Dynamic where
+  map f (Dynamic node) = Dynamic $ unsafePerformEffect do
+    runEffectFn2 I.map f node
 
 instance applyDynamic :: Apply Dynamic where
   apply (Dynamic f) (Dynamic x) = Dynamic
@@ -479,79 +403,28 @@ instance applicativeDynamic :: Applicative Dynamic where
 -- |
 -- | On cleanup, the Dynamic will stop updating in response to the event.
 foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-foldDyn = foldDynImpl
+foldDyn f initial (Event event) = do
+  effectCrash "foldDyn"
 
-foldDynImpl
-  :: forall m a b. MonadCleanup m => MonadEffect m
-  => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-foldDynImpl f initial (Event event) = do
-  ref <- liftEffect $ newRef initial
-  updateOrReadValue <- liftEffect $
-    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readRef ref
-      case m_newValue of
-        Just occurence -> do
-          let newValue = f occurence oldValue
-          writeRef ref newValue
-          pure newValue
-        Nothing ->
-          pure oldValue
-
-  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
-  onCleanup unsub
-
-  pure $ Dynamic
-    { value: Behavior updateOrReadValue
-    , change: map (\_ -> unit) (Event event)
-    }
+effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
 newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit }
 newDynamic initial = liftEffect do
-  change <- newEvent
-  ref <- newRef initial
+  var <- runEffectFn1 I.newVar initial
   pure
-    { dynamic: Dynamic
-        { value: Behavior $ pullReadRef ref
-        , change: change.event
-        }
-    , read: readRef ref
+    { dynamic: Dynamic (I.readVar var)
+    , read: effectCrash "Dynamic.read"
     , set: \x -> do
-        writeRef ref x
-        change.fire unit
+        runEffectFn2 I.setVar var x
+        I.stabilize
     }
 
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
 -- | returns Nothing.
 foldDynMaybe :: forall m a b. MonadFRP m => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
-foldDynMaybe = foldDynMaybeImpl
-
-foldDynMaybeImpl
-  :: forall m a b. MonadCleanup m => MonadEffect m
-   => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
-foldDynMaybeImpl f initial (Event event) = do
-  ref <- liftEffect $ newRef initial
-  (updateOrReadValue :: Pull { changing :: Boolean, value :: b }) <- liftEffect $
-    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readRef ref
-      case m_newValue of
-        Just occurence | Just newValue <- f occurence oldValue -> do
-          writeRef ref newValue
-          pure { changing: true, value: newValue }
-        _ ->
-          pure { changing: false, value: oldValue }
-
-  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
-  onCleanup unsub
-
-  pure $ Dynamic
-    { value: Behavior $ map _.value updateOrReadValue
-    , change: filterMapEventB (\_ ->
-                                 map (\{changing} ->
-                                        if changing then Just unit else Nothing)
-                                     (Behavior updateOrReadValue))
-                              (Event event)
-    }
+foldDynMaybe f initial (Event event) = do
+  effectCrash "foldDyn"
 
 -- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
 holdDyn :: forall m a. MonadFRP m => a -> Event a -> m (Dynamic a)
