@@ -17,7 +17,7 @@ import UniqueMapMutableSpec as UniqueMapMutableSpec
 import WeakDynamicSpec as WeakDynamicSpec
 
 main :: Effect Unit
-main = launchAff_ $ runSpec [tapReporter] do
+main = launchAff_ $ runSpec [consoleReporter] do
   FixSpec.spec
   EventSpec.spec
   DynamicSpec.spec

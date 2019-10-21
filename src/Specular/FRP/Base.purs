@@ -129,27 +129,22 @@ newtype Event a = Event (I.Node a)
 
 instance functorEvent :: Functor Event where
   map f (Event node) = Event $ unsafePerformEffect do
-    runEffectFn2 I.mapOptional f node
+    runEffectFn2 I.mapOptional (Optional.some <<< f) node
 
 -- | An Event that never occurs.
 never :: forall a. Event a
 never = Event (I.readEvent (unsafePerformEffect I.newEvent))
 
-filterMapEventB :: forall a b. (a -> Behavior (Maybe b)) -> Event a -> Event b
-filterMapEventB f (Event _) = unsafeCrashWith "filterMapEventB"
-
-mapEventB :: forall a b. (a -> Behavior b) -> Event a -> Event b
-mapEventB f (Event _) =
-  unsafeCrashWith "mapEventB"
-
 sampleAt :: forall a b. Event (a -> b) -> Behavior a -> Event b
-sampleAt event behavior = mapEventB (\f -> f <$> behavior) event
+sampleAt event behavior = unsafeCrashWith "sampleAt unimplemented"
 
 filterMapEvent :: forall a b. (a -> Maybe b) -> Event a -> Event b
-filterMapEvent f = filterMapEventB (pure <<< f)
+filterMapEvent f (Event node) = Event $ unsafePerformEffect do
+  runEffectFn2 I.mapOptional (maybe Optional.none Optional.some <<< f) node
 
 filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
-filterEvent f = filterMapEvent (\x -> if f x then Just x else Nothing)
+filterEvent f (Event node) = Event $ unsafePerformEffect do
+  runEffectFn2 I.mapOptional (\x -> if f x then Optional.some x else Optional.none) node
 
 subscribeNode :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> I.Node a -> m Unit
 subscribeNode handler event = do
@@ -315,7 +310,7 @@ uniqDynBy eq dyn = do
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
 switch (Dynamic _) =
-  unsafeCrashWith "switch"
+  unsafeCrashWith "switch unimplemented"
 
 instance bindDynamic :: Bind Dynamic where
   bind (Dynamic lhs) f = Dynamic $ unsafePerformEffect do
