@@ -6,10 +6,11 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
+import Effect.Console (log) as Console
+import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, describeOnly, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 
 spec :: Spec Unit
@@ -114,6 +115,28 @@ spec = describe "Dynamic" $ do
       liftEffect $ fire 3
 
       log `shouldHaveValue` [0,1,3,6]
+
+      -- clean up
+      liftEffect unsub1
+      liftEffect unsub2
+
+  describe "foldDynMaybe" $ do
+    it "triggers only when function returns Just" $ withLeakCheck $ do
+      {event,fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
+      Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDynMaybe (\x y -> (_ + y) <$> x) 1 event
+
+      unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+
+      liftEffect $ fire Nothing
+      liftEffect $ fire (Just 1)
+      liftEffect $ fire Nothing
+      liftEffect $ fire (Just 2)
+      liftEffect $ fire Nothing
+      liftEffect $ fire (Just 3)
+      liftEffect $ fire Nothing
+
+      log `shouldHaveValue` [1,2,4,7]
 
       -- clean up
       liftEffect unsub1
@@ -253,18 +276,21 @@ spec = describe "Dynamic" $ do
       liftEffect unsub2
       liftEffect unsub3
 
-  describe "latestJust" $ do
+  describeOnly "latestJust" $ do
     it "updates value only when it changes to Just" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
+      let fire' x = liftEffect do
+            Console.log $ "fire " <> show x
+            fire x
       log <- liftEffect $ newRef []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn Nothing event >>= latestJust
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
-      liftEffect $ fire Nothing
-      liftEffect $ fire (Just 1)
-      liftEffect $ fire Nothing
-      liftEffect $ fire (Just 2)
+      fire' Nothing
+      fire' (Just 1)
+      fire' Nothing
+      fire' (Just 2)
 
       log `shouldHaveValue` [Nothing, Just 1, Just 2]
 
