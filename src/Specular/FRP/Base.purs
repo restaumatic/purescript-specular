@@ -129,11 +129,11 @@ newtype Event a = Event (I.Node a)
 
 instance functorEvent :: Functor Event where
   map f (Event node) = Event $ unsafePerformEffect do
-    runEffectFn2 I.map f node
+    runEffectFn2 I.mapOptional f node
 
 -- | An Event that never occurs.
 never :: forall a. Event a
-never = unsafeCoerce 1
+never = Event (I.readEvent (unsafePerformEffect I.newEvent))
 
 filterMapEventB :: forall a b. (a -> Behavior (Maybe b)) -> Event a -> Event b
 filterMapEventB f (Event _) = unsafeCrashWith "filterMapEventB"
@@ -193,8 +193,13 @@ _subscribeNode = mkEffectFn2 \handler node -> do
 -- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effect Unit }
 newEvent = liftEffect do
-  { dynamic: Dynamic node, set } <- newDynamic (Optional.some (unsafeCoerce "Event placeholder")) -- Optional.none
-  pure { event: Event (unsafeCoerce (node :: I.Node (Optional a)) :: I.Node a), fire: \x -> set (Optional.some x) }
+  evt <- I.newEvent
+  pure
+    { event: Event (I.readEvent evt)
+    , fire: \x -> do
+        runEffectFn2 I.triggerEvent evt x
+        I.stabilize
+    }
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
