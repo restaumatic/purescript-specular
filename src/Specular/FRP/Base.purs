@@ -129,7 +129,9 @@ newtype Event a = Event (I.Node a)
 
 instance functorEvent :: Functor Event where
   map f (Event node) = Event $ unsafePerformEffect do
-    runEffectFn2 I.mapOptional (Optional.some <<< f) node
+    n <- runEffectFn2 I.mapOptional (Optional.some <<< f) node
+    runEffectFn2 I.annotate n "mapEvent"
+    pure n
 
 -- | An Event that never occurs.
 never :: forall a. Event a
@@ -140,11 +142,15 @@ sampleAt event behavior = unsafeCrashWith "sampleAt unimplemented"
 
 filterMapEvent :: forall a b. (a -> Maybe b) -> Event a -> Event b
 filterMapEvent f (Event node) = Event $ unsafePerformEffect do
-  runEffectFn2 I.mapOptional (maybe Optional.none Optional.some <<< f) node
+  n <- runEffectFn2 I.mapOptional (maybe Optional.none Optional.some <<< f) node
+  runEffectFn2 I.annotate n "filterMapEvent"
+  pure n
 
 filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
 filterEvent f (Event node) = Event $ unsafePerformEffect do
-  runEffectFn2 I.mapOptional (\x -> if f x then Optional.some x else Optional.none) node
+  n <- runEffectFn2 I.mapOptional (\x -> if f x then Optional.some x else Optional.none) node
+  runEffectFn2 I.annotate n "filterEvent"
+  pure n
 
 subscribeNode :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> I.Node a -> m Unit
 subscribeNode handler event = do
@@ -189,6 +195,7 @@ _subscribeNode = mkEffectFn2 \handler node -> do
 newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effect Unit }
 newEvent = liftEffect do
   evt <- I.newEvent
+  runEffectFn2 I.annotate (I.readEvent evt) "root Event"
   pure
     { event: Event (I.readEvent evt)
     , fire: \x -> do
@@ -250,11 +257,15 @@ changed_ = changed <<< void
 
 instance functorDynamic :: Functor Dynamic where
   map f (Dynamic node) = Dynamic $ unsafePerformEffect do
-    runEffectFn2 I.map f node
+    n <- runEffectFn2 I.map f node
+    runEffectFn2 I.annotate n "mapDynamic"
+    pure n
 
 instance applyDynamic :: Apply Dynamic where
   apply (Dynamic f) (Dynamic x) = Dynamic $ unsafePerformEffect do
-    runEffectFn3 I.map2 (mkFn2 ($)) f x
+    n <- runEffectFn3 I.map2 (mkFn2 ($)) f x
+    runEffectFn2 I.annotate n "applyDynamic"
+    pure n
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic $ unsafePerformEffect do
@@ -268,8 +279,9 @@ instance applicativeDynamic :: Applicative Dynamic where
 -- | On cleanup, the Dynamic will stop updating in response to the event.
 foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 foldDyn f initial (Event event) = liftEffect do
-  node <- runEffectFn3 I.fold (mkFn2 \a b -> Optional.some (f a b)) initial event
-  pure (Dynamic node)
+  n <- runEffectFn3 I.fold (mkFn2 \a b -> Optional.some (f a b)) initial event
+  runEffectFn2 I.annotate n "foldDyn"
+  pure (Dynamic n)
 
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
 
@@ -277,6 +289,7 @@ effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit ->
 newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit }
 newDynamic initial = liftEffect do
   var <- runEffectFn1 I.newVar initial
+  runEffectFn2 I.annotate (I.readVar var) "root Dynamic"
   pure
     { dynamic: Dynamic (I.readVar var)
     , read: readNode (I.readVar var)
@@ -289,8 +302,9 @@ newDynamic initial = liftEffect do
 -- | returns Nothing.
 foldDynMaybe :: forall m a b. MonadFRP m => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
 foldDynMaybe f initial (Event event) = liftEffect do
-  node <- runEffectFn3 I.fold (mkFn2 \a b -> maybe Optional.none Optional.some (f a b)) initial event
-  pure (Dynamic node)
+  n <- runEffectFn3 I.fold (mkFn2 \a b -> maybe Optional.none Optional.some (f a b)) initial event
+  runEffectFn2 I.annotate n "foldDynMaybe"
+  pure (Dynamic n)
 
 -- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
 holdDyn :: forall m a. MonadFRP m => a -> Event a -> m (Dynamic a)
@@ -314,7 +328,9 @@ switch (Dynamic _) =
 
 instance bindDynamic :: Bind Dynamic where
   bind (Dynamic lhs) f = Dynamic $ unsafePerformEffect do
-    runEffectFn2 I.bind_ lhs (\x -> let Dynamic d = f x in d)
+    n <- runEffectFn2 I.bind_ lhs (\x -> let Dynamic d = f x in d)
+    runEffectFn2 I.annotate n "bindDynamic"
+    pure n
 
 instance monadDynamic :: Monad Dynamic
 
