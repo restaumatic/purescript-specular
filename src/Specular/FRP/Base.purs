@@ -55,15 +55,18 @@ import Control.Monad.Rec.Class (Step(..), tailRecM)
 import Data.Array (cons, unsnoc)
 import Data.Array as Array
 import Data.Foldable (for_)
+import Data.Function.Uncurried (mkFn2)
 import Data.HeytingAlgebra (ff, implies, tt)
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), isJust, maybe)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
+import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
 import Incremental.Internal as I
 import Incremental.Internal.Node as I
+import Incremental.Internal.Optional (Optional)
+import Incremental.Internal.Optional as Optional
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO, rio, runRIO)
@@ -83,17 +86,27 @@ newtype Behavior a = Behavior (Dynamic a)
 
 -- | Read a value of a Behavior.
 readBehavior :: forall a. Behavior a -> Effect a
-readBehavior (Behavior read) = unsafeCrashWith "readBehavior"
+readBehavior (Behavior (Dynamic node)) = do
+  readNode node
 
 type Pull = Effect
 
-pull = identity
+pull = liftEffect
 
 derive newtype instance functorBehavior :: Functor Behavior
 derive newtype instance applyBehavior :: Apply Behavior
 derive newtype instance applicativeBehavior :: Applicative Behavior
 derive newtype instance bindBehavior :: Bind Behavior
 instance monadBehavior :: Monad Behavior
+
+readNode :: forall a. I.Node a -> Effect a
+readNode node = do
+  -- HACK: For now we have to observe node to be sure we have the latest value
+  let handler = mkEffectFn1 \_ -> pure unit
+  runEffectFn2 I.addObserver node handler
+  value <- runEffectFn2 I._read I._value node
+  runEffectFn2 I.removeObserver node handler
+  pure (Optional.fromSome value)
 
 -------------------------------------------------------------
 
@@ -115,7 +128,8 @@ newtype Event a = Event (I.Node a)
 --  - subscription function.
 
 instance functorEvent :: Functor Event where
-  map f (Event e) = unsafeCrashWith "Event.map"
+  map f (Event node) = Event $ unsafePerformEffect do
+    runEffectFn2 I.map f node
 
 -- | An Event that never occurs.
 never :: forall a. Event a
@@ -137,15 +151,22 @@ filterMapEvent f = filterMapEventB (pure <<< f)
 filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
 filterEvent f = filterMapEvent (\x -> if f x then Just x else Nothing)
 
-subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
-subscribeEvent_ handler event = do
-  unsub <- liftEffect $ runEffectFn2 _subscribeEvent handler event
+subscribeNode :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> I.Node a -> m Unit
+subscribeNode handler event = do
+  unsub <- liftEffect $ runEffectFn2 _subscribeNode handler event
   onCleanup unsub
 
+subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
+subscribeEvent_ handler (Event node) = subscribeNode handler node
+
 _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
-_subscribeEvent = mkEffectFn2 \handler (Event node) -> do
+_subscribeEvent = mkEffectFn2 \handler (Event node) ->
+  runEffectFn2 _subscribeNode handler node
+
+_subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (I.Node a) Unsubscribe
+_subscribeNode = mkEffectFn2 \handler node -> do
   arrayRef <- newRef []
-  let handler value = do
+  let h = mkEffectFn1 \value -> do
         modifyRef arrayRef (cons value)
         tailRecM (\_ -> do
           elem <- popRef arrayRef
@@ -155,7 +176,8 @@ _subscribeEvent = mkEffectFn2 \handler (Event node) -> do
               pure $ Loop unit
             Nothing -> pure (Done unit)
           ) unit
-  I.addObserver node handler
+  runEffectFn2 I.addObserver node h
+  pure (runEffectFn2 I.removeObserver node h)
 
   where
     popRef :: forall s. Ref (Array s) -> Effect (Maybe s)
@@ -171,7 +193,8 @@ _subscribeEvent = mkEffectFn2 \handler (Event node) -> do
 -- | Each `fire` will run a frame where the event occurs.
 newEvent :: forall m a. MonadEffect m => m { event :: Event a, fire :: a -> Effect Unit }
 newEvent = liftEffect do
-  effectCrash "newEvent"
+  { dynamic: Dynamic node, set } <- newDynamic (Optional.some (unsafeCoerce "Event placeholder")) -- Optional.none
+  pure { event: Event (unsafeCoerce (node :: I.Node (Optional a)) :: I.Node a), fire: \x -> set (Optional.some x) }
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
@@ -179,11 +202,8 @@ newBehavior initialValue = liftEffect $ newBehaviorEffect initialValue
 
 newBehaviorEffect :: forall a. a -> Effect { behavior :: Behavior a, set :: a -> Effect Unit }
 newBehaviorEffect initialValue = do
-  { dynamic: Dynamic node, set } <- newDynamic initialValue
-  pure
-    { behavior: Behavior node
-    , set
-    }
+  { dynamic, set } <- newDynamic initialValue
+  pure { behavior: Behavior dynamic, set }
 
 -- | An Event that occurs when any of the events occur.
 -- | If some of them occur simultaneously, the occurence value is that of the
@@ -218,23 +238,23 @@ newtype Dynamic a = Dynamic (I.Node a)
 -- | The value of `current x` is always the value of the latest occurence of
 -- | `changed x`, if it has ever occured.
 current :: forall a. Dynamic a -> Behavior a
-current (Dynamic _) = unsafeCrashWith "Dynamic.current"
+current = Behavior
 
 -- | An Event that fires with the new value every time the Dynamic changes.
 changed :: forall a. Dynamic a -> Event a
-changed (Dynamic _) = unsafeCrashWith "changed"
+changed (Dynamic node) = Event node
 
 -- | An Event that fires every time the Dynamic changes.
 changed_ :: forall a. Dynamic a -> Event Unit
-changed_ (Dynamic _) = unsafeCrashWith "changed_"
+changed_ = changed <<< void
 
 instance functorDynamic :: Functor Dynamic where
   map f (Dynamic node) = Dynamic $ unsafePerformEffect do
     runEffectFn2 I.map f node
 
 instance applyDynamic :: Apply Dynamic where
-  apply (Dynamic f) (Dynamic x) =
-    unsafeCrashWith "applyDynamic"
+  apply (Dynamic f) (Dynamic x) = Dynamic $ unsafePerformEffect do
+    runEffectFn3 I.map2 (mkFn2 ($)) f x
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic $ unsafePerformEffect do
@@ -247,8 +267,9 @@ instance applicativeDynamic :: Applicative Dynamic where
 -- |
 -- | On cleanup, the Dynamic will stop updating in response to the event.
 foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-foldDyn f initial (Event event) = do
-  effectCrash "foldDyn"
+foldDyn f initial (Event event) = liftEffect do
+  node <- runEffectFn3 I.fold (mkFn2 \a b -> Optional.some (f a b)) initial event
+  pure (Dynamic node)
 
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
 
@@ -258,7 +279,7 @@ newDynamic initial = liftEffect do
   var <- runEffectFn1 I.newVar initial
   pure
     { dynamic: Dynamic (I.readVar var)
-    , read: effectCrash "Dynamic.read"
+    , read: readNode (I.readVar var)
     , set: \x -> do
         runEffectFn2 I.setVar var x
         I.stabilize
@@ -267,8 +288,9 @@ newDynamic initial = liftEffect do
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
 -- | returns Nothing.
 foldDynMaybe :: forall m a b. MonadFRP m => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
-foldDynMaybe f initial (Event event) = do
-  effectCrash "foldDyn"
+foldDynMaybe f initial (Event event) = liftEffect do
+  node <- runEffectFn3 I.fold (mkFn2 \a b -> maybe Optional.none Optional.some (f a b)) initial event
+  pure (Dynamic node)
 
 -- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
 holdDyn :: forall m a. MonadFRP m => a -> Event a -> m (Dynamic a)
@@ -291,7 +313,8 @@ switch (Dynamic _) =
   unsafeCrashWith "switch"
 
 instance bindDynamic :: Bind Dynamic where
-  bind d f = unsafeCrashWith "bind"
+  bind (Dynamic lhs) f = Dynamic $ unsafePerformEffect do
+    runEffectFn2 I.bind_ lhs (\x -> let Dynamic d = f x in d)
 
 instance monadDynamic :: Monad Dynamic
 
@@ -301,10 +324,10 @@ subscribeDyn_
   => (a -> Effect Unit)
   -> Dynamic a
   -> m Unit
-subscribeDyn_ handler (Dynamic {value, change}) = do
-  currentValue <- pull $ readBehavior value
+subscribeDyn_ handler dyn@(Dynamic node) = do
+  currentValue <- readDynamic dyn
   liftEffect $ handler currentValue
-  subscribeEvent_ handler (mapEventB (\_ -> value) change)
+  subscribeNode handler node
 
 subscribeDyn ::
      forall m a b
@@ -313,11 +336,13 @@ subscribeDyn ::
   -> Dynamic a
   -> m (Dynamic b)
 subscribeDyn handler dyn = do
-  {event,fire} <- newEvent
-  currentValue <- pull $ readBehavior $ current dyn
+  currentValue <- readDynamic dyn
   initialResult <- liftEffect $ handler currentValue
-  subscribeEvent_ (handler >=> fire) $ changed dyn
-  holdDyn initialResult event
+  result <- newDynamic initialResult
+  subscribeDyn_ (\x -> do
+                   value <- handler x
+                   result.set value) dyn
+  pure result.dynamic
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (identity <$ event) (current dyn)
@@ -333,7 +358,7 @@ attachDynWith f dyn event = sampleAt (flip f <$> event) (current dyn)
 -- | and doesn't change when the input changes to `Nothing`.
 latestJust :: forall m a. MonadFRP m => Dynamic (Maybe a) -> m (Dynamic (Maybe a))
 latestJust dyn = do
-  currentValue <- pull $ readBehavior $ current dyn
+  currentValue <- readDynamic dyn
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
 readDynamic :: forall m a. MonadEffect m => Dynamic a -> m a

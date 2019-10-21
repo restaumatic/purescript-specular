@@ -4,7 +4,7 @@ import Control.Monad.Cleanup (execCleanupT)
 import Specular.Internal.Effect (newRef)
 import Data.Maybe (Maybe(..))
 import Prelude hiding (append)
-import Specular.FRP (filterMapEvent, holdDyn, leftmost, mergeEvents, newBehavior, newEvent, sampleAt, subscribeEvent_)
+import Specular.FRP (filterMapEvent, holdDyn, leftmost, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Specular.FRP.Base (subscribeDyn_)
 import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck)
@@ -26,6 +26,7 @@ spec = describe "Event" $ do
     -- clean up
     liftEffect unsub2
 
+{-
   describe "mergeEvents" $ do
     it "different root events" $ withLeakCheck $ do
       root1 <- liftEffect newEvent
@@ -66,6 +67,8 @@ spec = describe "Event" $ do
 
       -- clean up
       liftEffect unsub
+
+-}
 
   it "sampleAt" $ withLeakCheck $ do
     root <- liftEffect newEvent

@@ -7,7 +7,6 @@ import Effect.Class (liftEffect)
 import Specular.Internal.Effect (newRef)
 import Data.Tuple (Tuple(..))
 import Specular.FRP (Dynamic, Event, WeakDynamic, holdDyn, never, newEvent, subscribeEvent_, weaken)
-import Specular.FRP.Base (mergeEvents)
 import Specular.FRP.Fix (fixDyn, fixEvent, fixFRP)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Test.Spec (Spec, describe, it, pending')
@@ -30,6 +29,7 @@ spec = do
 
      log `shouldHaveValue` [1]
 
+{-
     pending' "input and output occur simultaneously" $ do
      log <- liftEffect $ newRef []
      Tuple fire _ <- liftEffect $ runCleanupT $
@@ -47,6 +47,7 @@ spec = do
      -- The "wrong" result is ["output", "input"],
      -- but the implementation currently gives ["output", "both"]
      log `shouldHaveValue` ["both"]
+-}
 
   describe "fixDyn" $ do
    it "gives input WeakDynamic initial value" $ do
