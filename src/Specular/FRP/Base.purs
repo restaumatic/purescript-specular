@@ -365,9 +365,10 @@ subscribeDyn_
   -> Dynamic a
   -> m Unit
 subscribeDyn_ handler dyn@(Dynamic node) = do
-  currentValue <- readDynamic dyn
-  liftEffect $ handler currentValue
   subscribeNode handler node
+  liftEffect do
+    currentValue <- runEffectFn1 I.valueExc node
+    liftEffect $ handler currentValue
 
 subscribeDyn ::
      forall m a b
@@ -376,13 +377,21 @@ subscribeDyn ::
   -> Dynamic a
   -> m (Dynamic b)
 subscribeDyn handler dyn@(Dynamic node) = do
-  currentValue <- readDynamic dyn
-  initialResult <- liftEffect $ handler currentValue
-  result <- newDynamic initialResult
+  evt <- liftEffect do
+    evt <- I.newEvent
+    runEffectFn2 I.annotate (I.readEvent evt) "subscribeDyn"
+    pure evt
+
   subscribeNode (\x -> do
                    value <- handler x
-                   result.set value) node
-  pure result.dynamic
+                   runEffectFn2 I.triggerEvent evt value
+                   stabilize) node
+
+  liftEffect do
+    currentValue <- runEffectFn1 I.valueExc node
+    initialResult <- handler currentValue
+    runEffectFn3 I._write I._value (I.readEvent evt) (Optional.some initialResult)
+    pure (Dynamic (I.readEvent evt))
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (identity <$ event) (current dyn)
