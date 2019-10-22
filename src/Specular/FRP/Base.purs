@@ -61,6 +61,7 @@ import Data.Maybe (Maybe(..), isJust, maybe)
 import Data.Traversable (sequence, traverse)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Ref (new) as Ref
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
 import Incremental.Internal as I
@@ -167,21 +168,26 @@ _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
 _subscribeEvent = mkEffectFn2 \handler (Event node) ->
   runEffectFn2 _subscribeNode handler node
 
+globalEffectQueue :: Ref (Array (Effect Unit))
+globalEffectQueue = unsafePerformEffect (newRef [])
+
 _subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (I.Node a) Unsubscribe
 _subscribeNode = mkEffectFn2 \handler node -> do
-  arrayRef <- newRef []
   let h = mkEffectFn1 \value -> do
-        modifyRef arrayRef (cons value)
-        tailRecM (\_ -> do
-          elem <- popRef arrayRef
-          case elem of
-            Just value -> do
-              handler value
-              pure $ Loop unit
-            Nothing -> pure (Done unit)
-          ) unit
+        modifyRef globalEffectQueue (cons (handler value))
   runEffectFn2 I.addObserver node h
   pure (runEffectFn2 I.removeObserver node h)
+
+drainEffects :: Effect Unit
+drainEffects =
+  tailRecM (\_ -> do
+    elem <- popRef globalEffectQueue
+    case elem of
+      Just effect -> do
+        effect
+        pure $ Loop unit
+      Nothing -> pure (Done unit)
+    ) unit
 
   where
     popRef :: forall s. Ref (Array s) -> Effect (Maybe s)
@@ -203,8 +209,13 @@ newEvent = liftEffect do
     { event: Event (I.readEvent evt)
     , fire: \x -> do
         runEffectFn2 I.triggerEvent evt x
-        I.stabilize
+        stabilize
     }
+
+stabilize :: Effect Unit
+stabilize = do
+  I.stabilize
+  drainEffects
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
@@ -303,7 +314,7 @@ newDynamic initial = liftEffect do
     , read: readNode (I.readVar var)
     , set: \x -> do
         runEffectFn2 I.setVar var x
-        I.stabilize
+        stabilize
     }
 
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
