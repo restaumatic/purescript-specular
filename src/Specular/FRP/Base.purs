@@ -278,9 +278,12 @@ instance applicativeDynamic :: Applicative Dynamic where
 -- |
 -- | On cleanup, the Dynamic will stop updating in response to the event.
 foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-foldDyn f initial (Event event) = liftEffect do
-  n <- runEffectFn3 I.fold (mkFn2 \a b -> Optional.some (f a b)) initial event
-  runEffectFn2 I.annotate n "foldDyn"
+foldDyn f initial (Event event) = do
+  n <- liftEffect do
+    n <- runEffectFn3 I.fold (mkFn2 \a b -> Optional.some (f a b)) initial event
+    runEffectFn2 I.annotate n "foldDyn"
+    pure n
+  subscribeNode (\_ -> pure unit) n
   pure (Dynamic n)
 
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
@@ -301,9 +304,12 @@ newDynamic initial = liftEffect do
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
 -- | returns Nothing.
 foldDynMaybe :: forall m a b. MonadFRP m => (a -> b -> Maybe b) -> b -> Event a -> m (Dynamic b)
-foldDynMaybe f initial (Event event) = liftEffect do
-  n <- runEffectFn3 I.fold (mkFn2 \a b -> maybe Optional.none Optional.some (f a b)) initial event
-  runEffectFn2 I.annotate n "foldDynMaybe"
+foldDynMaybe f initial (Event event) = do
+  n <- liftEffect do
+    n <- runEffectFn3 I.fold (mkFn2 \a b -> maybe Optional.none Optional.some (f a b)) initial event
+    runEffectFn2 I.annotate n "foldDynMaybe"
+    pure n
+  subscribeNode (\_ -> pure unit) n
   pure (Dynamic n)
 
 -- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
