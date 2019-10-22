@@ -345,8 +345,10 @@ uniqDynBy eq dyn = do
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
-switch (Dynamic _) =
-  unsafeCrashWith "switch unimplemented"
+switch (Dynamic lhs) = Event $ unsafePerformEffect do
+  n <- runEffectFn3 I.switch false lhs (\(Event e) -> e)
+  runEffectFn2 I.annotate n "switch"
+  pure n
 
 instance bindDynamic :: Bind Dynamic where
   bind (Dynamic lhs) f = Dynamic $ unsafePerformEffect do
