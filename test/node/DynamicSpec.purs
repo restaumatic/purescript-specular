@@ -253,7 +253,37 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub1
 
+  describe "subscribeDyn_" $ do
+    it "simple case - no changes" $ withLeakCheck $ do
+      log <- liftEffect $ newRef ([] :: Array (Either Int Int))
+      {dynamic: dyn, set: fire} <- newDynamic 1
+
+      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn_ (\x ->
+        do
+          append log (Left x)
+        ) dyn
+
+      log `shouldHaveValue` [Left 1]
+
+      -- clean up
+      liftEffect unsub2
+
   describe "subscribeDyn" $ do
+    it "simple case - no changes" $ withLeakCheck $ do
+      log <- liftEffect $ newRef ([] :: Array (Either Int Int))
+      {dynamic: dyn, set: fire} <- newDynamic 1
+
+      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
+        do
+          append log (Left x)
+          pure (2 * x)
+        ) dyn
+
+      log `shouldHaveValue` [Left 1]
+
+      -- clean up
+      liftEffect unsub2
+
     it "updates the resulting Dynamic" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
       log <- liftEffect $ newRef []

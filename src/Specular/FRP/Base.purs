@@ -375,13 +375,13 @@ subscribeDyn ::
   => (a -> Effect b)
   -> Dynamic a
   -> m (Dynamic b)
-subscribeDyn handler dyn = do
+subscribeDyn handler dyn@(Dynamic node) = do
   currentValue <- readDynamic dyn
   initialResult <- liftEffect $ handler currentValue
   result <- newDynamic initialResult
-  subscribeDyn_ (\x -> do
+  subscribeNode (\x -> do
                    value <- handler x
-                   result.set value) dyn
+                   result.set value) node
   pure result.dynamic
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
