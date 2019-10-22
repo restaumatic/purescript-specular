@@ -219,8 +219,10 @@ newBehaviorEffect initialValue = do
 -- | If some of them occur simultaneously, the occurence value is that of the
 -- | leftmost one.
 leftmost :: forall a. Array (Event a) -> Event a
-leftmost events =
-  unsafeCrashWith "leftmost"
+leftmost events = Event $ unsafePerformEffect do
+  n <- runEffectFn1 I.leftmost (map (\(Event x) -> x) events)
+  runEffectFn2 I.annotate n "leftmost"
+  pure n
 
 findFirstM :: forall m a b. Monad m => (a -> m (Maybe b)) -> Array a -> m (Maybe b)
 findFirstM f array =
