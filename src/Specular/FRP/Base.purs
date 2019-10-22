@@ -397,10 +397,17 @@ instance monadFRP :: (MonadEffect m, MonadCleanup m) => MonadFRP m
 
 
 traceEventIO :: forall a. (a -> Effect Unit) -> Event a -> Event a
-traceEventIO handler e = e
+traceEventIO handler (Event n) = Event (traceNode handler n)
 
 traceDynIO :: forall a. (a -> Effect Unit) -> Dynamic a -> Dynamic a
-traceDynIO handler d = d
+traceDynIO handler (Dynamic n) = Dynamic (traceNode handler n)
+
+
+traceNode :: forall a. (a -> Effect Unit) -> I.Node a -> I.Node a
+traceNode handler input = unsafePerformEffect do
+  n <- runEffectFn2 I.traceChanges (mkEffectFn1 handler) input
+  runEffectFn2 I.annotate n "trace"
+  pure n
 
 --- Lifted instances
 
