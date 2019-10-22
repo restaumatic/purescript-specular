@@ -138,7 +138,10 @@ never :: forall a. Event a
 never = Event (I.readEvent (unsafePerformEffect I.newEvent))
 
 sampleAt :: forall a b. Event (a -> b) -> Behavior a -> Event b
-sampleAt event behavior = unsafeCrashWith "sampleAt unimplemented"
+sampleAt (Event clock) (Behavior (Dynamic signal)) = Event $ unsafePerformEffect do
+  n <- runEffectFn3 I.sample (mkFn2 \a b -> Optional.some (b a)) signal clock
+  runEffectFn2 I.annotate n "sampleAt"
+  pure n
 
 filterMapEvent :: forall a b. (a -> Maybe b) -> Event a -> Event b
 filterMapEvent f (Event node) = Event $ unsafePerformEffect do
