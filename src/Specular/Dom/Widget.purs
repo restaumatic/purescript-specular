@@ -1,5 +1,6 @@
 module Specular.Dom.Widget (
     Widget
+  , RWidget
   , runWidgetInNode 
   , runMainWidgetInNode
   , runMainWidgetInBody
@@ -14,13 +15,17 @@ import Prelude
 import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
 import Effect (Effect)
+import Effect.Uncurried (EffectFn1, mkEffectFn1, runEffectFn1)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
-import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, liftBuilder)
+import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, BuilderEnv, liftBuilder)
 import Specular.FRP (class MonadFRP)
 import Specular.Internal.RIO (RIO(..))
+import Unsafe.Coerce (unsafeCoerce)
 
-type Widget = Builder Node
+type Widget = RWidget Unit
+
+type RWidget = Builder
 
 -- | Runs a widget in the specified parent element. Returns the result and cleanup action.
 runWidgetInNode :: forall a. Node -> Widget a -> Effect (Tuple a (Effect Unit))
@@ -44,4 +49,4 @@ instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDet
 
 -- | Lift a `Widget` into any `MonadWidget` monad.
 liftWidget :: forall m a. MonadDomBuilder m => Widget a -> m a
-liftWidget w = let RIO f = unBuilder w in liftBuilder f
+liftWidget w = let RIO f = unBuilder w in liftBuilder (mkEffectFn1 \env -> runEffectFn1 f (env { userEnv = unit }))

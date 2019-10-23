@@ -40,7 +40,7 @@ import Specular.Dom.Builder (mkBuilder', runBuilder')
 import Specular.Dom.Builder.Class (BuilderEnv)
 import Specular.Dom.Builder.Class (rawHtml) as X
 import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes, setAttributes)
-import Specular.Dom.Widget (Widget)
+import Specular.Dom.Widget (RWidget)
 import Specular.FRP (Dynamic, readDynamic, _subscribeEvent, changed)
 import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef, pushDelayed)
 
@@ -54,18 +54,18 @@ instance semigroupProp :: Semigroup Prop where
 instance monoidProp :: Monoid Prop where
   mempty = Prop $ mkEffectFn2 \_ _ -> pure unit
 
-el' :: forall a. TagName -> Array Prop -> Widget a -> Widget (Tuple Node a)
+el' :: forall r a. TagName -> Array Prop -> RWidget r a -> RWidget r (Tuple Node a)
 el' tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
   node <- createElement tagName
   result <- runEffectFn4 initElement env node props body
   pure (Tuple node result)
 
-el :: forall a. TagName -> Array Prop -> Widget a -> Widget a
+el :: forall r a. TagName -> Array Prop -> RWidget r a -> RWidget r a
 el tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
   node <- createElement tagName
   runEffectFn4 initElement env node props body
 
-initElement :: forall a. EffectFn4 BuilderEnv Node (Array Prop) (Widget a) a
+initElement :: forall r a. EffectFn4 (BuilderEnv r) Node (Array Prop) (RWidget r a) a
 initElement = mkEffectFn4 \env node props body -> do
   result <- runEffectFn2 runBuilder' (env { parent = node }) body
   foreachE props \(Prop prop) ->
@@ -73,12 +73,12 @@ initElement = mkEffectFn4 \env node props body -> do
   appendChild node env.parent
   pure result
 
-el_ :: TagName -> Array Prop -> Widget Unit
+el_ :: forall r. TagName -> Array Prop -> RWidget r Unit
 el_ tagName props = el tagName props (pure unit)
 
 -- Text node
 
-text :: String -> Widget Unit
+text :: forall r. String -> RWidget r Unit
 text str = mkBuilder' $ mkEffectFn1 \env -> do
   node <- createTextNode str
   appendChild node env.parent

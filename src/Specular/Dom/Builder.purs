@@ -1,6 +1,7 @@
 module Specular.Dom.Builder (
     Builder
   , runBuilder
+  , local
   , unBuilder
   , mkBuilder'
   , runBuilder'
@@ -11,6 +12,7 @@ import Prelude
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask)
+import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
@@ -27,50 +29,63 @@ import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
 
-newtype Builder node a = Builder (RIO (BuilderEnv node) a)
+newtype Builder env a = Builder (RIO (BuilderEnv env) a)
 
-type BuilderEnv node =
-  { parent :: node
+type BuilderEnv env =
+  { parent :: Node
   , cleanup :: DelayedEffects
+  , userEnv :: env
   }
 
-derive newtype instance functorBuilder :: Functor (Builder node)
-derive newtype instance applyBuilder :: Apply (Builder node)
-derive newtype instance applicativeBuilder :: Applicative (Builder node)
-derive newtype instance bindBuilder :: Bind (Builder node)
-derive newtype instance monadBuilder :: Monad (Builder node)
-derive newtype instance monadEffectBuilder :: MonadEffect (Builder node)
+derive newtype instance functorBuilder :: Functor (Builder env)
+derive newtype instance applyBuilder :: Apply (Builder env)
+derive newtype instance applicativeBuilder :: Applicative (Builder env)
+derive newtype instance bindBuilder :: Bind (Builder env)
+derive newtype instance monadBuilder :: Monad (Builder env)
+derive newtype instance monadEffectBuilder :: MonadEffect (Builder env)
 
-instance monadCleanupBuilder :: MonadCleanup (Builder node) where
+instance monadCleanupBuilder :: MonadCleanup (Builder env) where
   onCleanup action = mkBuilder $ \env -> pushDelayed env.cleanup action
 
-mkBuilder' :: forall node a. (EffectFn1 (BuilderEnv node) a) -> Builder node a
+instance monadAskBuilder :: MonadAsk env (Builder env) where
+  ask = _.userEnv <$> getEnv
+
+instance monadReaderBuilder :: MonadReader env (Builder env) where
+  local = local
+
+local :: forall e r a. (e -> r) -> Builder r a -> Builder e a
+local fn (Builder x) = Builder $ RIO.local (\env -> env { userEnv = fn env.userEnv }) x
+
+mkBuilder' :: forall env a. (EffectFn1 (BuilderEnv env) a) -> Builder env a
 mkBuilder' = Builder <<< RIO
 
-mkBuilder :: forall node a. (BuilderEnv node -> Effect a) -> Builder node a
+mkBuilder :: forall env a. (BuilderEnv env -> Effect a) -> Builder env a
 mkBuilder = Builder <<< rio
 
-unBuilder :: forall node a. Builder node a -> RIO (BuilderEnv node) a
+unBuilder :: forall env a. Builder env a -> RIO (BuilderEnv env) a
 unBuilder (Builder f) = f
 
-runBuilder' :: forall node a. EffectFn2 (BuilderEnv node) (Builder node a) a
+runBuilder' :: forall env a. EffectFn2 (BuilderEnv env) (Builder env a) a
 runBuilder' = mkEffectFn2 \env (Builder (RIO f)) -> runEffectFn1 f env
 
-runBuilder :: forall node a. node -> Builder node a -> Effect (Tuple a (Effect Unit))
-runBuilder parent (Builder f) = do
+runBuilder :: forall a. Node -> Builder Unit a -> Effect (Tuple a (Effect Unit))
+runBuilder = runBuilderWithUserEnv unit
+
+runBuilderWithUserEnv :: forall env a. env -> Node -> Builder env a -> Effect (Tuple a (Effect Unit))
+runBuilderWithUserEnv userEnv parent (Builder f) = do
   actionsMutable <- emptyDelayed
-  let env = { parent, cleanup: actionsMutable }
+  let env = { parent, cleanup: actionsMutable, userEnv }
   result <- runRIO env f
   actions <- unsafeFreezeDelayed actionsMutable
   pure (Tuple result (sequenceEffects actions))
 
-getEnv :: forall node. Builder node (BuilderEnv node)
+getEnv :: forall env. Builder env (BuilderEnv env)
 getEnv = Builder ask
 
-setParent :: forall node. node -> BuilderEnv node -> BuilderEnv node
+setParent :: forall env. Node -> BuilderEnv env -> BuilderEnv env
 setParent parent env = env { parent = parent }
 
-instance monadReplaceBuilder :: MonadReplace (Builder Node) where
+instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
   newSlot = do
     env <- getEnv
@@ -82,10 +97,10 @@ instance monadReplaceBuilder :: MonadReplace (Builder Node) where
     cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
 
     let
-      replace :: forall a. Builder Node a -> Effect a
+      replace :: forall a. Builder env a -> Effect a
       replace inner = do
         fragment <- createDocumentFragment
-        Tuple result cleanup <- runBuilder fragment inner
+        Tuple result cleanup <- runBuilderWithUserEnv env.userEnv fragment inner
         join $ readRef cleanupRef
 
         m_parent <- parentNode placeholderAfter
@@ -111,10 +126,10 @@ instance monadReplaceBuilder :: MonadReplace (Builder Node) where
       destroy = do
         join $ readRef cleanupRef
 
-      append :: Effect (Slot (Builder Node))
+      append :: Effect (Slot (Builder env))
       append = do
         fragment <- createDocumentFragment
-        Tuple slot cleanup <- runBuilder fragment newSlot
+        Tuple slot cleanup <- runBuilderWithUserEnv env.userEnv fragment newSlot
         modifyRef cleanupRef (_ *> cleanup) -- FIXME: memory leak if the inner slot is destroyed
 
         m_parent <- parentNode placeholderAfter
@@ -131,7 +146,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder Node) where
 
     pure $ Slot { replace, destroy, append }
 
-instance monadDomBuilderBuilder :: MonadDomBuilder (Builder Node) where
+instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
 
   text str = mkBuilder \env -> do
     node <- createTextNode str
@@ -181,7 +196,7 @@ instance monadDomBuilderBuilder :: MonadDomBuilder (Builder Node) where
     Builder $ rio \env ->
       runEffectFn2 fn env (mkEffectFn2 \env' (Builder (RIO m)) -> runEffectFn1 m env')
 
-instance monadDetachBuilder :: MonadDetach (Builder Node) where
+instance monadDetachBuilder :: MonadDetach (Builder env) where
   detach inner = do
     fragment <- liftEffect createDocumentFragment
 

@@ -7,7 +7,7 @@ module Specular.FRP.Base (
   , filterEvent
   , filterMapEvent
 
-  , Pull
+  , module X
   , pull
 
   , Behavior
@@ -71,21 +71,8 @@ import Specular.Internal.RIO (RIO, rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
 
--------------------------------------------------
-
--- | Pull is a computation that reads a value given current time.
--- |
--- | Invariant: Pull computations are always idempotent (`forall x :: Pull a. x *> x = x`).
-newtype Pull a = MkPull (RIO Time a)
-
-runPull :: forall a. Time -> Pull a -> Effect a
-runPull time (MkPull x) = runRIO time x
-
-derive newtype instance functorPull :: Functor Pull
-derive newtype instance applyPull :: Apply Pull
-derive newtype instance applicativePull :: Applicative Pull
-derive newtype instance bindPull :: Bind Pull
-derive newtype instance monadPull :: Monad Pull
+import Specular.FRP.Internal.Frame
+import Specular.FRP.Internal.Frame (Pull) as X
 
 getTime :: Pull Time
 getTime =
@@ -144,20 +131,6 @@ pull p = liftEffect do
 
 -------------------------------------------------
 
--- | Computations that occur during a Frame.
---
--- During a frame, no arbitrary effects are performed. Instead they are
--- registered using `effect` to be performed after the frame.
---
--- Frame computations have access to current logical time. See `oncePerFrame`
--- for why this is needed.
-newtype Frame a = Frame (RIO FrameEnv a)
-
-type FrameEnv =
-  { effects :: DelayedEffects
-  , time :: Time
-  }
-
 framePull :: forall a. Pull a -> Frame a
 framePull (MkPull x) = Frame (RIO.local _.time x)
 
@@ -173,12 +146,6 @@ effect action = Frame $ rio $ \{effects} ->
   -- HACK: briefly creating a Pull that is not idempotent;
   -- But it's immediately lifted to Frame, so it's OK
   void $ pushDelayed effects action
-
-derive newtype instance functorFrame :: Functor Frame
-derive newtype instance applyFrame :: Apply Frame
-derive newtype instance applicativeFrame :: Applicative Frame
-derive newtype instance bindFrame :: Bind Frame
-derive newtype instance monadFrame :: Monad Frame
 
 -- | Run a Frame computation and then run its effects.
 runFrame :: forall a. Time -> Frame a -> Effect a
@@ -217,12 +184,6 @@ oncePerFrame_ action = do
         action
 
 -------------------------------------------------------------
-
--- | Logical time.
--- There's no monotonicity requirement (for now), so we have only Eq instance.
-newtype Time = Time Int
-
-derive newtype instance eqTime :: Eq Time
 
 -- | The global time counter.
 nextTimeRef :: Ref Time
@@ -506,7 +467,7 @@ foldDynImpl f initial (Event event) = do
     }
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
-newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit }
+newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit, modify :: (a -> a) -> Effect Unit }
 newDynamic initial = liftEffect do
   change <- newEvent
   ref <- newRef initial
@@ -518,6 +479,9 @@ newDynamic initial = liftEffect do
     , read: readRef ref
     , set: \x -> do
         writeRef ref x
+        change.fire unit
+    , modify: \f -> do
+        modifyRef ref f
         change.fire unit
     }
 
