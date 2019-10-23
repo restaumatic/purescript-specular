@@ -20,6 +20,7 @@ import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, liftBuilder)
 import Specular.FRP (class MonadFRP)
 import Specular.Internal.RIO (RIO(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 type Widget = RWidget Unit
 
@@ -42,9 +43,9 @@ runMainWidgetInBody widget = do
 foreign import documentBody :: Effect Node
 
 -- A handy alias for all the constraints you'll need
-class (MonadDomBuilder Unit m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) <= MonadWidget m
-instance monadWidget :: (MonadDomBuilder Unit m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) => MonadWidget m
+class (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) <= MonadWidget m
+instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) => MonadWidget m
 
 -- | Lift a `Widget` into any `MonadWidget` monad.
-liftWidget :: forall m env a. MonadDomBuilder env m => RWidget env a -> m a
-liftWidget w = let RIO f = unBuilder w in liftBuilder f
+liftWidget :: forall m a. MonadDomBuilder m => Widget a -> m a
+liftWidget w = let RIO f = unBuilder w in liftBuilder (unsafeCoerce f) -- FIXME TMP
