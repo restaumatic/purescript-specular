@@ -1,6 +1,9 @@
 module Specular.Dom.Builder (
     Builder
   , runBuilder
+  , unBuilder
+  , mkBuilder'
+  , runBuilder'
 ) where
 
 import Prelude
@@ -14,7 +17,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Uncurried (mkEffectFn2, runEffectFn1, runEffectFn2)
+import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
@@ -41,11 +44,17 @@ derive newtype instance monadEffectBuilder :: MonadEffect (Builder node)
 instance monadCleanupBuilder :: MonadCleanup (Builder node) where
   onCleanup action = mkBuilder $ \env -> pushDelayed env.cleanup action
 
+mkBuilder' :: forall node a. (EffectFn1 (BuilderEnv node) a) -> Builder node a
+mkBuilder' = Builder <<< RIO
+
 mkBuilder :: forall node a. (BuilderEnv node -> Effect a) -> Builder node a
 mkBuilder = Builder <<< rio
 
 unBuilder :: forall node a. Builder node a -> RIO (BuilderEnv node) a
 unBuilder (Builder f) = f
+
+runBuilder' :: forall node a. EffectFn2 (BuilderEnv node) (Builder node a) a
+runBuilder' = mkEffectFn2 \env (Builder (RIO f)) -> runEffectFn1 f env
 
 runBuilder :: forall node a. node -> Builder node a -> Effect (Tuple a (Effect Unit))
 runBuilder parent (Builder f) = do
