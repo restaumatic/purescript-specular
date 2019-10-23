@@ -96,20 +96,15 @@ foreign import staticJS_m :: Int -> Effect Unit
 
 builderTests :: Tests
 builderTests =
-  [ Tuple "js                        " (pure $ delay \_ -> staticJS 10)
-  , Tuple "js_c 10" (pure $ delay \_ -> staticJS_c 10)
-  , Tuple "js_m 10" (pure $ delay \_ -> staticJS_m 10)
-  , Tuple "static mono 10" (pure $ delay \_ -> runWidget $ staticWidgetMono 10)
-  , Tuple "static 10" (pure $ delay \_ -> runWidget $ deoptimizeWidget (staticWidget 10))
-  , Tuple "static old api - elAttr   " (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicate 10)
-  , Tuple "static old api - elDynAttr" (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicateD 10)
-  , Tuple "static new api - attr     " (pure $ delay \_ -> runWidget $ staticWidgetNewApi 10)
-  , Tuple "static new api - attrD    " (pure $ delay \_ -> runWidget $ staticWidgetNewApiD 10)
-  , Tuple "static ReaderT 10"
-      (pure $ delay \_ -> runWidget $ deoptimizeWidget (runReaderT (staticWidget 10) unit))
-  , Tuple "static 2x ReaderT 10"
-      (pure $ delay \_ -> runWidget $ deoptimizeWidget
-        (flip runReaderT unit $ flip runReaderT unit $ staticWidget 10))
+  [ Tuple "js                         " (pure $ delay \_ -> staticJS 10)
+  , Tuple "js curried                 " (pure $ delay \_ -> staticJS_c 10)
+  , Tuple "js monad                   " (pure $ delay \_ -> staticJS_m 10)
+  , Tuple "Widget + elAttr            " (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicate 10)
+  , Tuple "Widget + elDynAttr         " (pure $ delay \_ -> runWidget $ staticWidgetMonoOptReplicateD 10)
+  , Tuple "Widget + attr              " (pure $ delay \_ -> runWidget $ staticWidgetNewApi 10)
+  , Tuple "Widget + attrD             " (pure $ delay \_ -> runWidget $ staticWidgetNewApiD 10)
+  , Tuple "MonadWidget + ReaderT      " (pure $ delay \_ -> runWidget $ runReaderT (staticWidget 10) unit)
+  , Tuple "MonadWidget + 2x ReaderT   " (pure $ delay \_ -> runWidget $ flip runReaderT unit $ flip runReaderT unit $ staticWidget 10)
   ]
 
   where delay x = pure unit >>= x
@@ -124,8 +119,3 @@ runBuilderInDiv' widget = do
 
 runWidget :: forall a. Widget a -> Effect Unit
 runWidget w = void $ runBuilderInDiv' w
-
--- | Identity function, but prevents purs-opt from monomorphizing the widget.
--- | Used to test the impact of monomorphization on Builder.
-deoptimizeWidget :: forall a. (forall m. MonadWidget m => m a) -> Widget a
-deoptimizeWidget x = x
