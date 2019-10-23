@@ -5,6 +5,8 @@ module Specular.Dom.Element
   , el_
   , Prop(..)
 
+  , text
+
   , attrs
   , attrsD
 
@@ -26,11 +28,11 @@ import Effect (foreachE)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn4)
 import Foreign.Object as Object
 import Specular.Callback (Callback, mkCallback, triggerCallback)
-import Specular.Dom.Browser (Node, EventType, appendChild)
+import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode)
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder (mkBuilder', runBuilder')
 import Specular.Dom.Builder.Class (BuilderEnv)
-import Specular.Dom.Builder.Class (text, rawHtml) as X
+import Specular.Dom.Builder.Class (rawHtml) as X
 import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes, setAttributes)
 import Specular.Dom.Widget (Widget)
 import Specular.FRP (Dynamic, readDynamic, _subscribeEvent, changed)
@@ -67,6 +69,13 @@ initElement = mkEffectFn4 \env node props body -> do
 
 el_ :: TagName -> Array Prop -> Widget Unit
 el_ tagName props = el tagName props (pure unit)
+
+-- Text node
+
+text :: String -> Widget Unit
+text str = mkBuilder' $ mkEffectFn1 \env -> do
+  node <- createTextNode str
+  appendChild node env.parent
 
 -- * Attributes
 
