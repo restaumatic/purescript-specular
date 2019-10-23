@@ -14,33 +14,16 @@ You can subscribe to event occurences or dynamic changes via `subscribeEvent_`,
 `subscribeDyn_` and `subscribeWeakDyn_`.
 
 ```purescript
--- | Perform an IOSync action whenever an event occurs.
-subscribeEvent_ :: MonadFRP m => (a -> IOSync Unit) -> Event a -> m Unit
+-- | Perform an Effect action whenever an event occurs.
+subscribeEvent_ :: MonadFRP m => (a -> Effect Unit) -> Event a -> m Unit
 
--- | Perform an IOSync action with the current value of the dynamic, and later
+-- | Perform an Effect action with the current value of the dynamic, and later
 -- | whenever it changes.
-subscribeDyn_ :: MonadFRP m => (a -> IOSync Unit) -> Dynamic a -> m Unit
+subscribeDyn_ :: MonadFRP m => (a -> Effect Unit) -> Dynamic a -> m Unit
 
--- | Perform an IOSync action with the current value of the dynamic, and later
+-- | Perform an Effect action with the current value of the dynamic, and later
 -- | whenever it changes.
-subscribeWeakDyn_ :: MonadFRP m => (a -> IOSync Unit) -> WeakDynamic a -> m Unit
-```
-
-Specular uses
-[`IOSync`](https://github.com/slamdata/purescript-io/blob/master/src/Control/Monad/IOSync.purs)
-as its main effect monad, which is non-standard in the PureScript world. That's
-not a big deal though, since we can always conver from `Eff` using:
-
-```purescript
-liftEff :: Eff e a -> IOSync a
-```
-
-For example, here's a handy snippet for logging a Dynamic value to the console:
-
-```
--- Assuming: dyn :: Dynamic a, Show a
-
-subscribeDyn_ (liftEff <<< logShow) dyn
+subscribeWeakDyn_ :: MonadFRP m => (a -> Effect Unit) -> WeakDynamic a -> m Unit
 ```
 
 ## Dynamic text and attributes

@@ -42,8 +42,6 @@ module Specular.FRP.Base (
 
   , class MonadFRP
 
-  , for
-
   , foldDynImpl
   , foldDynMaybeImpl
 
@@ -651,14 +649,6 @@ readDynamic = pull <<< readBehavior <<< current
 class (MonadEffect m, MonadCleanup m) <= MonadFRP m
 instance monadFRP :: (MonadEffect m, MonadCleanup m) => MonadFRP m
 
--- | Flipped `map`.
--- |
--- | Useful in conjunction with `dynamic`: Instead of `dynamic $ map (\x -> longExpression x) dyn`,
--- | you can write `dynamic $ for dyn $ \x -> longExpression x`.
--- TODO: This should be moved somewhere
-for :: forall f a b. Functor f => f a -> (a -> b) -> f b
-for = flip map
-
 
 traceEventIO :: forall a. (a -> Effect Unit) -> Event a -> Event a
 traceEventIO handler (Event {occurence, subscribe}) =
@@ -693,3 +683,9 @@ instance heytingAlgebraDynamic :: HeytingAlgebra a => HeytingAlgebra (Dynamic a)
   conj = lift2 conj
   disj = lift2 disj
   not = map not
+
+instance semigroupDynamic :: Semigroup a => Semigroup (Dynamic a) where
+  append = lift2 append
+
+instance monoidDynamic :: Monoid a => Monoid (Dynamic a) where
+  mempty = pure mempty

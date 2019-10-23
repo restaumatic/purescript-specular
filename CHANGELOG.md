@@ -1,6 +1,10 @@
 ## Next release
 
-Nothing yet.
+- 2019-10-10 **(breaking change)** Removed `Specular.FRP.for`. Use `<#>` from `Data.Functor` instead.
+
+## v0.5.2
+
+- 2019-09-25 `Dynamic` now has `Semigroup` and `Monoid` instances, lifting operations from the value type.
 
 ## v0.5.1
 

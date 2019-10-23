@@ -2,6 +2,9 @@ module Specular.Dom.Builder (
     Builder
   , runBuilder
   , local
+  , unBuilder
+  , mkBuilder'
+  , runBuilder'
 ) where
 
 import Prelude
@@ -16,7 +19,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Uncurried (mkEffectFn2, runEffectFn1, runEffectFn2)
+import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
@@ -53,11 +56,17 @@ instance monadReaderBuilder :: MonadReader env (Builder env) where
 local :: forall e r a. (e -> r) -> Builder r a -> Builder e a
 local fn (Builder x) = Builder $ RIO.local (\env -> env { userEnv = fn env.userEnv }) x
 
+mkBuilder' :: forall env a. (EffectFn1 (BuilderEnv env) a) -> Builder env a
+mkBuilder' = Builder <<< RIO
+
 mkBuilder :: forall env a. (BuilderEnv env -> Effect a) -> Builder env a
 mkBuilder = Builder <<< rio
 
 unBuilder :: forall env a. Builder env a -> RIO (BuilderEnv env) a
 unBuilder (Builder f) = f
+
+runBuilder' :: forall env a. EffectFn2 (BuilderEnv env) (Builder env a) a
+runBuilder' = mkEffectFn2 \env (Builder (RIO f)) -> runEffectFn1 f env
 
 runBuilder :: forall a. Node -> Builder Unit a -> Effect (Tuple a (Effect Unit))
 runBuilder = runBuilderWithUserEnv unit

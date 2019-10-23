@@ -21,7 +21,8 @@
     "purescript-generics-rep": "^6.0.0",
     "purescript-debug": "^4.0.0",
     "purescript-foreign-object": "^2.0.0",
-    "purescript-avar": "^3.0.0"
+    "purescript-avar": "^3.0.0",
+    "purescript-contravariant": "^4.0.1"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",
