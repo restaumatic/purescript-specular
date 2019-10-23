@@ -10,6 +10,12 @@ module Specular.Dom.Element
   , attrs
   , attrsD
 
+  , on
+  , onClick
+  , onClick_
+  , preventDefault
+  , stopPropagation
+
   , ClassName
   , class_
   , classes
