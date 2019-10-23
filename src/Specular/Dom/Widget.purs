@@ -5,17 +5,20 @@ module Specular.Dom.Widget (
   , runMainWidgetInBody
 
   , class MonadWidget
+
+  , liftWidget
 ) where
 
 import Prelude
 
-import Effect (Effect)
 import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
+import Effect (Effect)
 import Specular.Dom.Browser (Node)
-import Specular.Dom.Builder (Builder, runBuilder)
-import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
+import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
+import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, liftBuilder)
 import Specular.FRP (class MonadFRP)
+import Specular.Internal.RIO (RIO(..))
 
 type Widget = Builder Node
 
@@ -38,3 +41,7 @@ foreign import documentBody :: Effect Node
 -- A handy alias for all the constraints you'll need
 class (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) <= MonadWidget m
 instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) => MonadWidget m
+
+-- | Lift a `Widget` into any `MonadWidget` monad.
+liftWidget :: forall m a. MonadDomBuilder m => Widget a -> m a
+liftWidget w = let RIO f = unBuilder w in liftBuilder f

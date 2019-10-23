@@ -12,6 +12,7 @@
     "generics-rep",
     "debug",
     "foreign-object",
+    "contravariant",
     "avar",
 
     "psci-support",
