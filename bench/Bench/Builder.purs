@@ -70,23 +70,23 @@ foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 staticWidgetNewApi :: Int -> Widget Unit
 staticWidgetNewApi n =
   replicateM_Widget_ n $
-    E.el "div" [E.attr ("class" := "foo")] do
-      E.el "div" [E.attr ("class" := "bar")] do
+    E.el "div" [E.attrs ("class" := "foo")] do
+      E.el "div" [E.attrs ("class" := "bar")] do
         text "foo"
-      E.el "div" [E.attr ("class" := "baz")] do
+      E.el "div" [E.attrs ("class" := "baz")] do
         text "foo"
-      E.el "div" [E.attr ("class" := "thud")] do
+      E.el "div" [E.attrs ("class" := "thud")] do
         text "foo"
 
 staticWidgetNewApiD :: Int -> Widget Unit
 staticWidgetNewApiD n =
   replicateM_Widget_ n $
-    E.el "div" [E.attrD (pure ("class" := "foo"))] do
-      E.el "div" [E.attrD (pure ("class" := "bar"))] do
+    E.el "div" [E.attrsD (pure ("class" := "foo"))] do
+      E.el "div" [E.attrsD (pure ("class" := "bar"))] do
         text "foo"
-      E.el "div" [E.attrD (pure ("class" := "baz"))] do
+      E.el "div" [E.attrsD (pure ("class" := "baz"))] do
         text "foo"
-      E.el "div" [E.attrD (pure ("class" := "thud"))] do
+      E.el "div" [E.attrsD (pure ("class" := "thud"))] do
         text "foo"
 
 -- See comments in the FFI module.
