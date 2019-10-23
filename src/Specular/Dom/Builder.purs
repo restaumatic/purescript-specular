@@ -146,7 +146,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
     pure $ Slot { replace, destroy, append }
 
-instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
+instance monadDomBuilderBuilder :: MonadDomBuilder env (Builder env) where
 
   text str = mkBuilder \env -> do
     node <- createTextNode str
