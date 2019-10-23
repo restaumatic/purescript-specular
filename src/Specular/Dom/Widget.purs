@@ -20,6 +20,7 @@ import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, liftBuilder)
 import Specular.FRP (class MonadFRP)
 import Specular.Internal.RIO (RIO(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 type Widget = RWidget Unit
 
@@ -47,4 +48,4 @@ instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDet
 
 -- | Lift a `Widget` into any `MonadWidget` monad.
 liftWidget :: forall m a. MonadDomBuilder m => Widget a -> m a
-liftWidget w = let RIO f = unBuilder w in liftBuilder f
+liftWidget w = let RIO f = unBuilder w in liftBuilder (unsafeCoerce f) -- FIXME TMP
