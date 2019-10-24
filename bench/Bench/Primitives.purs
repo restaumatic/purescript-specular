@@ -7,16 +7,21 @@ import Prelude
 
 import Bench.Types (Tests)
 import Control.Monad.Cleanup (CleanupT, runCleanupT)
-import Data.Array (replicate)
-import Data.Foldable (sum)
+import Data.Array (range, replicate)
+import Data.Foldable (for_, sum)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
-import Specular.FRP (Dynamic, WeakDynamic, holdDyn, holdWeakDyn, never, newEvent, subscribeWeakDyn_)
+import Specular.FRP (Dynamic, WeakDynamic, holdDyn, holdWeakDyn, never, newDynamic, newEvent, subscribeWeakDyn_)
 import Specular.FRP.Base (subscribeDyn_)
 
 dynamicTests :: Tests
 dynamicTests =
+  [ Tuple "10 subscribers" $ nsubscribers 10
+  , Tuple "20 subscribers" $ nsubscribers 20
+  , Tuple "30 subscribers" $ nsubscribers 30
+  , Tuple "40 subscribers" $ nsubscribers 40
+  ] <>
   [ Tuple "dyn" $ testDynFn1 pure
   , Tuple "dyn fmap" $ testDynFn1 \d -> pure (add 1 <$> d)
   , Tuple "dyn ap pure" $ testDynFn1 \d -> pure (pure (const 1) <*> d)
@@ -55,6 +60,13 @@ nestedApplyTests =
         holdDyn 0 event.event
       pure $ map sum $ sequence (dynamics <> [d])
 
+nsubscribers :: Int -> Effect (Effect Unit)
+nsubscribers n =
+  runHost do
+    dyn <- newDynamic 0
+    for_ (range 0 n) \_ ->
+      subscribeDyn_ (\_ -> pure unit) dyn.dynamic
+    pure (dyn.set 1)
 
 testDynFn1 :: (Dynamic Int -> Host (Dynamic Int)) -> Effect (Effect Unit)
 testDynFn1 fn =
