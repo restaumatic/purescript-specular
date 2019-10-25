@@ -5,11 +5,10 @@ import Prelude
 import Bench.Builder (builderTests)
 import Bench.Primitives (dynamicTests, weakDynamicTests)
 import Bench.Types (Tests)
-import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (for)
 import Data.Tuple (Tuple(Tuple))
-import Effect (Effect, forE)
-import Effect.Aff (Aff, delay, launchAff_)
+import Effect (Effect)
+import Effect.Aff (Aff, Milliseconds(..), delay, launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
 
@@ -21,20 +20,15 @@ main = launchAff_ do
 
 bench :: String -> Tests -> Aff Unit
 bench suiteName tests = do
+  delay (Milliseconds 10.0)
 
   Console.log $ "------ " <> suiteName
 
-  Console.log "Warmup..."
-
   tests' <- for tests $ \(Tuple name setupFn) -> do
-    delay (Milliseconds 100.0)
     liftEffect do
       fn <- setupFn
-      forE 0 1000 \_ -> fn
       pure (Tuple name fn)
 
-  Console.log "Benchmarking..."
-
-  liftEffect $ forE 0 2 \_ -> runBenchmark $ map (\(Tuple name fn) -> { name, fn }) tests'
+  liftEffect $ runBenchmark $ map (\(Tuple name fn) -> { name, fn }) tests'
 
 foreign import runBenchmark :: Array { name :: String, fn :: Effect Unit } -> Effect Unit

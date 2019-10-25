@@ -7,7 +7,7 @@ module Specular.FRP.Base (
   , filterEvent
   , filterMapEvent
 
-  , Pull
+  , module X
   , pull
 
   , Behavior
@@ -50,29 +50,21 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Control.Monad.Reader (ask)
-import Control.Monad.Rec.Class (Step(..), tailRecM)
-import Data.Array (cons, unsnoc)
 import Data.Array as Array
-import Data.Foldable (for_)
 import Data.Function.Uncurried (mkFn2)
 import Data.HeytingAlgebra (ff, implies, tt)
-import Data.Maybe (Maybe(..), isJust, maybe)
-import Data.Traversable (sequence, traverse)
+import Data.Maybe (Maybe(..), maybe)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
-import Effect.Ref (new) as Ref
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
-import Incremental.Internal as I
-import Incremental.Internal.Node as I
-import Incremental.Internal.Optional (Optional)
+import Incremental.Internal (addObserver, bind_, constant, fold, leftmost, map, map2, mapOptional, newEvent, newVar, readEvent, readVar, removeObserver, sample, setVar, stabilize, switch, traceChanges, triggerEvent) as I
+import Incremental.Internal.Node (Node, _read, _value, _write, annotate, valueExc) as I
 import Incremental.Internal.Optional as Optional
 import Partial.Unsafe (unsafeCrashWith)
-import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
-import Specular.Internal.RIO (RIO, rio, runRIO)
-import Specular.Internal.RIO as RIO
-import Specular.Internal.UniqueMap.Mutable as UMM
+import Specular.FRP.Internal.Frame (Pull) as X
+import Specular.Internal.Queue (Queue)
+import Specular.Internal.Queue as Queue
 import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------------------
@@ -92,6 +84,7 @@ readBehavior (Behavior (Dynamic node)) = do
 
 type Pull = Effect
 
+pull :: forall a m. MonadEffect m => Effect a -> m a
 pull = liftEffect
 
 derive newtype instance functorBehavior :: Functor Behavior
@@ -168,36 +161,18 @@ _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
 _subscribeEvent = mkEffectFn2 \handler (Event node) ->
   runEffectFn2 _subscribeNode handler node
 
-globalEffectQueue :: Ref (Array (Effect Unit))
-globalEffectQueue = unsafePerformEffect (newRef [])
+globalEffectQueue :: Queue (Effect Unit)
+globalEffectQueue = unsafePerformEffect Queue.new
 
 _subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (I.Node a) Unsubscribe
 _subscribeNode = mkEffectFn2 \handler node -> do
   let h = mkEffectFn1 \value -> do
-        modifyRef globalEffectQueue (cons (handler value))
+            runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
   runEffectFn2 I.addObserver node h
   pure (runEffectFn2 I.removeObserver node h)
 
 drainEffects :: Effect Unit
-drainEffects =
-  tailRecM (\_ -> do
-    elem <- popRef globalEffectQueue
-    case elem of
-      Just effect -> do
-        effect
-        pure $ Loop unit
-      Nothing -> pure (Done unit)
-    ) unit
-
-  where
-    popRef :: forall s. Ref (Array s) -> Effect (Maybe s)
-    popRef ref = do
-      array <- readRef ref
-      case unsnoc array of
-        Nothing -> pure Nothing
-        Just { init, last } -> do
-          writeRef ref init
-          pure (Just last)
+drainEffects = runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler -> handler)
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
@@ -302,10 +277,11 @@ foldDyn f initial (Event event) = do
   subscribeNode (\_ -> pure unit) n
   pure (Dynamic n)
 
+effectCrash :: forall t304. String -> t304
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
-newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit }
+newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit, modify :: (a -> a) -> Effect Unit }
 newDynamic initial = liftEffect do
   var <- runEffectFn1 I.newVar initial
   runEffectFn2 I.annotate (I.readVar var) "root Dynamic"
@@ -314,6 +290,10 @@ newDynamic initial = liftEffect do
     , read: readNode (I.readVar var)
     , set: \x -> do
         runEffectFn2 I.setVar var x
+        stabilize
+    , modify: \f -> do
+        x <- runEffectFn1 I.valueExc (I.readVar var)
+        runEffectFn2 I.setVar var (f x)
         stabilize
     }
 
