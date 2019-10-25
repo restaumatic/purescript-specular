@@ -91,7 +91,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
     env <- getEnv
 
     placeholderAfter <- liftEffect $ createTextNode ""
-    liftEffect $ appendChild placeholderAfter env.parent
+    liftEffect $ runEffectFn2 appendChild placeholderAfter env.parent
     -- FIXME: placeholderAfter leaks if replace is never called
 
     cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
@@ -150,12 +150,12 @@ instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
 
   text str = mkBuilder \env -> do
     node <- createTextNode str
-    appendChild node env.parent
+    runEffectFn2 appendChild node env.parent
 
   dynText dstr = do
     node <- mkBuilder \env -> do
       node <- createTextNode ""
-      appendChild node env.parent
+      runEffectFn2 appendChild node env.parent
       pure node
     subscribeWeakDyn_ (setText node) dstr
 
@@ -176,19 +176,19 @@ instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
           removed = A.filter (\k -> not (k `SM.member` newAttrs)) $ SM.keys oldAttrs
 
         removeAttributes node removed
-        setAttributes node changed
+        runEffectFn2 setAttributes node changed
 
     subscribeWeakDyn_ resetAttributes dynAttrs
     result <- Builder $ RIO.local (setParent node) $ unBuilder inner
-    liftEffect $ appendChild node env.parent
+    liftEffect $ runEffectFn2 appendChild node env.parent
     pure (Tuple node result)
 
   elAttr tagName attrs inner = do
     env <- getEnv
     node <- liftEffect $ createElementNS Nothing tagName
-    liftEffect $ setAttributes node attrs
+    liftEffect $ runEffectFn2 setAttributes node attrs
     result <- Builder $ RIO.local (setParent node) $ unBuilder inner
-    liftEffect $ appendChild node env.parent
+    liftEffect $ runEffectFn2 appendChild node env.parent
     pure result
 
   liftBuilder fn = Builder (RIO fn)
@@ -201,12 +201,12 @@ instance monadDetachBuilder :: MonadDetach (Builder env) where
     fragment <- liftEffect createDocumentFragment
 
     placeholderBefore <- liftEffect $ createTextNode ""
-    liftEffect $ appendChild placeholderBefore fragment
+    liftEffect $ runEffectFn2 appendChild placeholderBefore fragment
 
     result <- Builder $ RIO.local (setParent fragment) $ unBuilder inner
 
     placeholderAfter <- liftEffect $ createTextNode ""
-    liftEffect $ appendChild placeholderAfter fragment
+    liftEffect $ runEffectFn2 appendChild placeholderAfter fragment
 
     let
       attach = mkBuilder $ \env ->

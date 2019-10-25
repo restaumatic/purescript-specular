@@ -17,7 +17,7 @@ el' tagName props body = liftBuilderWithRun (mkEffectFn2 \env run -> do
   result <- runEffectFn2 run (env { parent = node }) body
   foreachE props \(Prop prop) ->
     runEffectFn2 prop node env.cleanup
-  appendChild node env.parent
+  runEffectFn2 appendChild node env.parent
   pure (Tuple node result)
   )
 

@@ -15,5 +15,9 @@ const puppeteer = require('puppeteer');
     })();
   });
 
+  page.on('error', msg => {
+    console.error(msg);
+  });
+
   await page.goto('file://' + process.cwd() + '/bench/benchmark.html');
 })();

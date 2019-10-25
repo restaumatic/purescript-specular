@@ -6,8 +6,9 @@ import Prelude
 
 import Bench.Types (Tests)
 import Control.Monad.Reader (runReaderT)
+import Data.Array (filter)
 import Data.List.Lazy (replicateM)
-import Data.Tuple (Tuple(Tuple))
+import Data.Tuple (Tuple(Tuple), fst)
 import Effect (Effect)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (elAttr, elDynAttr, text)
@@ -96,6 +97,7 @@ foreign import staticJS_m :: Int -> Effect Unit
 
 builderTests :: Tests
 builderTests =
+  filter (eq "Widget + attr              " <<< fst)
   [ Tuple "js                         " (pure $ delay \_ -> staticJS 10)
   , Tuple "js curried                 " (pure $ delay \_ -> staticJS_c 10)
   , Tuple "js monad                   " (pure $ delay \_ -> staticJS_m 10)

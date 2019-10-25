@@ -21,11 +21,9 @@ exports.createDocumentFragmentImpl = function() {
   return document.createDocumentFragment();
 };
 
-// createElementImpl :: TagName -> IOSync Node
+// createElementImpl :: EffectFn1 TagName Node
 exports.createElementImpl = function(tag) {
-  return function() {
-    return document.createElement(tag);
-  };
+  return document.createElement(tag);
 };
 
 // createElementNSImpl :: Namespace -> TagName -> IOSync Node
@@ -37,8 +35,8 @@ exports.createElementNSImpl = function(namespace) {
   };
 };
 
-// _setAttributes :: EffectFn2 Node (Object String) Unit
-exports._setAttributes = function(node, attrs) {
+// setAttributes :: EffectFn2 Node (Object String) Unit
+exports.setAttributes = function(node, attrs) {
   for (var k in attrs) {
     if (attrs.hasOwnProperty(k)) {
       node.setAttribute(k, attrs[k]);
@@ -84,13 +82,9 @@ exports.insertBeforeImpl = function(newNode) {
   };
 };
 
-// appendChildImpl :: Node -> Node -> IOSync Unit
-exports.appendChildImpl = function(newNode) {
-  return function(parent) {
-    return function() {
-      parent.appendChild(newNode);
-    };
-  };
+// appendChild :: EffectFn2 Node Node Unit
+exports.appendChild = function(newNode, parent) {
+  parent.appendChild(newNode);
 };
 
 // removeAllBetweenImpl :: Node -> Node -> IOSync Unit

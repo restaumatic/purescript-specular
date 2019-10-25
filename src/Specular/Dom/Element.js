@@ -1,3 +1,10 @@
+// runProps :: EffectFn3 (Array Prop) Node DelayedEffects Unit
+exports.runProps = function(props, node, cleanups) {
+  for(var i = 0; i < props.length; i++) {
+    props[i](node, cleanups);
+  }
+};
+
 // _stopPropagation :: EffectFn1 DOM.Event Unit
 exports._stopPropagation = function(event) {
   event.stopPropagation();

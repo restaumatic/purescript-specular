@@ -15,8 +15,8 @@ import Effect.Class.Console as Console
 main :: Effect Unit
 main = launchAff_ do
   bench "Builder" builderTests
-  bench "Dynamic" dynamicTests
-  bench "WeakDynamic" weakDynamicTests
+-- bench "Dynamic" dynamicTests
+-- bench "WeakDynamic" weakDynamicTests
 
 bench :: String -> Tests -> Aff Unit
 bench suiteName tests = do

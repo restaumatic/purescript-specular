@@ -4,8 +4,9 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
-import Effect.Uncurried (EffectFn2, runEffectFn2)
+import Effect.Uncurried (EffectFn1, EffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object (Object)
+import Foreign.Object (Object) as Foreign
 import Foreign.Object as Object
 
 type Attrs = Object String
@@ -43,13 +44,12 @@ createDocumentFragment = createDocumentFragmentImpl
 -- | Create an element, optionally with namespace.
 createElementNS :: Maybe Namespace -> TagName -> Effect Node
 createElementNS (Just namespace) = createElementNSImpl namespace
-createElementNS Nothing = createElementImpl
+createElementNS Nothing = runEffectFn1 createElementImpl
 
 createElement :: TagName -> Effect Node
-createElement = createElementNS Nothing
+createElement = runEffectFn1 createElementImpl
 
-setAttributes :: Node -> Attrs -> Effect Unit
-setAttributes node attrs = runEffectFn2 _setAttributes node attrs
+foreign import setAttributes :: EffectFn2 Node (Foreign.Object String) Unit
 
 removeAttributes :: Node -> Array String -> Effect Unit
 removeAttributes = removeAttributesImpl
@@ -65,8 +65,7 @@ insertBefore :: Node -> Node -> Node -> Effect Unit
 insertBefore = insertBeforeImpl
 
 -- | `appendChild newNode parent`
-appendChild :: Node -> Node -> Effect Unit
-appendChild = appendChildImpl
+foreign import appendChild :: EffectFn2 Node Node Unit
 
 -- | Append a chunk of raw HTML to the end of the node.
 appendRawHtml :: String -> Node -> Effect Unit
@@ -96,12 +95,10 @@ foreign import createTextNodeImpl :: String -> Effect Node
 foreign import setTextImpl :: Node -> String -> Effect Unit
 foreign import createDocumentFragmentImpl :: Effect Node
 foreign import createElementNSImpl :: Namespace -> TagName -> Effect Node
-foreign import createElementImpl :: TagName -> Effect Node
-foreign import _setAttributes :: EffectFn2 Node Attrs Unit
+foreign import createElementImpl :: EffectFn1 TagName Node
 foreign import removeAttributesImpl :: Node -> Array String -> Effect Unit
 foreign import parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> Effect (Maybe Node)
 foreign import insertBeforeImpl :: Node -> Node -> Node -> Effect Unit
-foreign import appendChildImpl :: Node -> Node -> Effect Unit
 foreign import removeAllBetweenImpl :: Node -> Node -> Effect Unit
 foreign import appendRawHtmlImpl :: String -> Node -> Effect Unit
 foreign import moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> Effect Unit

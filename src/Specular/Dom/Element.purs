@@ -31,18 +31,17 @@ import Data.Functor.Contravariant (cmap)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (foreachE)
-import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn4)
+import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Foreign.Object as Object
 import Specular.Callback (Callback, mkCallback, triggerCallback)
-import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode)
+import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode, Attrs, TagName, createElement, createElementImpl, removeAttributes, setAttributes)
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder (mkBuilder', runBuilder')
 import Specular.Dom.Builder.Class (BuilderEnv)
 import Specular.Dom.Builder.Class (rawHtml) as X
-import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes, setAttributes)
 import Specular.Dom.Widget (RWidget)
 import Specular.FRP (Dynamic, readDynamic, _subscribeEvent, changed)
-import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef, pushDelayed)
+import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
@@ -56,22 +55,23 @@ instance monoidProp :: Monoid Prop where
 
 el' :: forall r a. TagName -> Array Prop -> RWidget r a -> RWidget r (Tuple Node a)
 el' tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
-  node <- createElement tagName
+  node <- runEffectFn1 createElementImpl tagName
   result <- runEffectFn4 initElement env node props body
   pure (Tuple node result)
 
 el :: forall r a. TagName -> Array Prop -> RWidget r a -> RWidget r a
 el tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
-  node <- createElement tagName
+  node <- runEffectFn1 createElementImpl tagName
   runEffectFn4 initElement env node props body
 
 initElement :: forall r a. EffectFn4 (BuilderEnv r) Node (Array Prop) (RWidget r a) a
 initElement = mkEffectFn4 \env node props body -> do
   result <- runEffectFn2 runBuilder' (env { parent = node }) body
-  foreachE props \(Prop prop) ->
-    runEffectFn2 prop node env.cleanup
-  appendChild node env.parent
+  runEffectFn3 runProps props node env.cleanup
+  runEffectFn2 appendChild node env.parent
   pure result
+
+foreign import runProps :: EffectFn3 (Array Prop) Node DelayedEffects Unit
 
 el_ :: forall r. TagName -> Array Prop -> RWidget r Unit
 el_ tagName props = el tagName props (pure unit)
@@ -81,14 +81,14 @@ el_ tagName props = el tagName props (pure unit)
 text :: forall r. String -> RWidget r Unit
 text str = mkBuilder' $ mkEffectFn1 \env -> do
   node <- createTextNode str
-  appendChild node env.parent
+  runEffectFn2 appendChild node env.parent
 
 -- * Attributes
 
 -- | Attach static attributes to the node.
 attrs :: Attrs -> Prop
 attrs a = Prop $ mkEffectFn2 \node _ ->
-  setAttributes node a
+  runEffectFn2 setAttributes node a
 
 -- | Attach a dynamically-changing map of attributes to the node.
 -- |
@@ -107,7 +107,7 @@ attrsD dynAttrs = Prop $ mkEffectFn2 \node cleanups -> do
         removed = Array.filter (\k -> not (k `Object.member` newAttrs)) $ Object.keys oldAttrs
 
       removeAttributes node removed
-      setAttributes node changed
+      runEffectFn2 setAttributes node changed
 
   unsub <- runEffectFn2 _subscribeEvent (runEffectFn1 resetAttributes) (changed dynAttrs)
   pushDelayed cleanups unsub

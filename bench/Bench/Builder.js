@@ -11,7 +11,20 @@
 
 // replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 // replicateM_, optimized for Widget.
-exports.replicateM_Widget_ = function(n) {
+exports.replicateM_Widget_ =
+  (function() {
+function Node() {}
+Node.prototype = {
+  appendChild: function() {},
+  setAttribute: function() {},
+};
+
+/*
+document.createElement = function() { return new Node(); };
+document.createTextNode = function() { return new Node(); };
+*/
+
+return function(n) {
   return function(widget) {
     return function(env) {
       for(var i = 0; i < n; i++) {
@@ -20,6 +33,8 @@ exports.replicateM_Widget_ = function(n) {
     };
   };
 };
+
+})();
 
 ////////////////////////////////////////////////////////////////////////////////
 // staticJS :: forall e. Int -> Eff e Unit
