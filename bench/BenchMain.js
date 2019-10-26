@@ -1,5 +1,3 @@
-global.Benchmark = require('benchmark');
-
 exports.runBenchmark = function(tests) {
   return function() {
     tests.forEach(function(t) {
