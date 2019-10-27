@@ -6,16 +6,20 @@ import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
+import Data.Array (filter) as Array
 import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple, snd)
+import Data.Tuple (Tuple(..), snd)
 import Effect (Effect)
 import Effect.Class (liftEffect)
-import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn2)
-import Specular.Dom.Browser (Attrs, EventType, Namespace, Node, TagName, addEventListener)
+import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3)
+import Foreign.Object as SM
+import Specular.Dom.Browser (Attrs, EventType, Namespace, Node, TagName, addEventListener, appendRawHtml, createElementNS, createTextNode, removeAttributes, setAttributes, setText)
 import Specular.Dom.Browser as DOM
-import Specular.FRP (class MonadFRP, WeakDynamic, newEvent, weakDynamic_)
+import Specular.Dom.Node.Class (appendChild)
+import Specular.FRP (class MonadFRP, Dynamic, WeakDynamic, _subscribeEvent, changed, newEvent, readDynamic, weakDynamic_)
 import Specular.FRP as FRP
-import Specular.Internal.Effect (DelayedEffects)
+import Specular.FRP.WeakDynamic (unWeakDynamic)
+import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
 
 type BuilderEnv env =
   { parent :: Node
@@ -24,15 +28,70 @@ type BuilderEnv env =
   }
 
 class Monad m <= MonadDomBuilder m where
-  text :: String -> m Unit
-  dynText :: WeakDynamic String -> m Unit
-  elDynAttrNS' :: forall a. Maybe Namespace -> TagName -> WeakDynamic Attrs -> m a -> m (Tuple Node a)
-  rawHtml :: String -> m Unit
-
-  elAttr :: forall a. TagName -> Attrs -> m a -> m a
-
   liftBuilder :: forall a. (forall env. EffectFn1 (BuilderEnv env) a) -> m a
   liftBuilderWithRun :: forall a b. (forall env. EffectFn2 (BuilderEnv env) (EffectFn2 (BuilderEnv env) (m b) b) a) -> m a
+
+text :: forall m. MonadDomBuilder m => String -> m Unit
+text str = liftBuilder (mkEffectFn1 \env -> do
+  node <- createTextNode str
+  appendChild node env.parent
+  )
+
+_subscribeDyn :: forall a. EffectFn3 DelayedEffects (Dynamic a) (EffectFn1 a Unit) Unit
+_subscribeDyn = mkEffectFn3 \cleanups dyn fn -> do
+  unsub <- runEffectFn2 _subscribeEvent (runEffectFn1 fn) (changed dyn)
+  pushDelayed cleanups unsub
+  initialValue <- readDynamic dyn
+  runEffectFn1 fn initialValue
+
+_subscribeWeakDyn :: forall a. EffectFn3 DelayedEffects (WeakDynamic a) (EffectFn1 a Unit) Unit
+_subscribeWeakDyn = mkEffectFn3 \cleanups dyn fn -> do
+  runEffectFn3 _subscribeDyn cleanups (unWeakDynamic dyn) $
+    mkEffectFn1 \m ->
+      case m of
+        Nothing -> pure unit
+        Just x -> runEffectFn1 fn x
+
+dynText :: forall m. MonadDomBuilder m => WeakDynamic String -> m Unit
+dynText dstr = liftBuilder (mkEffectFn1 \env -> do
+  node <- createTextNode ""
+  appendChild node env.parent
+  runEffectFn3 _subscribeWeakDyn env.cleanup dstr (mkEffectFn1 (setText node)))
+
+rawHtml :: forall m. MonadDomBuilder m => String -> m Unit
+rawHtml html = liftBuilder (mkEffectFn1 \env -> 
+  appendRawHtml html env.parent)
+
+
+elDynAttrNS' :: forall m a. MonadDomBuilder m => Maybe Namespace -> TagName -> WeakDynamic Attrs -> m a -> m (Tuple Node a)
+elDynAttrNS' namespace tagName dynAttrs inner = liftBuilderWithRun (mkEffectFn2 \env run -> do
+  node <- createElementNS namespace tagName
+
+  attrsRef <- newRef mempty
+  let
+    resetAttributes = mkEffectFn1 \newAttrs -> do
+      oldAttrs <- readRef attrsRef
+      writeRef attrsRef newAttrs
+      let
+        changed = SM.filterWithKey (\k v -> SM.lookup k oldAttrs /= Just v) newAttrs
+        removed = Array.filter (\k -> not (k `SM.member` newAttrs)) $ SM.keys oldAttrs
+
+      removeAttributes node removed
+      setAttributes node changed
+
+  runEffectFn3 _subscribeWeakDyn env.cleanup dynAttrs resetAttributes
+  result <- runEffectFn2 run (env { parent = node }) inner
+  appendChild node env.parent
+  pure (Tuple node result))
+
+elAttr :: forall m. MonadDomBuilder m => forall a. TagName -> Attrs -> m a -> m a
+elAttr tagName attrs inner = liftBuilderWithRun (mkEffectFn2 \env run -> do
+  node <- createElementNS Nothing tagName
+  setAttributes node attrs
+  result <- runEffectFn2 run (env { parent = node }) inner
+  appendChild node env.parent
+  pure result)
+
 
 elDynAttr' :: forall m a. MonadDomBuilder m => String -> WeakDynamic Attrs -> m a -> m (Tuple Node a)
 elDynAttr' = elDynAttrNS' Nothing
@@ -81,12 +140,6 @@ onDomEvent eventType node handler = do
   onCleanup unsub
 
 instance monadDomBuilderReaderT :: MonadDomBuilder m => MonadDomBuilder (ReaderT r m) where
-  text = lift <<< text
-  dynText = lift <<< dynText
-  elDynAttrNS' ns tag attrs body = ReaderT $ \env -> elDynAttrNS' ns tag attrs $ runReaderT body env
-  rawHtml = lift <<< rawHtml
-  elAttr tag attrs body =
-    ReaderT $ \env -> elAttr tag attrs $ runReaderT body env
   liftBuilder b = lift (liftBuilder b)
   liftBuilderWithRun fn = ReaderT \e ->
     liftBuilderWithRun (mkEffectFn2 \benv run ->

@@ -14,17 +14,14 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
-import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
-import Foreign.Object as SM
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
-import Specular.Dom.Node.Class (appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
-import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
+import Specular.Dom.Node.Class (appendChild, createDocumentFragment, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
@@ -147,50 +144,6 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
     pure $ Slot { replace, destroy, append }
 
 instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
-
-  text str = mkBuilder \env -> do
-    node <- createTextNode str
-    appendChild node env.parent
-
-  dynText dstr = do
-    node <- mkBuilder \env -> do
-      node <- createTextNode ""
-      appendChild node env.parent
-      pure node
-    subscribeWeakDyn_ (setText node) dstr
-
-  rawHtml html = mkBuilder \env -> 
-    appendRawHtml html env.parent
-
-  elDynAttrNS' namespace tagName dynAttrs inner = do
-    env <- getEnv
-    node <- liftEffect $ createElementNS namespace tagName
-
-    attrsRef <- liftEffect $ newRef mempty
-    let
-      resetAttributes newAttrs = do
-        oldAttrs <- readRef attrsRef
-        writeRef attrsRef newAttrs
-        let
-          changed = SM.filterWithKey (\k v -> SM.lookup k oldAttrs /= Just v) newAttrs
-          removed = A.filter (\k -> not (k `SM.member` newAttrs)) $ SM.keys oldAttrs
-
-        removeAttributes node removed
-        setAttributes node changed
-
-    subscribeWeakDyn_ resetAttributes dynAttrs
-    result <- Builder $ RIO.local (setParent node) $ unBuilder inner
-    liftEffect $ appendChild node env.parent
-    pure (Tuple node result)
-
-  elAttr tagName attrs inner = do
-    env <- getEnv
-    node <- liftEffect $ createElementNS Nothing tagName
-    liftEffect $ setAttributes node attrs
-    result <- Builder $ RIO.local (setParent node) $ unBuilder inner
-    liftEffect $ appendChild node env.parent
-    pure result
-
   liftBuilder fn = Builder (RIO fn)
   liftBuilderWithRun fn =
     Builder $ rio \env ->
