@@ -1,5 +1,19 @@
 ## Next release
 
+- 2019-10-28 Added `Specular.Ref`
+- 2019-10-24 Use a mutable queue instead of an immutable array ref
+
+## 0.6.2
+
+- 2019-10-23 Added Reader functionality to Widget
+
+## 0.6.1
+
+- 2019-10-23 Added missing exports to `Specular.Dom.Element`
+
+## 0.6.0
+
+- 2019-10-23 Monomorphized and extended `Specular.Dom.Element`
 - 2019-10-10 **(breaking change)** Removed `Specular.FRP.for`. Use `<#>` from `Data.Functor` instead.
 
 ## v0.5.2
@@ -50,7 +64,7 @@
 - 2018-08-08 `asyncRequest` and `asyncRequestMaybe` no longer require `MonadReplace` constraint.
 
 - 2018-07-31 **(breaking change)** Updated to PureScript 0.12. This induced some breaking API changes:
-  
+
    - Effectful functions now use `Effect` instead of `IOSync`
    - `Attrs` is now `Foreign.Object`, not `StrMap`
 
