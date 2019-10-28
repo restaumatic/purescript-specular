@@ -1,7 +1,6 @@
 ## Next release
 
 - 2019-10-28 Added `Specular.Ref`
-- 2019-10-24 Added extra benchmark
 - 2019-10-24 Use a mutable queue instead of an immutable array ref
 
 ## 0.6.2
