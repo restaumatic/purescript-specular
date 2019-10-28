@@ -22,16 +22,14 @@ module Specular.Ref
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.Cleanup (runCleanupT)
 import Data.Functor.Contravariant (cmap, (>$<))
 import Data.Functor.Invariant (class Invariant)
 import Data.Maybe (Maybe(..))
-import Data.Tuple (fst)
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
-import Specular.Callback (Callback, attachEvent, contramapCallbackDyn, newCallback, nullCallback, triggerCallback)
+import Specular.Callback (Callback, attachEvent, contramapCallbackDyn, mkCallback, nullCallback, triggerCallback)
 import Specular.Dom.Widget (class MonadWidget)
-import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, foldDyn, leftmost, pull, readBehavior, weaken)
+import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, subscribeEvent_, weaken)
 
 
 data Ref a = Ref (Dynamic a) (Callback (a -> a))
@@ -41,22 +39,14 @@ instance invariantRef :: Invariant Ref where
 
 newRef :: forall m a. MonadEffect m => a -> m (Ref a)
 newRef initial = do
-
-  -- Note: It's morally correct here to ignore cleanup action,
-  -- because we're not subscribing to any outside events.
-  --
-  -- It will interact badly with the leak checker, but there's no easy
-  -- solution atm.
-  map fst $ runCleanupT do
-    update <- newCallback
-    value <- foldDyn ($) initial update.event
-    pure (Ref value update.callback)
+  {dynamic, modify} <- newDynamic initial
+  pure $ Ref dynamic (mkCallback modify)
 
 newRefWithEvent :: forall m a. MonadFRP m => a -> Event (a -> a) -> m (Ref a)
 newRefWithEvent initial extraUpdate = do
-  update <- newCallback
-  value <- foldDyn ($) initial (leftmost [ update.event, extraUpdate ])
-  pure (Ref value update.callback)
+  {dynamic, modify} <- newDynamic initial
+  subscribeEvent_ modify extraUpdate
+  pure $ Ref dynamic (mkCallback modify)
 
 refValue :: forall a. Ref a -> Dynamic a
 refValue (Ref value _) = value
