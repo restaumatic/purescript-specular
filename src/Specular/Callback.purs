@@ -9,6 +9,7 @@ module Specular.Callback
   , attachDyn
 
   , contramapCallbackDyn
+  , contramapCallbackDyn_
   , contramapCallbackDynMaybe
   , contramapCallbackEffect
   , nullCallback
@@ -50,6 +51,11 @@ contramapCallbackDyn :: forall a b. Dynamic (b -> a) -> Callback a -> Callback b
 contramapCallbackDyn fD (Callback cb) = Callback \x -> do
   f <- pull $ readBehavior $ current fD
   cb (f x)
+
+contramapCallbackDyn_ :: forall a b. Dynamic a -> Callback a -> Callback b
+contramapCallbackDyn_ fD (Callback cb) = Callback \_ -> do
+  f <- pull $ readBehavior $ current fD
+  cb f
 
 -- | Map over the callback payload using a `Dynamic` function. If it returns Nothing, the callback will not be triggered.
 -- | The Dynamic value will be read at callback trigger time.
