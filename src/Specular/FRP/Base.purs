@@ -6,6 +6,7 @@ module Specular.FRP.Base (
 
   , filterEvent
   , filterMapEvent
+  , filterJustEvent
 
   , module X
   , pull
@@ -30,6 +31,7 @@ module Specular.FRP.Base (
   , foldDynMaybe
   , holdUniqDynBy
   , uniqDynBy
+  , uniqDyn
 
   , newEvent
   , newBehavior
@@ -215,7 +217,7 @@ type Unsubscribe = Effect Unit
 -- | A source of occurences.
 -- |
 -- | During a frame, an Event occurs at most once with a value of type a.
--- | 
+-- |
 -- | Event is a functor. It is not, however, an Applicative. There is no
 -- | meaningful interpretation of `pure` (when would the event occur?).
 -- | There is an interpretation of `apply` (Event that fires when the input
@@ -267,6 +269,9 @@ filterMapEvent f = filterMapEventB (pure <<< f)
 
 filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
 filterEvent f = filterMapEvent (\x -> if f x then Just x else Nothing)
+
+filterJustEvent :: forall a. Event (Maybe a) -> Event a
+filterJustEvent = filterMapEvent identity
 
 mergeEvents ::
      forall a b c
@@ -514,6 +519,9 @@ uniqDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> Dynamic a -> m (Dy
 uniqDynBy eq dyn = do
   initialValue <- pull $ readBehavior $ current dyn
   holdUniqDynBy eq initialValue (changed dyn)
+
+uniqDyn :: forall m a. MonadFRP m => Eq a => Dynamic a -> m (Dynamic a)
+uniqDyn = uniqDynBy (==)
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 switch :: forall a. Dynamic (Event a) -> Event a
