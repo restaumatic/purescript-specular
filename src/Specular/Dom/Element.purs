@@ -6,9 +6,20 @@ module Specular.Dom.Element
   , Prop(..)
 
   , text
+  , dynText
+
+  , attr
+  , attrWhen
+  , attrUnless
+  , attrWhenD
+  , attrUnlessD
 
   , attrs
   , attrsD
+  , attrsWhen
+  , attrsUnless
+  , attrsWhenD
+  , attrsUnlessD
 
   , on
   , onClick
@@ -34,14 +45,14 @@ import Effect (foreachE)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn4)
 import Foreign.Object as Object
 import Specular.Callback (Callback, mkCallback, triggerCallback)
-import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode)
+import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode, setText, (:=))
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder (mkBuilder', runBuilder')
 import Specular.Dom.Builder.Class (BuilderEnv)
 import Specular.Dom.Builder.Class (rawHtml) as X
 import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes, setAttributes)
 import Specular.Dom.Widget (RWidget)
-import Specular.FRP (Dynamic, readDynamic, _subscribeEvent, changed)
+import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDyn_)
 import Specular.Internal.Effect (DelayedEffects, newRef, readRef, writeRef, pushDelayed)
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
@@ -83,6 +94,14 @@ text str = mkBuilder' $ mkEffectFn1 \env -> do
   node <- createTextNode str
   appendChild node env.parent
 
+dynText :: forall r. Dynamic String -> RWidget r Unit
+dynText strD = do
+  node <- mkBuilder' $ mkEffectFn1 \env -> do
+    node <- createTextNode ""
+    appendChild node env.parent
+    pure node
+  subscribeDyn_ (setText node) strD
+
 -- * Attributes
 
 -- | Attach static attributes to the node.
@@ -113,6 +132,40 @@ attrsD dynAttrs = Prop $ mkEffectFn2 \node cleanups -> do
   pushDelayed cleanups unsub
   initialAttrs <- readDynamic dynAttrs
   runEffectFn1 resetAttributes initialAttrs
+
+type AttrName = String
+type AttrValue = String
+
+attr :: AttrName -> AttrValue -> Prop
+attr name value = attrs (name := value)
+
+attrWhen :: Boolean -> AttrName -> AttrValue -> Prop
+attrWhen true attrName attrValue = attr attrName attrValue
+attrWhen false _ _ = mempty
+
+attrUnless :: Boolean -> AttrName -> AttrValue -> Prop
+attrUnless false attrName attrValue = attr attrName attrValue
+attrUnless true _ _ = mempty
+
+attrsWhen :: Boolean -> Attrs -> Prop
+attrsWhen true = attrs
+attrsWhen false = mempty
+
+attrsUnless :: Boolean -> Attrs -> Prop
+attrsUnless false = attrs
+attrsUnless true = mempty
+
+attrWhenD :: Dynamic Boolean -> AttrName -> AttrValue -> Prop
+attrWhenD conditionD name value = attrsD $ conditionD <#> if _ then name := value else mempty
+
+attrUnlessD :: Dynamic Boolean -> AttrName -> AttrValue -> Prop
+attrUnlessD conditionD name value = attrsD $ conditionD <#> if _ then mempty else name := value
+
+attrsWhenD :: Dynamic Boolean -> Attrs -> Prop
+attrsWhenD conditionD attrs' = attrsD $ conditionD <#> if _ then attrs' else mempty
+
+attrsUnlessD :: Dynamic Boolean -> Attrs -> Prop
+attrsUnlessD conditionD attrs' = attrsD $ conditionD <#> if _ then mempty else attrs'
 
 -- * Events
 
