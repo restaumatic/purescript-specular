@@ -33,6 +33,8 @@ module Specular.Dom.Element
   , classesD
   , classWhenD
   , classUnlessD
+  , classWhen
+  , classUnless
   ) where
 
 import Prelude
@@ -139,6 +141,9 @@ type AttrValue = String
 attr :: AttrName -> AttrValue -> Prop
 attr name value = attrs (name := value)
 
+attrD :: AttrName -> Dynamic AttrValue -> Prop
+attrD name valueD = attrsD $ valueD <#> (name := _)
+
 attrWhen :: Boolean -> AttrName -> AttrValue -> Prop
 attrWhen true attrName attrValue = attr attrName attrValue
 attrWhen false _ _ = mempty
@@ -243,3 +248,9 @@ classWhenD enabled cls = classesD (enabled <#> if _ then [cls] else [])
 -- | `classUnlessD cond` = `classWhenD (not cond)`
 classUnlessD :: Dynamic Boolean -> ClassName -> Prop
 classUnlessD enabled cls = classesD (enabled <#> if _ then [] else [cls])
+
+classWhen :: Boolean -> ClassName -> Prop
+classWhen enabled cls = if enabled then class_ cls else mempty
+
+classUnless :: Boolean -> ClassName -> Prop
+classUnless enabled cls = if enabled then mempty else class_ cls
