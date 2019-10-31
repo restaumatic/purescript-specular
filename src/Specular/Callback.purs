@@ -28,7 +28,7 @@ import Specular.Dom.Browser (Node)
 import Specular.Dom.Browser as SpecularDom
 import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Node.Class (EventType)
-import Specular.FRP (class MonadFRP, Dynamic, Event, current, newEvent, pull, readBehavior, subscribeDyn_, subscribeEvent_)
+import Specular.FRP (class MonadFRP, Dynamic, Event, current, newEvent, pull, readBehavior, readDynamic, subscribeDyn_, subscribeEvent_)
 
 -- | A handle that lets the owner trigger some action with payload of type `a`.
 -- | Can be thought of as "inverse of `Event`".
@@ -49,19 +49,19 @@ instance monoidCallback :: Monoid (Callback a) where
 -- | The Dynamic value will be read at callback trigger time.
 contramapCallbackDyn :: forall a b. Dynamic (b -> a) -> Callback a -> Callback b
 contramapCallbackDyn fD (Callback cb) = Callback \x -> do
-  f <- pull $ readBehavior $ current fD
+  f <- readDynamic fD
   cb (f x)
 
 contramapCallbackDyn_ :: forall a b. Dynamic a -> Callback a -> Callback b
 contramapCallbackDyn_ fD (Callback cb) = Callback \_ -> do
-  f <- pull $ readBehavior $ current fD
+  f <- readDynamic fD
   cb f
 
 -- | Map over the callback payload using a `Dynamic` function. If it returns Nothing, the callback will not be triggered.
 -- | The Dynamic value will be read at callback trigger time.
 contramapCallbackDynMaybe :: forall a b. Dynamic (b -> Maybe a) -> Callback a -> Callback b
 contramapCallbackDynMaybe fD (Callback cb) = Callback \x -> do
-  f <- pull $ readBehavior $ current fD
+  f <- readDynamic fD
   traverse_ cb (f x)
 
 -- | Map over the callback payload using an effectful function.
@@ -101,7 +101,7 @@ nullCallback = Callback (\_ -> pure unit)
 
 dynCallback :: forall a. Dynamic (Callback a) -> Callback a
 dynCallback dynCb = Callback \x -> do
-  cb <- pull $ readBehavior $ current dynCb
+  cb <- readDynamic dynCb
   triggerCallback cb x
 
 mbCallback :: forall a. Callback a -> Callback (Maybe a)
