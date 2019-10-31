@@ -1,5 +1,32 @@
 ## Next release
 
+- 2019-10-30 Add a number of convenience functions:
+   * `Specular.Callback`
+     * `contramapCallbackDyn_`
+   * `Specular.Dom.Element`
+     *  `dynText`
+     *  `attr`
+     *  `attrWhen`
+     *  `attrUnless`
+     *  `attrWhenD`
+     *  `attrUnlessD`
+     *  `attrsD`
+     *  `attrsWhen`
+     *  `attrsUnless`
+     *  `attrsWhenD`
+     *  `attrsUnlessD`
+     *  `classWhen`
+     *  `classUnless`
+   * `Specular.Dom.Widget`
+     * `emptyWidget`
+   * `Specular.FRP.Base`
+     * `filterJustEvent`
+     * `uniqDyn`
+   * `Specular.FRP.Replacable`
+     * `withDynamic_`
+     * `whenJustD`
+     * `whenD`
+     * `unlessD`
 - 2010-10-30 **(breaking change)** `Specular.Dom.Element.el_` accepts body, but does not accept props
 - 2019-10-28 Added `Specular.Ref`
 - 2019-10-24 Use a mutable queue instead of an immutable array ref
