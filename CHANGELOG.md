@@ -1,5 +1,6 @@
 ## Next release
 
+- 2010-10-30 **(breaking change)** `Specular.Dom.Element.el_` accepts body, but does not accept props
 - 2019-10-28 Added `Specular.Ref`
 - 2019-10-24 Use a mutable queue instead of an immutable array ref
 
