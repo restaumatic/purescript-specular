@@ -11,7 +11,7 @@ import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elAttr, elDyn
 import Specular.Dom.Element (dynText)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Button (buttonOnClick)
-import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, never, subscribeEvent_, switch, weaken, whenJustD)
+import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, never, subscribeEvent_, switch, weaken, whenJustD, whenD, unlessD)
 import Specular.FRP as FRP
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
@@ -246,6 +246,165 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
+    describe "whenD" $ do
+      it "renders empty when dynamic is initially false" $ withLeakCheck $ do
+        Tuple dynMb _  <- liftEffect $ newDynamic false
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          whenD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span><span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "renders contents when dynamic is initially true" $ withLeakCheck $ do
+        Tuple dynMb _  <- liftEffect $ newDynamic true
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          whenD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span>hello<span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "renders contents when dynamic is initially false then updated to true" $ withLeakCheck $ do
+        Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          whenD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect $ updateDyn true
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span>hello<span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "renders empty when dynamic is initially true then updated to false" $ withLeakCheck $ do
+        Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          whenD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect $ updateDyn false
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span><span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "does not rerender contents when not necessary" $ withLeakCheck $ do
+        Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
+        count <- liftEffect $ newRef 0
+
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          whenD dynMb do
+            liftEffect $ modifyRef count (_ + 1)
+            text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect $ updateDyn true
+        liftEffect $ updateDyn true
+        liftEffect $ updateDyn true
+        liftEffect $ updateDyn false
+        liftEffect $ updateDyn true
+        liftEffect $ updateDyn true
+        liftEffect $ updateDyn true
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span>hello<span></span>"""
+
+        count `shouldHaveValue` 2
+        -- clean up
+        liftEffect unsub
+
+    describe "unlessD" $ do
+      it "renders empty when dynamic is initially true" $ withLeakCheck $ do
+        Tuple dynMb _  <- liftEffect $ newDynamic true
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          unlessD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span><span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "renders contents when dynamic is initially false" $ withLeakCheck $ do
+        Tuple dynMb _  <- liftEffect $ newDynamic false
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          unlessD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span>hello<span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "renders contents when dynamic is initially true then updated to false" $ withLeakCheck $ do
+        Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          unlessD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect $ updateDyn false
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span>hello<span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "renders empty when dynamic is initially false then updated to true" $ withLeakCheck $ do
+        Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          unlessD dynMb $ text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect $ updateDyn true
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span><span></span>"""
+
+        -- clean up
+        liftEffect unsub
+
+      it "does not rerender contents when not necessary" $ withLeakCheck $ do
+        Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
+        count <- liftEffect $ newRef 0
+
+        T3 node _ unsub <- runBuilderInDiv' $ do
+          elDynAttr "span" (pure mempty) $ pure unit
+          unlessD dynMb do
+            liftEffect $ modifyRef count (_ + 1)
+            text "hello"
+          elDynAttr "span" (pure mempty) $ pure unit
+
+        liftEffect $ updateDyn false
+        liftEffect $ updateDyn false
+        liftEffect $ updateDyn false
+        liftEffect $ updateDyn true
+        liftEffect $ updateDyn false
+        liftEffect $ updateDyn false
+        liftEffect $ updateDyn false
+        liftEffect (innerHTML node) `shouldReturn`
+          """<span></span>hello<span></span>"""
+
+        count `shouldHaveValue` 2
+        -- clean up
+        liftEffect unsub
 
   describe "domEventWithSample" $ do
     it "dispatches DOM events and handles unsubscribe" $ withLeakCheck $ do
