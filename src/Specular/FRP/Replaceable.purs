@@ -5,7 +5,7 @@ import Prelude
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Partial.Unsafe (unsafeCrashWith)
-import Specular.FRP.Base (class MonadFRP, Dynamic, changed, filterJustEvent, newDynamic, readDynamic, subscribeDyn, subscribeDyn_, subscribeEvent_, uniqDynBy)
+import Specular.FRP.Base (class MonadFRP, Dynamic, changed, filterJustEvent, newDynamic, readDynamic, subscribeDyn, subscribeDyn_, subscribeEvent_, uniqDyn, uniqDynBy)
 import Specular.FRP.WeakDynamic (WeakDynamic, subscribeWeakDyn, subscribeWeakDyn_)
 
 dynamic_ :: forall m. MonadReplace m => MonadFRP m => Dynamic (m Unit) -> m Unit
@@ -48,11 +48,13 @@ whenJustD dyn widget = do
 -- | Execute a monadic action in a Replaceable monad only if the given Dynamic
 -- | has value `true`.
 whenD :: forall m. MonadFRP m => MonadReplace m => Dynamic Boolean -> m Unit -> m Unit
-whenD dyn block =
-  dynamic_ $ dyn <#> \value -> when value block
+whenD dyn block = do
+  dyn' <- uniqDyn dyn
+  dynamic_ $ dyn' <#> \value -> when value block
 
 -- | Execute a monadic action in a Replaceable monad only if the given Dynamic
 -- | has value `true`.
 unlessD :: forall m. MonadFRP m => MonadReplace m => Dynamic Boolean -> m Unit -> m Unit
-unlessD dyn block =
-  dynamic_ $ dyn <#> \value -> unless value block
+unlessD dyn block = do
+  dyn' <- uniqDyn dyn
+  dynamic_ $ dyn' <#> \value -> unless value block
