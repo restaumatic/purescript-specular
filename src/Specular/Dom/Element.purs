@@ -73,8 +73,8 @@ initElement = mkEffectFn4 \env node props body -> do
   appendChild node env.parent
   pure result
 
-el_ :: forall r. TagName -> Array Prop -> RWidget r Unit
-el_ tagName props = el tagName props (pure unit)
+el_ :: forall r a. TagName -> RWidget r a -> RWidget r a
+el_ tagName = el tagName mempty
 
 -- Text node
 
