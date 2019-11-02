@@ -9,6 +9,7 @@ module Specular.Dom.Element
   , dynText
 
   , attr
+  , attrD
   , attrWhen
   , attrUnless
   , attrWhenD
