@@ -18,6 +18,34 @@
     "psci-support",
     "console",
     "spec",
-    "foreign"
-  ]
+    "foreign",
+    "jack"
+  ],
+  "extraDeps": {
+    "jack": {
+      "dependencies": [
+        "arrays",
+        "console",
+        "foldable-traversable",
+        "foreign-object",
+        "int-53",
+        "lists",
+        "ordered-collections",
+        "prelude",
+        "random"
+      ],
+      "repo": "https://github.com/restaumatic/purescript-jack.git",
+      "version": "v2.0.0-restaumatic1"
+    },
+    "int-53": {
+      "dependencies": [
+        "integers",
+        "math",
+        "prelude",
+        "strings"
+      ],
+      "repo": "https://github.com/rgrempel/purescript-int-53.git",
+      "version": "v4.0.0"
+    }
+  }
 }

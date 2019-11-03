@@ -7,6 +7,8 @@
     "postinstall": "scripts/install-purescript v0.13.0 && psc-package install",
     "node-test": "pulp --psc-package test",
     "node-test-w": "pulp --psc-package -w test",
+    "model-test": "pulp --psc-package      test --main Test.ModelMain",
+    "model-test-w": "pulp --psc-package -w test --main Test.ModelMain",
     "browser-test": "pulp --psc-package test --main BrowserMain --runtime phantomjs",
     "browser-test-w": "pulp --psc-package -w test --main BrowserMain --runtime phantomjs",
     "test": "pulp --version && yarn run node-test && yarn run browser-test",
