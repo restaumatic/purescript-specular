@@ -7,12 +7,15 @@ import Data.Array (fromFoldable) as Array
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.List (List(..))
+import Data.Map (Map)
+import Data.Map as Map
+import Data.Maybe (fromJust)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class.Console (log) as Console
 import Jack (Result(..), checkM, chooseInt, forAll, oneOf, oneOfRec, resultM)
 import Jack.Gen (Gen)
-import Partial.Unsafe (unsafeCrashWith)
+import Partial.Unsafe (unsafeCrashWith, unsafePartialBecause)
 
 main :: Effect Unit
 main = do
@@ -21,6 +24,7 @@ main = do
       resultM do
         Console.log "--------------------------------------------------------------------------------"
         Console.log $ ppProgram program
+        Console.log $ show $ Array.fromFoldable $ interpretProgramSem mempty program
         pure $ Success -- Failure $ pure $ show program
   if not b then unsafeCrashWith "Failure" else pure unit
 
@@ -114,3 +118,30 @@ ppExprDynamic =
     Pure v -> "pure " <> v
     Map f d -> "map " <> f <> " (" <> ppExprDynamic d <> ")"
     Map2 f d1 d2 -> "map2 " <> f <> " (" <> ppExprDynamic d1 <> ") (" <> ppExprDynamic d2 <> ")"
+
+type SemEnv = Map VarId (SemDynamic Value)
+
+interpretProgramSem :: SemEnv -> Program -> SemDynamic Value
+interpretProgramSem env =
+  case _ of
+    NewDynamic var sem rest ->
+      interpretProgramSem (Map.insert var sem env) rest
+
+    Return expr ->
+      interpretExprDynamicSem env expr
+
+interpretExprDynamicSem :: SemEnv -> Expr_Dynamic -> SemDynamic Value
+interpretExprDynamicSem env =
+  case _ of
+    Var v ->
+      unsafePartialBecause "unbound variable" (fromJust $ Map.lookup v env)
+    Pure x ->
+      pure (Tuple (-1) x)
+    Map f d ->
+      (map <<< map) (applyScalar f) (interpretExprDynamicSem env d)
+    Map2 f d1 d2 ->
+      interpretExprDynamicSem env d1 -- TODO
+      --(map <<< map) (applyScalar f) (interpretExprDynamicSem env d1) (interpretExprDynamicSem env d2)
+
+applyScalar :: Value -> Value -> Value
+applyScalar f x = "(" <> f <> " " <> x <> ")"
