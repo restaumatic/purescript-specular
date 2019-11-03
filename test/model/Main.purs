@@ -90,6 +90,10 @@ data Expr_Dynamic
   | Pure Value
   | Map Fn Expr_Dynamic
   | Map2 Fn Expr_Dynamic Expr_Dynamic
+  -- | Bind Expr_Dynamic VarId Expr_Dynamic -- Problem: this mixes Dynamic variables and Value variables
+  -- | Bind Expr_Dynamic Fn_Dynamic -- Need to introduce a new type on "Dynamic generators", which switch on values
+                                    -- Hmm, what about nested binds? We should test those too.
+                                    -- So we will need scalar variables in general.
 
 derive instance genericExpr_Dynamic :: Generic Expr_Dynamic _
 instance showExpr_Dynamic :: Show Expr_Dynamic where show x = genericShow x
