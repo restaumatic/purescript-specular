@@ -5,7 +5,7 @@ import Prelude hiding (append)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, el, el_, rawHtml, text)
+import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dynText, el, el_, rawHtml, text)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody)
 import Specular.FRP (newDynamic)
@@ -76,6 +76,22 @@ spec =
       liftEffect (getElementClasses "#test") `shouldReturn` ["foo"]
       liftEffect $ set true
       liftEffect (getElementClasses "#test") `shouldReturn` ["foo"]
+
+    it "dynText" $ withLeakCheck do
+      {dynamic,set} <- liftEffect $ newDynamic $ "foo"
+      T3 node result unsub <- runBuilderInDiv' do
+         el "div" [] $ dynText dynamic
+
+      liftEffect (innerHTML node) `shouldReturn`
+        """<div>foo</div>"""
+
+      liftEffect $ set $ "bar"
+
+      liftEffect (innerHTML node) `shouldReturn`
+        """<div>bar</div>"""
+
+      -- clean up
+      liftEffect unsub
 
 foreign import clearDocument :: Effect Unit
 foreign import getElementClasses :: String -> Effect (Array ClassName)
