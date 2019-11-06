@@ -1,10 +1,14 @@
 module Specular.Ref
   ( Ref(..)
   , newRef
+  , new
   , newRefWithEvent
   , refValue
+  , value
   , refUpdate
+  , modify
   , refUpdateConst
+  , set
   , focusRef
   , pureFocusRef
   , previewRef
@@ -35,10 +39,15 @@ import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDy
 data Ref a = Ref (Dynamic a) (Callback (a -> a))
 
 instance invariantRef :: Invariant Ref where
-  imap f g (Ref value update) = Ref (f <$> value) (cmap (\h -> g <<< h <<< f) update)
+  imap f g (Ref v update) = Ref (f <$> v) (cmap (\h -> g <<< h <<< f) update)
 
+-- | Old name for `new`.
 newRef :: forall m a. MonadEffect m => a -> m (Ref a)
-newRef initial = do
+newRef = new
+
+-- | Create a new Ref with an initial value.
+new :: forall m a. MonadEffect m => a -> m (Ref a)
+new initial = do
   {dynamic, modify} <- newDynamic initial
   pure $ Ref dynamic (mkCallback modify)
 
@@ -48,14 +57,29 @@ newRefWithEvent initial extraUpdate = do
   subscribeEvent_ modify extraUpdate
   pure $ Ref dynamic (mkCallback modify)
 
+-- | Old name for `value`
 refValue :: forall a. Ref a -> Dynamic a
-refValue (Ref value _) = value
+refValue = value
 
+-- | The current value of the Ref, as a Dynamic.
+value :: forall a. Ref a -> Dynamic a
+value (Ref v _) = v
+
+-- | Old name for `modify`.
 refUpdate :: forall a. Ref a -> Callback (a -> a)
-refUpdate (Ref _ update) = update
+refUpdate = modify
 
+-- | A Callback to modify value of this Ref using a function.
+modify :: forall a. Ref a -> Callback (a -> a)
+modify (Ref _ update) = update
+
+-- | Old name for `set`.
 refUpdateConst :: forall a. Ref a -> Callback a
-refUpdateConst = cmap (\new _old -> new) <<< refUpdate
+refUpdateConst = set
+
+-- | A Callback to overwrite value of this Ref.
+set :: forall a. Ref a -> Callback a
+set = cmap (\new _old -> new) <<< refUpdate
 
 type Lens s a = { get :: s -> a, set :: s -> a -> s }
 type Prism s a = { preview :: s -> Maybe a, review :: a -> s }
