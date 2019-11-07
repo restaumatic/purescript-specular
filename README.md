@@ -37,13 +37,6 @@ There are also other reasons, of course.
 
 See [Motivation](doc/Motivation.md).
 
-## Warning
-
-This library uses [purescript-io](https://github.com/slamdata/purescript-io)
-instead of the usual `Eff` for imperative code. This is not a popular choice,
-but it made designing the library easier. It may change in the future, once I
-find a good way to wrangle effects in the FRP primitives.
-
 ## Limitations
 
 Some of the cons of Specular:
