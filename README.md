@@ -2,25 +2,284 @@
 
 Specular is a library for building Web-based UIs in PureScript, based on
 Functional Reactive Programming (FRP). It is heavily inspired by
-[Reflex][reflex] and [Reflex-DOM][reflex-dom] and supports a similar programming
-model.
+[Reflex][reflex] and [Reflex-DOM][reflex-dom].
 
-## Getting started
+## API
 
-There's a tutorial currently in the making: [Tutorial (incomplete)](./doc/Tutorial.md)
+### FRP types
 
-Currently there's no tutorial or introductory documentation. However, there's
-plenty of material about Reflex-Dom. See
-[A Beginner-friendly Step by Step Tutorial for Reflex-Dom](https://github.com/hansroland/reflex-dom-inbits/blob/master/tutorial.md)
-for a good introduction to the programming model. It should be adapted to
-PureScript and Specular in the near future.
+To use Specular effectively, you need to be familliar with some basic types.
 
-There are some [examples](test/browser/examples) that are also integration
-tests. They can be viewed in a Web browser:
+#### [Dynamic](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.FRP.Base#t:Dynamic)
 
+`Dynamic a` represents a read-only reference to a changing value of type `a`.
+
+```purescript
+-- | Read the current value of a `Dynamic`.
+readDynamic :: forall m a. MonadEffect m => Dynamic a -> m a
+
+-- | Execute the given action for the current value, and each new value when it changes.
+subscribeDyn_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Dynamic a -> m a
 ```
-npm run build-demo
-$WWW_BROWSER test/demo.html
+
+`Dynamic` is a `Monad`.
+
+```purescript
+-- `pure` creates a Dynamic that never changes.
+pure "foo" :: Dynamic String
+
+-- An applicative combination of Dynamics changes whenever one of them changes.
+d1 :: Dynamic Int
+d2 :: Dynamic Int
+(+) <$> d1 <*> d2 :: Dynamic Int
+
+-- Using the power of Monad we can choose which Dynamic to observe.
+which :: Dynamic Bool
+(which >>= if _ then d1 else d2) :: Dynamic Int
+```
+
+We can introduce new Dynamics using `newDynamic`:
+
+```purescript
+-- | Construct a new root Dynamic that can be changed from `Effect`-land.
+newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit, modify :: (a -> a) -> Effect Unit }
+```
+
+#### [Event](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.FRP.Base#t:Event)
+
+`Event a` represents a source of occurences. Each occurence carries a value of type `a`.
+
+`Event` is a `Functor`.
+
+We can construct a trivial event `never :: forall a. Event a`, which never occurs.
+
+Events can be combined:
+
+```purescript
+-- | An Event that occurs when any of the events occur. If some of them occur simultaneously, the occurence value is that of the leftmost one.
+leftmost :: forall a. Array (Event a) -> Event a
+```
+
+Events can be transformed:
+
+```purescript
+-- | Retain only the occurences of the event for which the given predicate function returns `true`.
+filterEvent :: forall a. (a -> Boolean) -> Event a -> Event a
+
+-- | Map the given function over an Event, and retain only the occurences for which it returned a Just value.
+filterMapEvent :: forall a b. (a -> Maybe b) -> Event a -> Event b
+
+-- | Retain only the occurences of the Event which contain a Just value.
+filterJustEvent :: forall a. Event (Maybe a) -> Event a
+```
+
+We can observe `Event`s by being notified of their occurences.
+
+```purescript
+-- | Execute the given action for each occurence of the Event.
+subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m a
+```
+
+#### [Callback](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Callback#t:Callback)
+
+`Callback a` represents an action handler which consumes a value of type `a`. Think of it as `a -> Effect Unit`.
+
+```purescript
+-- | Trigger the action in Effect.
+triggerCallback :: forall a. Callback a -> a -> Effect Unit
+```
+
+#### [Ref](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref)
+
+`Ref a` represents a read-write reference to a mutable observable variable.
+
+We can think of a `Ref` as of `Effect.Ref`, but with additional functions:
+- the ability to notify subscribers about changes to the value,
+- the ability to focus using a lens.
+
+`Ref a` consists of:
+- `Ref.value :: Ref a -> Dynamic a` to observe the value
+- `Ref.modify :: Ref a -> Callback (a -> a)` to modify the value using a function
+
+As a shortcut we have `Ref.set :: Ref a -> Callback a` to replace the value completely.
+
+Creating a Ref:
+
+```purescript
+newRef :: forall m a. MonadEffect m => a -> m (Ref a)
+```
+
+`Ref` is not a `Functor`, because it's read-write. It's `Invariant`, that is, it can be mapped over using a bijection.
+
+### Building DOM content
+
+#### [Widget](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Widget#t:Widget)
+
+`Widget a` is a computation which can perform `Effects`, produce DOM nodes, subscribe to Events and Dynamics and returns a value of type `a`.
+
+`Widget`s can be executed using `runMainWidgetInBody` - their contents will be inserted into the `document.body` element.
+
+#### [Prop](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Element#t:Prop)
+
+`Prop` is a modifier attached to a DOM element. Specific ways to construct a `Prop` are presented below.
+
+#### [Attrs](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Browser#t:Attrs)
+
+`Attrs` is a map of HTML attributes.
+
+```purescript
+-- A singleton map can be constructed using the `:=` operator.
+"type":="button" :: Attrs
+
+-- Attrs can be combined using the Monoid instance.
+"type":="button" <> "name":="btn" :: Attrs
+```
+
+#### Static DOM
+
+```purescript
+import Specular.Dom.Element
+
+-- | Produce a text node.
+text :: String -> Widget Unit
+
+-- | `el tag props body` - Produce a DOM Element.
+-- |
+-- | The elements produced by the `body` widget will be inserted as children of the element.
+el :: forall a. TagName -> Array Prop -> Widget a -> Widget a
+
+-- | `el tag props body` - Produce a DOM Element with no props.
+el_ :: forall a. TagName -> Widget a -> Widget a
+
+-- | Attach static attributes to the element.
+attrs :: Attrs -> Prop
+
+-- | Attach a static attribute to the element.
+attrs :: AttrName -> AttrValue -> Prop
+
+-- | Attach CSS classes to the element
+classes :: [ClassName] -> Prop
+
+-- | Attach a CSS class to the element
+class_ :: ClassName -> Prop
+```
+
+For example, to produce the following HTML:
+
+```html
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+  <strong>Holy guacamole!</strong> You should check in on some of those fields below.
+  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">&times;</span>
+  </button>
+</div>
+```
+
+One would write the following Specular code:
+
+```purescript
+el "div" [classes ["alert", "alert-warning", "alert-dismissible", "fade", "show"], attr "role" "alert"] do
+  el_ "strong" $ text "Holy guacamole!"
+  text " You should check in on some of those fields below."
+  el "button" [class_ "close", attrs ("type":="button" <> "data-dismiss":="alert" <> "aria-label":="Close")] do
+    el "span" [attr "aria-hidden"  "true"] do
+      text "×"
+```
+
+#### Dynamic text, attributes and classes
+
+Most of the `Prop` constructors have their dynamic counterparts. As a convention, their names end in `D`. For example:
+
+```purescript
+-- | Attach dynamic attributes to the element.
+attrsD :: Dynamic Attrs -> Prop
+
+-- | Attach dynamic CSS classes to the element
+classesD :: Dynamic [ClassName] -> Prop
+```
+
+`text` also has a dynamic counterpart:
+
+```purescript
+-- | Create a text node whose text will reflect the value of the given Dynamic.
+dynText :: Dynamic String -> Widget Unit
+```
+
+For convenience, utilities for common cases are provided such as:
+
+```purescript
+attrWhenD :: Dynamic Boolean -> AttrName -> AttrValue -> Prop
+classWhenD :: Dynamic Boolean -> ClassName -> Prop
+```
+
+For example: assume you have `name :: Dynamic String`.
+The code:
+
+```purescript
+let isLong nm = String.length nm >= 5
+el "div" [class_ "name", classWhenD (isLong <$> name) "long"] do
+  text "Your name is: "
+  dynText name
+```
+
+when `name` has value `"Jan"`, would produce
+
+```html
+<div class="name">Your name is Jan</div>
+```
+
+whereas when `name` has value `"Titelitury"`, would produce
+
+```html
+<div class="name long">Your name is Titelitury</div>
+```
+
+#### Dynamic DOM structure
+
+Sometimes changing text and attributes is not enough. For that there's `withDynamic_`:
+
+```purescript
+withDynamic_ :: forall a. Dynamic a -> (a -> Widget Unit) -> Widget Unit
+```
+
+Whenever the Dynamic changes, it will re-render a new `Widget` based on the latest value.
+
+Example:
+
+```purescript
+-- Assume loading :: Dynamic Boolean
+
+withDynamic_ loading $
+  if _ then
+    el "div" [class_ "loading"] $ text "Loading..."
+  else
+    el_ "div" do
+      el_ "h1" $ text "Content"
+      el_ "p" $ text "Bla bla bla"
+```
+
+Warning: Re-rendering a whole DOM block on each change has performance implications. Use with care.
+
+#### Handling events
+
+```purescript
+-- | Connect a DOM event on the node to a Callback.
+on :: EventType -> Callback DOM.Event -> Prop
+
+-- | Shorthand: `on "click"`
+onClick :: Callback DOM.Event -> Prop
+
+-- | Like `onClick`, but takes a callback which ignores the DOM event.
+onClick_ :: Callback Unit -> Prop
+```
+
+Example:
+
+```purescript
+-- Assume save :: Callback Unit
+
+el "button" [attr "type" "button", onClick_ save] do
+  text "Save"
 ```
 
 ## Why not just use Reflex and GHCJS?
