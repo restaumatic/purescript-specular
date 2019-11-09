@@ -27,7 +27,7 @@ module Specular.FRP.Base (
 
   , holdDyn
   , foldDyn
-  , foldDynM
+  , foldDynEffect
   , foldDynMaybe
   , holdUniqDynBy
   , uniqDynBy
@@ -506,29 +506,21 @@ foldDynImpl f initial (Event event) = do
     , change: map (\_ -> unit) (Event event)
     }
 
--- | Like `foldDyn`, but the function returns a monadic pull action that can read values from its' environment.
-foldDynM :: forall m a b. MonadFRP m => (a -> b -> Pull b) -> b -> Event a -> m (Dynamic b)
-foldDynM f initial (Event event) = do
+-- | Like `foldDyn`, but the function returns an Effect action that can perform side-effects that will be run when events arrive
+foldDynEffect :: forall m a b. MonadFRP m => (a -> b -> Effect b) -> b -> Event a -> m (Dynamic b)
+foldDynEffect f initial (Event event) = do
   -- Reference to hold the current value of the output dynamic.
   ref <- liftEffect $ newRef initial
-
-  updateOrReadValue :: Pull b <- liftEffect $
-    -- Read the event once per frame, checking for presence, and perform pull action.
-    let 
-      toPull :: Pull (Effect b)
-      toPull = do
-        evt <- readBehavior event.occurence
-        oldValue <- pullReadRef ref
-        case evt of
-          Just occurence -> do
-            newValue <- f occurence oldValue
-            pure $ do
-              writeRef ref newValue
-              pure newValue
-          Nothing -> 
-            pure $ pure oldValue
-    in
-      oncePerFramePullWithIO toPull identity
+  updateOrReadValue <- liftEffect $
+    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+      oldValue <- readRef ref
+      case m_newValue of
+        Just occurence -> do
+          newValue <- f occurence oldValue
+          writeRef ref newValue
+          pure newValue
+        Nothing ->
+          pure oldValue
 
   unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
@@ -536,7 +528,7 @@ foldDynM f initial (Event event) = do
   pure $ Dynamic
     { value: Behavior updateOrReadValue
     , change: map (\_ -> unit) (Event event)
-    }
+    } 
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
 newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit }
