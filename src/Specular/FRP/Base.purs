@@ -26,8 +26,9 @@ module Specular.FRP.Base (
   , newDynamic
 
   , holdDyn
-  , foldDyn
-  , foldDynEffect
+  , MonadFold
+  , SimpleFold
+  , foldDynM
   , foldDynMaybe
   , holdUniqDynBy
   , uniqDynBy
@@ -474,41 +475,51 @@ instance applyDynamic :: Apply Dynamic where
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
 
--- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
--- | and every time `e` fires, its value will update by applying `f` to the
--- | event occurence value and the old value.
--- |
--- | On cleanup, the Dynamic will stop updating in response to the event.
-foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-foldDyn = foldDynImpl
+class MonadFold m where
+  -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
+  -- | and every time `e` fires, its value will update by applying `f` to the
+  -- | event occurence value and the old value.
+  -- |
+  -- | On cleanup, the Dynamic will stop updating in response to the event.
+  foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 
-foldDynImpl
-  :: forall m a b. MonadCleanup m => MonadEffect m
-  => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
-foldDynImpl f initial (Event event) = do
-  ref <- liftEffect $ newRef initial
-  updateOrReadValue <- liftEffect $
-    oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
-      oldValue <- readRef ref
-      case m_newValue of
-        Just occurence -> do
-          let newValue = f occurence oldValue
-          writeRef ref newValue
-          pure newValue
-        Nothing ->
-          pure oldValue
+instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => MonadFold m where
+  foldDyn f initial (Event event) = do
+    ref <- liftEffect $ newRef initial
+    updateOrReadValue <- liftEffect $
+      oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+        oldValue <- readRef ref
+        case m_newValue of
+          Just occurence -> do
+            let newValue = f occurence oldValue
+            writeRef ref newValue
+            pure newValue
+          Nothing ->
+            pure oldValue
 
-  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
-  onCleanup unsub
+    unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
+    onCleanup unsub
 
-  pure $ Dynamic
-    { value: Behavior updateOrReadValue
-    , change: map (\_ -> unit) (Event event)
-    }
+    pure $ Dynamic
+      { value: Behavior updateOrReadValue
+      , change: map (\_ -> unit) (Event event)
+      }
+
+data SimpleFold a = MkSimpleFold (CleanupT Effect a)
+
+derive newtype instance functorSimpleFold :: Functor SimpleFold
+derive newtype instance applySimpleFold :: Apply SimpleFold
+derive newtype instance applicativeCleanupT :: Applicative SimpleFold
+derive newtype instance bindCleanupT :: Bind SimpleFold
+derive newtype instance monadCleanupT :: Monad SimpleFold
+derive newtype instance monadEffectCleanupT :: MonadEffect SimpleFold
+
+instance simpleFoldMonadFold :: MonadFold SimpleFold where
+  foldDyn f initial ev = MkSimpleFold $ foldDyn f initial ev
 
 -- | Like `foldDyn`, but the function returns an Effect action that can perform side-effects that will be run when events arrive
-foldDynEffect :: forall m a b. MonadFRP m => (a -> b -> Effect b) -> b -> Event a -> m (Dynamic b)
-foldDynEffect f initial (Event event) = do
+foldDynM :: forall m a b. MonadFRP m => (a -> b -> SimpleFold b) -> b -> Event a -> m (Dynamic b)
+foldDynM f initial (Event event) = do
   -- Reference to hold the current value of the output dynamic.
   ref <- liftEffect $ newRef initial
   updateOrReadValue <- liftEffect $
@@ -516,7 +527,8 @@ foldDynEffect f initial (Event event) = do
       oldValue <- readRef ref
       case m_newValue of
         Just occurence -> do
-          newValue <- f occurence oldValue
+          SimpleFold innerMonad <- f occurence oldValue
+          newValue <- list innerMonad
           writeRef ref newValue
           pure newValue
         Nothing ->
