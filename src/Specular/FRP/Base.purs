@@ -26,7 +26,7 @@ module Specular.FRP.Base (
   , newDynamic
 
   , holdDyn
-  , MonadFold
+  , class MonadFold
   , SimpleFold
   , foldDynM
   , foldDynMaybe
@@ -44,7 +44,7 @@ module Specular.FRP.Base (
 
   , class MonadFRP
 
-  , foldDynImpl
+  -- , foldDynImpl
   , foldDynMaybeImpl
 
   , traceEventIO
@@ -54,8 +54,8 @@ module Specular.FRP.Base (
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Control.Monad.Reader (ask)
+import Control.Monad.Cleanup (class MonadCleanup, CleanupT(..), onCleanup)
+import Control.Monad.Reader (ask, lift)
 import Control.Monad.Rec.Class (Step(..), tailRecM)
 import Data.Array (cons, unsnoc)
 import Data.Array as Array
@@ -481,7 +481,7 @@ class MonadFold m where
   -- | event occurence value and the old value.
   -- |
   -- | On cleanup, the Dynamic will stop updating in response to the event.
-  foldDyn :: forall m a b. MonadFRP m => (a -> b -> b) -> b -> Event a -> m (Dynamic b)
+  foldDyn :: forall a b. (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 
 instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => MonadFold m where
   foldDyn f initial (Event event) = do
@@ -505,14 +505,12 @@ instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => MonadFold 
       , change: map (\_ -> unit) (Event event)
       }
 
-data SimpleFold a = MkSimpleFold (CleanupT Effect a)
+newtype SimpleFold a = MkSimpleFold (CleanupT Effect a)
 
 derive newtype instance functorSimpleFold :: Functor SimpleFold
 derive newtype instance applySimpleFold :: Apply SimpleFold
 derive newtype instance applicativeCleanupT :: Applicative SimpleFold
 derive newtype instance bindCleanupT :: Bind SimpleFold
-derive newtype instance monadCleanupT :: Monad SimpleFold
-derive newtype instance monadEffectCleanupT :: MonadEffect SimpleFold
 
 instance simpleFoldMonadFold :: MonadFold SimpleFold where
   foldDyn f initial ev = MkSimpleFold $ foldDyn f initial ev
@@ -527,8 +525,8 @@ foldDynM f initial (Event event) = do
       oldValue <- readRef ref
       case m_newValue of
         Just occurence -> do
-          SimpleFold innerMonad <- f occurence oldValue
-          newValue <- list innerMonad
+          MkSimpleFold innerMonad <- f occurence oldValue
+          newValue <- lift innerMonad
           writeRef ref newValue
           pure newValue
         Nothing ->
