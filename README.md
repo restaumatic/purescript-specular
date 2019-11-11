@@ -304,7 +304,7 @@ Some of the cons of Specular:
 
 - Performance may be sometimes bad, because it does not use any Virtual DOM -
   the element placement instructions you write translate pretty much directly to
-  `createElement`/`appendChild`. There are no benchmarks yet.
+  `createElement`/`appendChild`. There are no (representative) benchmarks yet.
 
 - Time travel debugging, as known from Elm, is not possible.
 
@@ -324,3 +324,13 @@ If you think there are more, please open an issue. They should be listed.
 
 [reflex]: https://github.com/reflex-frp/reflex
 [reflex-dom]: https://github.com/reflex-frp/reflex-dom
+
+## Who's using it?
+
+- **Restaumatic** - used in production for a signification portion of online ordering frontend, as well as for backoffice apps and our mobile app for restaurants.
+
+## Contact
+
+If you discover bugs, want new features, or have questions, please post an issue using the GitHub issue tracker.
+
+You can also contact `@mbieleck` on [FP Chat](https://fpchat-invite.herokuapp.com/), if you want to chat about Specular.
