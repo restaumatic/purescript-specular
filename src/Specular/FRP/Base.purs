@@ -27,7 +27,8 @@ module Specular.FRP.Base (
 
   , holdDyn
   , class MonadFold
-  , SimpleFold
+  , foldDyn
+  , InnerFRP
   , foldDynM
   , foldDynMaybe
   , holdUniqDynBy
@@ -54,7 +55,7 @@ module Specular.FRP.Base (
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Monad.Cleanup (class MonadCleanup, CleanupT(..), onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, CleanupT, onCleanup, runCleanupT)
 import Control.Monad.Reader (ask, lift)
 import Control.Monad.Rec.Class (Step(..), tailRecM)
 import Data.Array (cons, unsnoc)
@@ -63,6 +64,7 @@ import Data.Foldable (for_)
 import Data.HeytingAlgebra (ff, implies, tt)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Traversable (sequence, traverse)
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
@@ -475,7 +477,7 @@ instance applyDynamic :: Apply Dynamic where
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic { value: pure x, change: never }
 
-class MonadFold m where
+class Monad m <= MonadFold m where
   -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
   -- | and every time `e` fires, its value will update by applying `f` to the
   -- | event occurence value and the old value.
@@ -483,7 +485,9 @@ class MonadFold m where
   -- | On cleanup, the Dynamic will stop updating in response to the event.
   foldDyn :: forall a b. (a -> b -> b) -> b -> Event a -> m (Dynamic b)
 
-instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => MonadFold m where
+instance innerFRPMonadFold :: MonadFold InnerFRP where
+  foldDyn f initial ev = MkInnerFRP $ foldDyn f initial ev
+else instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => MonadFold m where
   foldDyn f initial (Event event) = do
     ref <- liftEffect $ newRef initial
     updateOrReadValue <- liftEffect $
@@ -505,28 +509,35 @@ instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => MonadFold 
       , change: map (\_ -> unit) (Event event)
       }
 
-newtype SimpleFold a = MkSimpleFold (CleanupT Effect a)
+newtype InnerFRP a = MkInnerFRP (CleanupT Effect a)
 
-derive newtype instance functorSimpleFold :: Functor SimpleFold
-derive newtype instance applySimpleFold :: Apply SimpleFold
-derive newtype instance applicativeCleanupT :: Applicative SimpleFold
-derive newtype instance bindCleanupT :: Bind SimpleFold
+derive newtype instance functorSimpleFold :: Functor InnerFRP
+derive newtype instance applySimpleFold :: Apply InnerFRP
+derive newtype instance applicativeSimpleFold :: Applicative InnerFRP
+derive newtype instance bindSimpleFold :: Bind InnerFRP
+derive newtype instance monadSimpleFold :: Monad InnerFRP
 
-instance simpleFoldMonadFold :: MonadFold SimpleFold where
-  foldDyn f initial ev = MkSimpleFold $ foldDyn f initial ev
 
 -- | Like `foldDyn`, but the function returns an Effect action that can perform side-effects that will be run when events arrive
-foldDynM :: forall m a b. MonadFRP m => (a -> b -> SimpleFold b) -> b -> Event a -> m (Dynamic b)
+foldDynM :: forall m a b. MonadFRP m => (a -> b -> InnerFRP b) -> b -> Event a -> m (Dynamic b)
 foldDynM f initial (Event event) = do
   -- Reference to hold the current value of the output dynamic.
+
   ref <- liftEffect $ newRef initial
+
+  toCleanup <- liftEffect $ newRef []
+  onCleanup $ do
+    cl <- readRef toCleanup
+    for_ cl identity 
+
   updateOrReadValue <- liftEffect $
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
       oldValue <- readRef ref
       case m_newValue of
         Just occurence -> do
-          MkSimpleFold innerMonad <- f occurence oldValue
-          newValue <- lift innerMonad
+          let (MkInnerFRP innerMonad) = f occurence oldValue
+          (Tuple newValue cleanup) <- runCleanupT innerMonad
+          modifyRef toCleanup (Array.cons cleanup)
           writeRef ref newValue
           pure newValue
         Nothing ->
