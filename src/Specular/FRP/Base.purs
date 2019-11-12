@@ -67,6 +67,7 @@ import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Class.Console as Console
 import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
@@ -74,6 +75,7 @@ import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, modifyRef, n
 import Specular.Internal.RIO (RIO, rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
+import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------
 
@@ -501,6 +503,8 @@ else instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => Monad
           Nothing ->
             pure oldValue
 
+    _ <- pull updateOrReadValue
+
     unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
     onCleanup unsub
 
@@ -530,8 +534,9 @@ foldDynM f initial (Event event) = do
     cl <- readRef toCleanup
     for_ cl identity 
 
-  updateOrReadValue <- liftEffect $
+  updateOrReadValue <- liftEffect $ do
     oncePerFramePullWithIO (readBehavior event.occurence) $ \m_newValue -> do
+      Console.log $ unsafeCoerce m_newValue
       oldValue <- readRef ref
       case m_newValue of
         Just occurence -> do
@@ -542,6 +547,9 @@ foldDynM f initial (Event event) = do
           pure newValue
         Nothing ->
           pure oldValue
+
+  -- Make sure we pull during the current frame
+  _ <- pull updateOrReadValue
 
   unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
