@@ -503,6 +503,8 @@ else instance monadFoldEffectCleanup :: (MonadCleanup m, MonadEffect m) => Monad
           Nothing ->
             pure oldValue
 
+    -- Since foldDyn can be called during a frame, 
+    -- make sure to pull at least once to make sure we get the first event, if any.
     _ <- pull updateOrReadValue
 
     unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
