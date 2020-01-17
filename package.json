@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "scripts/install-purescript v0.13.0 && psc-package install",
+    "postinstall": "scripts/install-purescript v0.13.6 && psc-package install",
     "node-test": "pulp --psc-package test",
     "node-test-w": "pulp --psc-package -w test",
     "browser-test": "pulp --psc-package test --main BrowserMain --runtime phantomjs",
