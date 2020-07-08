@@ -2,7 +2,7 @@ module Specular.FRP.Replaceable where
 
 import Prelude
 
-import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
+import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot, replaceSlot)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.FRP.Base (class MonadFRP, Dynamic, changed, filterJustEvent, newDynamic, readDynamic, subscribeDyn, subscribeDyn_, subscribeEvent_, uniqDyn, uniqDynBy)
@@ -10,28 +10,28 @@ import Specular.FRP.WeakDynamic (WeakDynamic, subscribeWeakDyn, subscribeWeakDyn
 
 dynamic_ :: forall m. MonadReplace m => MonadFRP m => Dynamic (m Unit) -> m Unit
 dynamic_ dyn = do
-  Slot {replace} <- newSlot
-  subscribeDyn_ (\x -> replace x) dyn
+  slot <- newSlot
+  subscribeDyn_ (replaceSlot slot) dyn
 
 withDynamic_ :: forall m a. MonadReplace m => MonadFRP m => Dynamic a -> (a -> m Unit) -> m Unit
 withDynamic_ dyn widget = do
-  Slot {replace} <- newSlot
-  subscribeDyn_ (\x -> replace (widget x)) dyn
+  slot <- newSlot
+  subscribeDyn_ (\x -> replaceSlot slot (widget x)) dyn
 
 dynamic :: forall m a. MonadReplace m => MonadFRP m => Dynamic (m a) -> m (Dynamic a)
 dynamic dyn = do
-  Slot {replace} <- newSlot
-  subscribeDyn (\x -> replace x) dyn
+  slot <- newSlot
+  subscribeDyn (replaceSlot slot) dyn
 
 weakDynamic_ :: forall m. MonadReplace m => MonadFRP m => WeakDynamic (m Unit) -> m Unit
 weakDynamic_ dyn = do
-  Slot {replace} <- newSlot
-  subscribeWeakDyn_ (\x -> replace x) dyn
+  slot <- newSlot
+  subscribeWeakDyn_ (replaceSlot slot) dyn
 
 weakDynamic :: forall m a. MonadReplace m => MonadFRP m => WeakDynamic (m a) -> m (WeakDynamic a)
 weakDynamic dyn = do
-  Slot {replace} <- newSlot
-  subscribeWeakDyn (\x -> replace x) dyn
+  slot <- newSlot
+  subscribeWeakDyn (replaceSlot slot) dyn
 
 whenJustD :: forall m a. MonadReplace m => MonadFRP m => Dynamic (Maybe a) -> (Dynamic a -> m Unit) -> m Unit
 whenJustD dyn widget = do

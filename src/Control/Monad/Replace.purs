@@ -6,16 +6,19 @@ import Control.Monad.Cleanup (class MonadCleanup)
 import Effect (Effect)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 
-newtype Slot m = Slot (SlotInternal m)
+data Slot m = Slot
+  (forall a. m a -> Effect a) -- ^ run inner widget, replace contents
+  (Effect Unit)               -- ^ destroy
+  (Effect (Slot m))           -- ^ Create a new slot after this one
 
-type SlotInternal m =
-  { replace :: forall a. m a -> Effect a
-  , destroy :: Effect Unit
-  , append :: Effect (Slot m)
-  }
+replaceSlot :: forall m a. Slot m -> m a -> Effect a
+replaceSlot (Slot replace _ _) = replace
 
-unSlot :: forall m. Slot m -> SlotInternal m
-unSlot (Slot x) = x
+destroySlot :: forall m a. Slot m -> Effect Unit
+destroySlot (Slot _ destroy _) = destroy
+
+appendSlot :: forall m a. Slot m -> Effect (Slot m)
+appendSlot (Slot _ _ append) = append
 
 class (Monad m, MonadCleanup m) <= MonadReplace m where
   newSlot :: m (Slot m)
@@ -24,8 +27,7 @@ instance monadReplaceReaderT :: MonadReplace m => MonadReplace (ReaderT r m) whe
   newSlot = ReaderT $ \env -> slotWith env <$> newSlot
     where
       slotWith :: r -> Slot m -> Slot (ReaderT r m)
-      slotWith env (Slot slot) = Slot
-        { replace: \m -> slot.replace (runReaderT m env)
-        , destroy: slot.destroy
-        , append: map (slotWith env) slot.append
-        }
+      slotWith env slot = Slot
+        (\m -> replaceSlot slot (runReaderT m env))
+        (destroySlot slot)
+        (map (slotWith env) (appendSlot slot))

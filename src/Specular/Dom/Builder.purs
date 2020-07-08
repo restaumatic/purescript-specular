@@ -14,7 +14,7 @@ import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
-import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
+import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot, appendSlot, replaceSlot, destroySlot)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
@@ -148,7 +148,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
     onCleanup $ join $ readRef cleanupRef
 
-    pure $ Slot { replace, destroy, append }
+    pure $ Slot replace destroy append
 
 instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
 
