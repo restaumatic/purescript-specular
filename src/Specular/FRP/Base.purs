@@ -60,10 +60,10 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
-import Incremental.Internal (addObserver, bind_, constant, fold, leftmost, map, map2, mapOptional, newEvent, newVar, readEvent, readVar, removeObserver, sample, setVar, stabilize, switch, traceChanges, triggerEvent) as I
-import Incremental.Internal.Node (Node)
-import Incremental.Internal.Node as Node
-import Incremental.Internal.Optional as Optional
+import Specular.Internal.Incremental (addObserver, bind_, constant, fold, leftmost, map, map2, mapOptional, newEvent, newVar, readEvent, readVar, removeObserver, sample, setVar, stabilize, switch, traceChanges, triggerEvent) as I
+import Specular.Internal.Incremental.Node (Node)
+import Specular.Internal.Incremental.Node as Node
+import Specular.Internal.Incremental.Optional as Optional
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.FRP.Internal.Frame (Pull) as X
 import Specular.Internal.Queue (Queue)
