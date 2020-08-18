@@ -5,13 +5,14 @@ module Specular.Dom.Builder (
   , unBuilder
   , mkBuilder'
   , runBuilder'
+  , getParentNode
 ) where
 
 import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Control.Monad.Reader (ask)
+import Control.Monad.Reader (ask, asks)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
@@ -84,6 +85,9 @@ getEnv = Builder ask
 
 setParent :: forall env. Node -> BuilderEnv env -> BuilderEnv env
 setParent parent env = env { parent = parent }
+
+getParentNode :: forall env. Builder env Node
+getParentNode = Builder (asks _.parent)
 
 instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
