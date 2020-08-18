@@ -17,10 +17,7 @@ import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
-import Specular.Internal.Effect (DelayedEffects, Ref, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO, rio, runRIO)
-import Specular.Internal.RIO as RIO
-import Specular.Internal.UniqueMap.Mutable as UMM
 
 -------------------------------------------------
 
@@ -55,11 +52,7 @@ derive newtype instance monadPull :: Monad Pull
 -- for why this is needed.
 newtype Frame a = Frame (RIO FrameEnv a)
 
-type FrameEnv =
-  { effects :: DelayedEffects
-  , time :: Time
-  }
-
+type FrameEnv = Time
 
 
 derive newtype instance functorFrame :: Functor Frame

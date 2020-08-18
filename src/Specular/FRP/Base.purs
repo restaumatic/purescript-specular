@@ -70,6 +70,7 @@ import Specular.FRP.Internal.Frame (Pull) as X
 import Specular.FRP.Internal.Frame (Frame(..), Pull(..), Time(..), runPull)
 import Specular.Internal.Effect (Ref, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.Queue as Queue
+import Specular.Internal.Queue (Queue)
 import Specular.Internal.RIO (rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Internal.UniqueMap.Mutable as UMM
@@ -132,7 +133,7 @@ pull p = liftEffect do
 -------------------------------------------------
 
 framePull :: forall a. Pull a -> Frame a
-framePull (MkPull x) = Frame (RIO.local _.time x)
+framePull (MkPull x) = Frame x
 
 frameWriteRef :: forall a. Ref a -> a -> Frame Unit
 frameWriteRef ref value = Frame (liftEffect (writeRef ref value))
@@ -142,18 +143,13 @@ frameModifyRef ref value = Frame (liftEffect (modifyRef ref value))
 
 -- | Schedule an effect to be executed after the Frame completed.
 effect :: Effect Unit -> Frame Unit
-effect action = Frame $ rio $ \{effects} ->
-  -- HACK: briefly creating a Pull that is not idempotent;
-  -- But it's immediately lifted to Frame, so it's OK
-  void $ pushDelayed effects action
+effect action = Frame $ liftEffect $ runEffectFn2 Queue.enqueue globalEffectQueue action
 
 -- | Run a Frame computation and then run its effects.
 runFrame :: forall a. Time -> Frame a -> Effect a
 runFrame currentTime (Frame x) = do
-  effectsMutable <- emptyDelayed
-  value <- runRIO { effects: effectsMutable, time: currentTime } x
-  effects <- unsafeFreezeDelayed effectsMutable
-  sequenceEffects effects
+  value <- runRIO currentTime x
+  drainEffects
   pure value
 
 freshTime :: Effect Time
@@ -306,17 +302,18 @@ subscribeEvent_ handler event = do
   unsub <- liftEffect $ runEffectFn2 _subscribeEvent handler event
   onCleanup unsub
 
+globalEffectQueue :: Queue (Effect Unit)
+globalEffectQueue = unsafePerformEffect Queue.new
+
+drainEffects :: Effect Unit
+drainEffects = runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler -> handler)
+
 _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
 _subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) -> do
-  queue <- Queue.new
   subscribe do
     m_value <- framePull $ readBehavior occurence
     for_ m_value \value ->
-      Frame $ liftEffect $ runEffectFn2 Queue.enqueue queue value
-
-    effect do
-      runEffectFn2 Queue.drain queue $ mkEffectFn1 \value ->
-        handler value
+      effect $ handler value
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
