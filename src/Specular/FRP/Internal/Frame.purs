@@ -60,3 +60,4 @@ derive newtype instance applyFrame :: Apply Frame
 derive newtype instance applicativeFrame :: Applicative Frame
 derive newtype instance bindFrame :: Bind Frame
 derive newtype instance monadFrame :: Monad Frame
+derive newtype instance monadEffectFrame :: MonadEffect Frame

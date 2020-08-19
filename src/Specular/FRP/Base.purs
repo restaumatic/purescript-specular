@@ -166,8 +166,8 @@ runNextFrame frame = do
 
 -- | Create a computation that will run the given action at most once during
 -- | each Frame. if `x <- oncePerFrame_ action`, then `x *> x = x`.
-oncePerFrame_ :: Frame Unit -> Effect (Frame Unit)
-oncePerFrame_ action = do
+oncePerFrame_ :: Frame Unit -> Frame (Frame Unit)
+oncePerFrame_ action = liftEffect do
   ref <- newRef Nothing
   pure $ do
     time <- framePull $ getTime
@@ -220,7 +220,7 @@ type Unsubscribe = Effect Unit
 -- | events coincide), but it's not very useful.
 newtype Event a = Event
   { occurence :: Behavior (Maybe a)
-  , subscribe :: Listener -> Effect Unsubscribe
+  , subscribe :: Listener -> Frame Unsubscribe
   }
 -- We represent an Event with:
 --  - a Behavior that tells whether this Event occurs during a given frame,
@@ -310,7 +310,7 @@ drainEffects = runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler 
 
 _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
 _subscribeEvent = mkEffectFn2 \handler (Event {occurence,subscribe}) -> do
-  subscribe do
+  runNextFrame $ subscribe do
     m_value <- framePull $ readBehavior occurence
     for_ m_value \value ->
       effect $ handler value
@@ -329,7 +329,7 @@ newEvent = liftEffect do
         sequenceFrame_ listeners
         frameWriteRef occurenceRef Nothing
 
-    subscribe l = do
+    subscribe l = liftEffect do
       key <- UMM.insert l listenerMap
       pure $ UMM.delete key listenerMap
 
@@ -443,7 +443,7 @@ foldDynImpl f initial (Event event) = do
         Nothing ->
           pure oldValue
 
-  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
+  unsub <- liftEffect $ runNextFrame $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
 
   pure $ Dynamic
@@ -490,7 +490,7 @@ foldDynMaybeImpl f initial (Event event) = do
         _ ->
           pure { changing: false, value: oldValue }
 
-  unsub <- liftEffect $ event.subscribe $ void $ framePull $ updateOrReadValue
+  unsub <- liftEffect $ runNextFrame $ event.subscribe $ void $ framePull $ updateOrReadValue
   onCleanup unsub
 
   pure $ Dynamic
@@ -533,8 +533,8 @@ switch (Dynamic { value, change: Event change }) = Event
       -- oncePerFrame guards us against the case of coincidence
       -- of the inner Event and outer Dynamic change
 
-      unsubRef <- newRef (pure unit)
-      isDoneRef <- newRef false
+      unsubRef <- liftEffect $ newRef (pure unit)
+      isDoneRef <- liftEffect $ newRef false
 
       let
         cleanup :: Effect Unit
@@ -542,12 +542,11 @@ switch (Dynamic { value, change: Event change }) = Event
 
         replaceWith :: Event a -> Frame Unit
         replaceWith (Event event) = do
-          effect $ do
-            isDone <- readRef isDoneRef
-            unless isDone do
-              cleanup
-              unsub <- event.subscribe onceListener
-              writeRef unsubRef unsub
+          isDone <- liftEffect $ readRef isDoneRef
+          unless isDone do
+            liftEffect cleanup
+            unsub <- event.subscribe onceListener
+            liftEffect $ writeRef unsubRef unsub
 
         -- Unsubscribe from the previous change event (if any)
         -- and subscribe to the current one.
@@ -555,9 +554,9 @@ switch (Dynamic { value, change: Event change }) = Event
         updateListener = framePull (readBehavior value) >>= replaceWith
 
       -- First, we subscribe to the current inner Dynamic
-      runNextFrame updateListener
+      updateListener
 
-      unsub <- change.subscribe $ do
+      unsub <- change.subscribe do
         -- when the outer Dynamic changes,
 
         onceListener
