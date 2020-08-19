@@ -78,7 +78,6 @@ import Unsafe.Coerce (unsafeCoerce)
 --
 -- Can be composed using Monad instance.
 newtype Behavior a = Behavior (Dynamic a)
--- Behavior is represented by a computation that reads its value.
 
 -- | Read a value of a Behavior.
 readBehavior :: forall a. Behavior a -> Effect a
