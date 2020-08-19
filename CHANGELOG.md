@@ -1,5 +1,9 @@
 ## Next release
 
+## 0.8.2
+
+- 2020-08-19 Fixed a problem with event delivery order when using nested binds
+
 ## 0.8.1
 
 - 2020-02-27 Specular.Dom.Element: Added functions to bind to input value and checkbox state
