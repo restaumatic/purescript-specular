@@ -1,7 +1,9 @@
 module DynamicSpec where
 
 import Prelude hiding (append)
+import Test.Spec
 
+import Data.Traversable (traverse, for_)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
@@ -9,8 +11,8 @@ import Data.Tuple (Tuple(..))
 import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, Dynamic)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn, readDynamic)
 import Specular.Internal.Effect (newRef)
-import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
+import Debug.Trace
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -250,6 +252,35 @@ spec = describe "Dynamic" $ do
 
       -- clean up
       liftEffect unsub1
+
+    it "should not mess up event delivery order" $ withLeakCheck do
+      log <- liftEffect $ newRef []
+      rootDynOuter <- liftEffect $ newDynamic { set: \_ -> pure unit, modify: \_ -> pure unit, read: pure 0, dynamic: pure 0 }
+
+      let
+        dyn :: Dynamic Int
+        dyn = rootDynOuter.dynamic >>= _.dynamic
+      unsub3 <- liftEffect $ execCleanupT do
+        flip subscribeDyn_ dyn \x -> do
+          traceM $ "receiver 1: " <> show x
+        flip subscribeDyn_ rootDynOuter.dynamic \x -> do
+          value <- x.read
+          when (value > 0) do
+            traceM "set begin"
+            x.set (value + 1)
+            traceM "set end"
+        flip subscribeDyn_ dyn \x -> do
+          traceM $ "receiver 2: " <> show x
+          append log x
+
+      liftEffect do
+        inner <- newDynamic 1
+        rootDynOuter.set inner
+
+      log `shouldHaveValue` [0, 1, 2]
+
+      -- clean up
+      liftEffect unsub3
 
   describe "subscribeDyn" $ do
     it "updates the resulting Dynamic" $ withLeakCheck $ do
