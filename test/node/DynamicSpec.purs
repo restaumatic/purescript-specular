@@ -6,8 +6,8 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
-import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
+import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, Dynamic)
+import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn, readDynamic)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
@@ -114,6 +114,27 @@ spec = describe "Dynamic" $ do
       liftEffect $ fire 3
 
       log `shouldHaveValue` [0,1,3,6]
+
+      -- clean up
+      liftEffect unsub1
+      liftEffect unsub2
+
+    it "doesn't double-update in the presence of binds" $ withLeakCheck $ do
+      {event,fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
+      Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDyn add 0 event
+
+      unsub2 <- liftEffect $ execCleanupT do
+        let dyn2 = do
+              _ <- dyn
+              _ <- dyn
+              dyn
+        subscribeDyn_ (append log) dyn2
+
+      liftEffect $ fire 1
+
+      log `shouldHaveValue` [0,1]
+      liftEffect (readDynamic dyn) `shouldReturn` 1
 
       -- clean up
       liftEffect unsub1
