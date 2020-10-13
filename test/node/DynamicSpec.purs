@@ -1,17 +1,20 @@
 module DynamicSpec where
 
 import Prelude hiding (append)
+import Test.Spec
 
+import Data.Traversable (traverse, for_)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect.Console (log) as Console
-import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_)
+import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, readDynamic, Dynamic)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, describeOnly, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
+import Debug.Trace
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -115,6 +118,27 @@ spec = describe "Dynamic" $ do
       liftEffect $ fire 3
 
       log `shouldHaveValue` [0,1,3,6]
+
+      -- clean up
+      liftEffect unsub1
+      liftEffect unsub2
+
+    it "doesn't double-update in the presence of binds" $ withLeakCheck $ do
+      {event,fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
+      Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDyn add 0 event
+
+      unsub2 <- liftEffect $ execCleanupT do
+        let dyn2 = do
+              _ <- dyn
+              _ <- dyn
+              dyn
+        subscribeDyn_ (append log) dyn2
+
+      liftEffect $ fire 1
+
+      log `shouldHaveValue` [0,1]
+      liftEffect (readDynamic dyn) `shouldReturn` 1
 
       -- clean up
       liftEffect unsub1
@@ -252,6 +276,35 @@ spec = describe "Dynamic" $ do
 
       -- clean up
       liftEffect unsub1
+
+    it "should not mess up event delivery order" $ withLeakCheck do
+      log <- liftEffect $ newRef []
+      rootDynOuter <- liftEffect $ newDynamic { set: \_ -> pure unit, modify: \_ -> pure unit, read: pure 0, dynamic: pure 0 }
+
+      let
+        dyn :: Dynamic Int
+        dyn = rootDynOuter.dynamic >>= _.dynamic
+      unsub3 <- liftEffect $ execCleanupT do
+        flip subscribeDyn_ dyn \x -> do
+          traceM $ "receiver 1: " <> show x
+        flip subscribeDyn_ rootDynOuter.dynamic \x -> do
+          value <- x.read
+          when (value > 0) do
+            traceM "set begin"
+            x.set (value + 1)
+            traceM "set end"
+        flip subscribeDyn_ dyn \x -> do
+          traceM $ "receiver 2: " <> show x
+          append log x
+
+      liftEffect do
+        inner <- newDynamic 1
+        rootDynOuter.set inner
+
+      log `shouldHaveValue` [0, 1, 2]
+
+      -- clean up
+      liftEffect unsub3
 
   describe "subscribeDyn_" $ do
     it "simple case - no changes" $ withLeakCheck $ do

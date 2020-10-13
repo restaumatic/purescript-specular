@@ -162,12 +162,15 @@ filterJustEvent = filterMapEvent identity
 subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
 subscribeEvent_ handler (Event node) = subscribeNode handler node
 
+globalEffectQueue :: Queue (Effect Unit)
+globalEffectQueue = unsafePerformEffect Queue.new
+
+drainEffects :: Effect Unit
+drainEffects = runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler -> handler)
+
 _subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
 _subscribeEvent = mkEffectFn2 \handler (Event node) ->
   runEffectFn2 _subscribeNode handler node
-
-globalEffectQueue :: Queue (Effect Unit)
-globalEffectQueue = unsafePerformEffect Queue.new
 
 _subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (Node a) Unsubscribe
 _subscribeNode = mkEffectFn2 \handler node -> do
@@ -175,9 +178,6 @@ _subscribeNode = mkEffectFn2 \handler node -> do
             runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
   runEffectFn2 I.addObserver node h
   pure (runEffectFn2 I.removeObserver node h)
-
-drainEffects :: Effect Unit
-drainEffects = runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler -> handler)
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.

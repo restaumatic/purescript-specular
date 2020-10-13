@@ -1,6 +1,29 @@
 ## Next release
 
-- 2019-10-30 Add a number of convenience functions:
+## 0.8.2
+
+- 2020-08-19 Fixed a problem with event delivery order when using nested binds
+
+## 0.8.1
+
+- 2020-02-27 Specular.Dom.Element: Added functions to bind to input value and checkbox state
+  - `valueD` - one-way binding to `value`
+  - `bindValueOnChange`, `bindValueOnInput` - two-way binding to `value`
+  - `checkedD` - one-way binding to `checked`
+  - `bindChecked` - two-way binding to `checked`
+
+## 0.8.0
+
+- 2020-01-23 Expose Specular.Dom.Builder.getParentNode
+- 2019-11-08 Added API guide in README
+- 2019-11-06 Renamed some Ref functions for qualified importing
+  - `refValue` -> `Ref.value`
+  - `refUpdate` -> `Ref.modify`
+  - `refUpdateConst` -> `Ref.set`
+
+## 0.7.0
+
+- 2019-10-30 Added a number of convenience functions:
    * `Specular.Callback`
      * `contramapCallbackDyn_`
    * `Specular.Dom.Element`
