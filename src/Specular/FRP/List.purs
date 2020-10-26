@@ -13,7 +13,7 @@ import Prelude
 
 import Effect (Effect)
 import Effect.Class (liftEffect)
-import Control.Monad.Replace (class MonadReplace, Slot, newSlot, unSlot)
+import Control.Monad.Replace (class MonadReplace, Slot, newSlot, appendSlot, replaceSlot, destroySlot)
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
@@ -91,12 +91,12 @@ updateList latestRef mainSlot handler newArray = do
         entry.fire x
         pure []
       Just entry, Nothing -> do
-        (unSlot entry.slot).destroy
+        destroySlot entry.slot
         pure []
       Nothing,     Just x  -> do
-        slot <- (unSlot mainSlot).append
+        slot <- appendSlot mainSlot
         {event, fire} <- newEvent
-        result <- (unSlot slot).replace $ do
+        result <- replaceSlot slot do
           dyn <- holdUniqDynBy unsafeRefEq x event
           handler i dyn
         pure [{slot, fire, result}]
