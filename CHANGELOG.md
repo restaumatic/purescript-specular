@@ -1,5 +1,9 @@
 ## Next release
 
+## 0.8.3
+
+- 2020-10-26 Refactored `Slot` API to avoid using polytypes in records. This was done to enable experimenting with a certain modification of the PureScript compiler, which breaks in this case; and it causes no harm otherwise.
+
 ## 0.8.2
 
 - 2020-08-19 Fixed a problem with event delivery order when using nested binds
