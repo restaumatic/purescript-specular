@@ -10,7 +10,6 @@ import EventSpec as EventSpec
 import FixSpec as FixSpec
 import RIOSpec as RIOSpec
 import Test.Spec.Reporter (consoleReporter)
-import Test.Spec.Reporter.Tap (tapReporter)
 import Test.Spec.Runner (runSpec)
 import TraceSpec as TraceSpec
 import WeakDynamicSpec as WeakDynamicSpec
