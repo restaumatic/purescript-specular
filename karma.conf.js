@@ -1,3 +1,6 @@
+// See https://medium.com/@rogeriopvl/automating-karma-and-headless-chrome-with-puppetteer-51ce8f6a78b0
+process.env.CHROME_BIN = require('puppeteer').executablePath();
+
 module.exports = function(config) {
   config.set({
     browsers: ['ChromiumNoSandbox'],
