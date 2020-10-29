@@ -7,8 +7,7 @@
     "postinstall": "scripts/install-purescript v0.13.8 && psc-package install",
     "node-test": "pulp --psc-package test",
     "node-test-w": "pulp --psc-package -w test",
-    "browser-test": "pulp --psc-package test --main BrowserMain --runtime phantomjs",
-    "browser-test-w": "pulp --psc-package -w test --main BrowserMain --runtime phantomjs",
+    "browser-test": "pulp --psc-package browserify -O -I test --main BrowserMain --to output/BrowserMain.js && karma start karma.conf.js",
     "test": "pulp --version && yarn run node-test && yarn run browser-test",
     "build-demo": "pulp --psc-package browserify -O -I test --main DemoMain --to output/demo.js",
     "build-bench": "pulp --psc-package browserify -O -I test:bench --main BenchMain --to output/benchmark.js",
@@ -18,9 +17,17 @@
   "license": "MIT",
   "devDependencies": {
     "benchmark": "^2.1.4",
+    "bower": "^1.8.8",
     "phantomjs-prebuilt": "^2.1.16",
     "psc-package": "^3.0.1",
-    "pulp": "13.0.0",
-    "puppeteer": "^1.13.0"
+    "pulp": "15.0.0",
+    "puppeteer": "^5.4.1"
+  },
+  "dependencies": {
+    "karma": "^5.2.3",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-mocha": "^2.0.1",
+    "karma-spec-reporter": "^0.0.32",
+    "mocha": "^8.2.0"
   }
 }
