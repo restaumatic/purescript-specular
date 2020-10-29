@@ -10,3 +10,8 @@ import Effect.Unsafe (unsafePerformEffect)
 
 globalCurrentStabilizationNum :: Ref Int
 globalCurrentStabilizationNum = unsafePerformEffect $ Ref.new (-1)
+
+
+-- | Total refcount of all nodes, for leak checking.
+globalTotalRefcount :: Ref Int
+globalTotalRefcount = unsafePerformEffect $ Ref.new 0

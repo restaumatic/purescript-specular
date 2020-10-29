@@ -12,6 +12,9 @@ import Data.Array (snoc)
 import Specular.Internal.Effect (Ref, modifyRef, newRef, readRef, writeRef)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Type.Prelude (Proxy)
+import Effect.Uncurried (runEffectFn1)
+import Specular.Internal.Incremental.Global (globalTotalRefcount)
+import Specular.Internal.Incremental.Ref as Ref
 
 append :: forall a. Ref (Array a) -> a -> Effect Unit
 append ref value = modifyRef ref (\a -> snoc a value)
@@ -64,8 +67,8 @@ instance shouldHaveInferredTypeInstance :: ShouldHaveInferredType a a where
 yieldAff :: Aff Unit
 yieldAff = delay (Milliseconds 0.0)
 
-foreign import getTotalListeners :: Effect Int
-foreign import modifyTotalListeners :: (Int -> Int) -> Effect Unit
+getTotalListeners :: Effect Int
+getTotalListeners = runEffectFn1 Ref.read globalTotalRefcount
 
 withLeakCheck :: forall a. Aff a -> Aff a
 withLeakCheck = withLeakCheck' ""
