@@ -12,19 +12,19 @@ import InputWidgetsSpec as InputWidgetsSpec
 import ListSpec as ListSpec
 import NewBuilderSpec as NewBuilderSpec
 import RadioGroupSpec as RadioGroupSpec
-import Test.Spec (describe)
-import Test.Spec.Reporter (consoleReporter)
-import Test.Spec.Runner (runSpec)
+import Test.Spec (describe, mapSpecTree)
+import Data.Newtype (unwrap)
+import Test.Spec.Mocha (runMocha)
 
 main :: Effect Unit
-main = launchAff_ $ runSpec [consoleReporter] do
+main = runMocha $ mapSpecTree (pure <<< unwrap) identity do
   BuilderSpec.spec
   NewBuilderSpec.spec
   InputWidgetsSpec.spec
   ListSpec.spec
   RadioGroupSpec.spec
 
-  describe "example apps" $ do
+  describe "example apps" do
     Counter.spec
     RegistrationForm.spec
     AsyncRequest.spec
