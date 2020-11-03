@@ -9,7 +9,7 @@ import Effect.Ref (Ref)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Effect (foreachUntil)
-import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum)
+import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum, stabilizationIsNotInProgress)
 import Specular.Internal.Incremental.MutableArray as MutableArray
 import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Mutable (Field(..))
@@ -222,7 +222,7 @@ stabilize = do
 --        trace $ "stabilize: node " <> show name <> " cut off"
         pure unit
 
-  runEffectFn2 Ref.write globalCurrentStabilizationNum (-1)
+  runEffectFn2 Ref.write globalCurrentStabilizationNum stabilizationIsNotInProgress
 --  trace "stabilize end"
 
 -- * Computational nodes
