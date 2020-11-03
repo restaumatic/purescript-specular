@@ -9,7 +9,7 @@ import Effect.Ref (Ref)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Effect (foreachUntil)
-import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount)
+import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum)
 import Specular.Internal.Incremental.MutableArray as MutableArray
 import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Mutable (Field(..))
@@ -22,8 +22,7 @@ import Specular.Internal.Incremental.Ref as Ref
 import Partial.Unsafe (unsafeCrashWith)
 import Unsafe.Coerce (unsafeCoerce)
 
--- * Globals
-
+-- | Priority queue for propagating node changes in dependency order.
 globalRecomputeQueue :: PQ.PQ SomeNode
 globalRecomputeQueue = unsafePerformEffect $
   runEffectFn4 PQ.new
@@ -31,9 +30,6 @@ globalRecomputeQueue = unsafePerformEffect $
     (Field "height")
     (Field "inRecomputeQueue")
     (Field "nextInRecomputeQueue")
-
-globalLastStabilizationNum :: Ref Int
-globalLastStabilizationNum = unsafePerformEffect $ runEffectFn1 Ref.new 0
 
 -- * Var
 
