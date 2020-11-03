@@ -215,19 +215,6 @@ leftmost events = Event $ unsafePerformEffect do
   runEffectFn2 Node.annotate n "leftmost"
   pure n
 
-findFirstM :: forall m a b. Monad m => (a -> m (Maybe b)) -> Array a -> m (Maybe b)
-findFirstM f array =
-  case Array.uncons array of
-
-    Just {head,tail} -> do
-      m_value <- f head
-      case m_value of
-        Just x -> pure (Just x)
-        Nothing -> findFirstM f tail
-
-    Nothing ->
-      pure Nothing
-
 -----------------------------------------------------------------
 
 -- | `Dynamic a` represents a _dynamically changing value_ of type `a`. The
