@@ -60,7 +60,7 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
-import Specular.Internal.Incremental (addObserver, bind_, constant, fold, leftmost, map, map2, mapOptional, newEvent, newVar, readEvent, readVar, removeObserver, sample, setVar, stabilize, switch, traceChanges, triggerEvent) as I
+import Specular.Internal.Incremental as I
 import Specular.Internal.Incremental.Node (Node)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional as Optional
@@ -319,6 +319,8 @@ uniqDyn :: forall m a. MonadFRP m => Eq a => Dynamic a -> m (Dynamic a)
 uniqDyn = uniqDynBy (==)
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
+-- |
+-- | `switch (pure e) = e`
 switch :: forall a. Dynamic (Event a) -> Event a
 switch (Dynamic lhs) = Event $ unsafePerformEffect do
   n <- runEffectFn3 I.switch false lhs (\(Event e) -> e)

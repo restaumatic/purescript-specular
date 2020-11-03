@@ -37,6 +37,13 @@ type SomeNode = Node Any
 - `compute :: EffectFn1 (Node a) (Optional a)` - Compute the node value, if none is returned then we don't change value and don't propagate.
 - `dependencies :: Effect (Array SomeNode)` - nodes which depend on this one. This is an `Effect` because they may change, and are computed dynamically in some cases (notably `bind`).
 
+# Connectivity
+
+Each node has a _reference count_, which is computed as the number of dependent nodes plus number of observers.
+If the reference count is zero, the node is said to be _disconnected_; otherwise it is _connected_.
+
+Node height is maintained only when the node is connected. Therefore it must be recomputed when a node becomes connected.
+
 # Utility types
 
 ## Optional
