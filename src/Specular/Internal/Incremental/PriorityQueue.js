@@ -8,11 +8,20 @@
 exports.new = function(none, priorityField, presentField, nextField) {
   return {
     none: none,
+
+    // Property names of various properties of queue elements.
     priorityField: priorityField,
     presentField: presentField,
     nextField: nextField,
 
+    // Array indexed by priority.
+    // Elements within each priority are stored in an intrusive linked list:
+    // - `this.none` is the end
+    // - `element[this.nextField]` is the next element.
+    // `priorityHeads[priority]` contains the head of this list (or `none` if empty).
     priorityHeads: [],
+
+    // Total number of elements in the queue.
     count: 0,
 
     // TODO: we should track minPriority
