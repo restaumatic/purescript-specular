@@ -17,7 +17,5 @@ foreign import new :: forall a.
   (PQ a)
 
 foreign import add :: forall a. EffectFn2 (PQ a) a Boolean
-foreign import remove :: forall a. EffectFn2 (PQ a) a Boolean
-foreign import isNonEmpty :: forall a. EffectFn1 (PQ a) Boolean
 foreign import removeMin :: forall a. EffectFn1 (PQ a) (Optional a)
 foreign import drain :: forall a. EffectFn2 (PQ a) (EffectFn1 a Unit) Unit
