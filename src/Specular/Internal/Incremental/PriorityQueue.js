@@ -1,7 +1,7 @@
 // new :: forall a.
 //   EffectFn4
 //     (Optional Any)                 -- Optional.none
-//     (Field a Mutable Int)          -- Priority
+//     (Field a Mutable Int)          -- Priority. Must be a non-negative integer.
 //     (Field a Mutable Boolean)      -- Is the entry present in this queue?
 //     (Field a Mutable (Optional a)) -- Next entry with the same priority
 //   (PQ a)
