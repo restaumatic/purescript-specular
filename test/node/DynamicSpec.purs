@@ -8,9 +8,11 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Specular.FRP (foldDyn, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, Dynamic)
-import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn, readDynamic)
+import Effect.Console (log) as Console
+import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, readDynamic, Dynamic)
+import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
+import Test.Spec (Spec, describe, describeOnly, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 import Debug.Trace
 
@@ -137,6 +139,28 @@ spec = describe "Dynamic" $ do
 
       log `shouldHaveValue` [0,1]
       liftEffect (readDynamic dyn) `shouldReturn` 1
+
+      -- clean up
+      liftEffect unsub1
+      liftEffect unsub2
+
+  describe "foldDynMaybe" $ do
+    it "triggers only when function returns Just" $ withLeakCheck $ do
+      {event,fire} <- liftEffect newEvent
+      log <- liftEffect $ newRef []
+      Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDynMaybe (\x y -> (_ + y) <$> x) 1 event
+
+      unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
+
+      liftEffect $ fire Nothing
+      liftEffect $ fire (Just 1)
+      liftEffect $ fire Nothing
+      liftEffect $ fire (Just 2)
+      liftEffect $ fire Nothing
+      liftEffect $ fire (Just 3)
+      liftEffect $ fire Nothing
+
+      log `shouldHaveValue` [1,2,4,7]
 
       -- clean up
       liftEffect unsub1
@@ -282,7 +306,37 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub3
 
+  describe "subscribeDyn_" $ do
+    it "simple case - no changes" $ withLeakCheck $ do
+      log <- liftEffect $ newRef ([] :: Array (Either Int Int))
+      {dynamic: dyn, set: fire} <- newDynamic 1
+
+      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn_ (\x ->
+        do
+          append log (Left x)
+        ) dyn
+
+      log `shouldHaveValue` [Left 1]
+
+      -- clean up
+      liftEffect unsub2
+
   describe "subscribeDyn" $ do
+    it "simple case - no changes" $ withLeakCheck $ do
+      log <- liftEffect $ newRef ([] :: Array (Either Int Int))
+      {dynamic: dyn, set: fire} <- newDynamic 1
+
+      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
+        do
+          append log (Left x)
+          pure (2 * x)
+        ) dyn
+
+      log `shouldHaveValue` [Left 1]
+
+      -- clean up
+      liftEffect unsub2
+
     it "updates the resulting Dynamic" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
       log <- liftEffect $ newRef []
@@ -308,15 +362,18 @@ spec = describe "Dynamic" $ do
   describe "latestJust" $ do
     it "updates value only when it changes to Just" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
+      let fire' x = liftEffect do
+            Console.log $ "fire " <> show x
+            fire x
       log <- liftEffect $ newRef []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn Nothing event >>= latestJust
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
 
-      liftEffect $ fire Nothing
-      liftEffect $ fire (Just 1)
-      liftEffect $ fire Nothing
-      liftEffect $ fire (Just 2)
+      fire' Nothing
+      fire' (Just 1)
+      fire' Nothing
+      fire' (Just 2)
 
       log `shouldHaveValue` [Nothing, Just 1, Just 2]
 

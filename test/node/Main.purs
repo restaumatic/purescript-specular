@@ -12,7 +12,6 @@ import RIOSpec as RIOSpec
 import Test.Spec.Reporter (consoleReporter)
 import Test.Spec.Runner (runSpec)
 import TraceSpec as TraceSpec
-import UniqueMapMutableSpec as UniqueMapMutableSpec
 import WeakDynamicSpec as WeakDynamicSpec
 
 main :: Effect Unit
@@ -20,7 +19,6 @@ main = launchAff_ $ runSpec [consoleReporter] do
   FixSpec.spec
   EventSpec.spec
   DynamicSpec.spec
-  UniqueMapMutableSpec.spec
   WeakDynamicSpec.spec
   RIOSpec.spec
   TraceSpec.spec

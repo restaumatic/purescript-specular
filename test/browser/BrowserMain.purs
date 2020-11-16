@@ -4,7 +4,6 @@ import Prelude
 
 import BuilderSpec as BuilderSpec
 import Effect (Effect)
-import Effect.Aff (launchAff_)
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
 import Examples.RegistrationForm as RegistrationForm

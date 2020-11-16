@@ -23,10 +23,10 @@ import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderIn
 import Unsafe.Coerce (unsafeCoerce)
 
 spec :: Spec Unit
-spec = describe "Builder" $ do
-  it "builds static DOM" $ withLeakCheck $ do
-    Tuple node result <- runBuilderInDiv $ do
-       elAttr "div" ("class" := "content") $ do
+spec = describe "Builder" do
+  it "builds static DOM" $ withLeakCheck do
+    T3 node result unsub <- runBuilderInDiv' do
+       elAttr "div" ("class" := "content") do
          text "foo"
          elDynAttr "span" (pure mempty) $ text "bar"
          rawHtml """<p class="foo">Raw</p>"""
@@ -36,9 +36,12 @@ spec = describe "Builder" $ do
     liftEffect (innerHTML node) `shouldReturn`
       """<div class="content">foo<span>bar</span><p class="foo">Raw</p>baz</div><span></span>"""
 
-  it "updates attributes" $ withLeakCheck $ do
+    -- clean up
+    liftEffect unsub
+
+  it "updates attributes" $ withLeakCheck do
     Tuple dyn updateDyn <- liftEffect $ newDynamic $ "k1" := "v1" <> "k2" := "v2"
-    T3 node result unsub <- runBuilderInDiv' $ do
+    T3 node result unsub <- runBuilderInDiv' do
        elDynAttr "div" (weaken dyn) $ pure unit
 
     liftEffect (innerHTML node) `shouldReturn`
@@ -52,8 +55,8 @@ spec = describe "Builder" $ do
     -- clean up
     liftEffect unsub
 
-  describe "dynamic_" $ do
-    it "simple" $ withLeakCheck $ do
+  describe "dynamic_" do
+    it "simple" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
       T3 node result unsub <- runBuilderInDiv' $ dynamic_ dyn
 
@@ -68,9 +71,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "surrounded by other elements" $ withLeakCheck $ do
+    it "surrounded by other elements" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' $ do
+      T3 node result unsub <- runBuilderInDiv' do
          elDynAttr "span" (pure mempty) $ pure unit
          dynamic_ dyn
          elDynAttr "span" (pure mempty) $ pure unit
@@ -86,9 +89,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "two subscriptions to the same Dynamic" $ withLeakCheck $ do
+    it "two subscriptions to the same Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' $ do
+      T3 node result unsub <- runBuilderInDiv' do
          dynamic_ dyn
          dynamic_ dyn
 
@@ -103,9 +106,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "nested, same Dynamic" $ withLeakCheck $ do
+    it "nested, same Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' $ do
+      T3 node result unsub <- runBuilderInDiv' do
          dynamic_ $ dyn $> dynamic_ dyn
 
       liftEffect (innerHTML node) `shouldReturn`
@@ -119,10 +122,10 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "nested, different Dynamics" $ withLeakCheck $ do
+    it "nested, different Dynamics" $ withLeakCheck do
       Tuple dyn1 updateDyn1 <- liftEffect $ newDynamic $ text "foo1"
       Tuple dyn2 updateDyn2 <- liftEffect $ newDynamic $ text "foo2"
-      T3 node result unsub <- runBuilderInDiv' $ do
+      T3 node result unsub <- runBuilderInDiv' do
          dynamic_ $ map (\x -> x *> dynamic_ dyn2) dyn1
 
       liftEffect (innerHTML node) `shouldReturn`
@@ -141,9 +144,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "with rawHtml" $ withLeakCheck $ do
+    it "with rawHtml" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ rawHtml "<p>raw</p>"
-      T3 node result unsub <- runBuilderInDiv' $ do
+      T3 node result unsub <- runBuilderInDiv' do
         el "br" $ pure unit
         dynamic_ dyn
         el "br" $ pure unit
@@ -160,10 +163,10 @@ spec = describe "Builder" $ do
       liftEffect unsub
 
 
-  describe "whenJustD" $ do
-    it "renders empty when dynamic is initially Nothing" $ withLeakCheck $ do
+  describe "whenJustD" do
+    it "renders empty when dynamic is initially Nothing" $ withLeakCheck do
       Tuple dynMb _  <- liftEffect $ newDynamic Nothing
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
         elDynAttr "span" (pure mempty) $ pure unit
@@ -174,9 +177,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "renders contents when dynamic is initially Just" $ withLeakCheck $ do
+    it "renders contents when dynamic is initially Just" $ withLeakCheck do
       Tuple dynMb _  <- liftEffect $ newDynamic $ Just "foobar"
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
         elDynAttr "span" (pure mempty) $ pure unit
@@ -187,9 +190,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "renders contents when dynamic is initially Nothing then updated to Just" $ withLeakCheck $ do
+    it "renders contents when dynamic is initially Nothing then updated to Just" $ withLeakCheck do
       Tuple dynMb updateDyn  <- liftEffect $ newDynamic $ Nothing
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
         elDynAttr "span" (pure mempty) $ pure unit
@@ -204,9 +207,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "renders empty when dynamic is initially Just then updated to Nothing" $ withLeakCheck $ do
+    it "renders empty when dynamic is initially Just then updated to Nothing" $ withLeakCheck do
       Tuple dynMb updateDyn  <- liftEffect $ newDynamic $ Just "foobar"
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
         elDynAttr "span" (pure mempty) $ pure unit
@@ -221,11 +224,11 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "does not rerender contents when not necessary" $ withLeakCheck $ do
+    it "does not rerender contents when not necessary" $ withLeakCheck do
       Tuple dynMb updateDyn  <- liftEffect $ newDynamic $ Nothing
       count <- liftEffect $ newRef 0
 
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> do
           liftEffect $ modifyRef count (_ + 1)
@@ -246,10 +249,10 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    describe "whenD" $ do
-      it "renders empty when dynamic is initially false" $ withLeakCheck $ do
+    describe "whenD" do
+      it "renders empty when dynamic is initially false" $ withLeakCheck do
         Tuple dynMb _  <- liftEffect $ newDynamic false
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -260,9 +263,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "renders contents when dynamic is initially true" $ withLeakCheck $ do
+      it "renders contents when dynamic is initially true" $ withLeakCheck do
         Tuple dynMb _  <- liftEffect $ newDynamic true
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -273,9 +276,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "renders contents when dynamic is initially false then updated to true" $ withLeakCheck $ do
+      it "renders contents when dynamic is initially false then updated to true" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -287,9 +290,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "renders empty when dynamic is initially true then updated to false" $ withLeakCheck $ do
+      it "renders empty when dynamic is initially true then updated to false" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -301,11 +304,11 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "does not rerender contents when not necessary" $ withLeakCheck $ do
+      it "does not rerender contents when not necessary" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
         count <- liftEffect $ newRef 0
 
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb do
             liftEffect $ modifyRef count (_ + 1)
@@ -326,10 +329,10 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-    describe "unlessD" $ do
-      it "renders empty when dynamic is initially true" $ withLeakCheck $ do
+    describe "unlessD" do
+      it "renders empty when dynamic is initially true" $ withLeakCheck do
         Tuple dynMb _  <- liftEffect $ newDynamic true
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -340,9 +343,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "renders contents when dynamic is initially false" $ withLeakCheck $ do
+      it "renders contents when dynamic is initially false" $ withLeakCheck do
         Tuple dynMb _  <- liftEffect $ newDynamic false
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -353,9 +356,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "renders contents when dynamic is initially true then updated to false" $ withLeakCheck $ do
+      it "renders contents when dynamic is initially true then updated to false" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -367,9 +370,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "renders empty when dynamic is initially false then updated to true" $ withLeakCheck $ do
+      it "renders empty when dynamic is initially false then updated to true" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb $ text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
@@ -381,11 +384,11 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-      it "does not rerender contents when not necessary" $ withLeakCheck $ do
+      it "does not rerender contents when not necessary" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
         count <- liftEffect $ newRef 0
 
-        T3 node _ unsub <- runBuilderInDiv' $ do
+        T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb do
             liftEffect $ modifyRef count (_ + 1)
@@ -406,9 +409,9 @@ spec = describe "Builder" $ do
         -- clean up
         liftEffect unsub
 
-  describe "domEventWithSample" $ do
-    it "dispatches DOM events and handles unsubscribe" $ withLeakCheck $ do
-      T3 node {button,event} unsub1 <- runBuilderInDiv' $ do
+  describe "domEventWithSample" do
+    it "dispatches DOM events and handles unsubscribe" $ withLeakCheck do
+      T3 node {button,event} unsub1 <- runBuilderInDiv' do
         Tuple button _ <- elDynAttr' "button" (pure mempty) (text "foo")
         event <- domEventWithSample (\_ -> pure unit) "click" button
         pure {button,event}
@@ -423,14 +426,14 @@ spec = describe "Builder" $ do
       liftEffect unsub1
       liftEffect unsub2
 
-  describe "integration test - `dynamic`/`weakDynamic` and flattening" $ do
-    it "clearCompletedButton from TodoMVC, using Dynamic" $ withLeakCheck $ do
+  describe "integration test - `dynamic`/`weakDynamic` and flattening" do
+    it "clearCompletedButton from TodoMVC, using Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic false
       let
         anyCompletedTasks :: Dynamic Boolean
         anyCompletedTasks = dyn
 
-      T3 node (result :: Dynamic (Event Unit)) unsub1 <- runBuilderInDiv' $ do
+      T3 node (result :: Dynamic (Event Unit)) unsub1 <- runBuilderInDiv' do
         dynamic $ anyCompletedTasks <#> \anyCompletedTasks' ->
           if anyCompletedTasks'
             then buttonOnClick (pure mempty) (text "Clear")
@@ -457,13 +460,13 @@ spec = describe "Builder" $ do
       liftEffect unsub1
       liftEffect unsub2
 
-    it "clearCompletedButton from TodoMVC, using WeakDynamic" $ withLeakCheck $ do
+    it "clearCompletedButton from TodoMVC, using WeakDynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic false
       let
         anyCompletedTasks :: WeakDynamic Boolean
         anyCompletedTasks = weaken dyn
 
-      T3 node (result :: WeakDynamic (Event Unit)) unsub1 <- runBuilderInDiv' $ do
+      T3 node (result :: WeakDynamic (Event Unit)) unsub1 <- runBuilderInDiv' do
         weakDynamic $ anyCompletedTasks <#> \anyCompletedTasks' ->
           if anyCompletedTasks'
             then buttonOnClick (pure mempty) (text "Clear")
@@ -490,9 +493,9 @@ spec = describe "Builder" $ do
       liftEffect unsub1
       liftEffect unsub2
 
-  describe "detach" $ do
-    it "simple case" $ withLeakCheck $ do
-      T3 node result unsub <- runBuilderInDiv' $ do
+  describe "detach" do
+    it "simple case" $ withLeakCheck do
+      T3 node result unsub <- runBuilderInDiv' do
          { value, widget } <- detach $ text "foo" *> pure 7
          text "bar"
          widget
@@ -506,8 +509,8 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "double use" $ withLeakCheck $ do
-      T3 node _ unsub <- runBuilderInDiv' $ do
+    it "double use" $ withLeakCheck do
+      T3 node _ unsub <- runBuilderInDiv' do
          { widget } <- detach $ text "foo"
          text "bar"
          widget
@@ -520,9 +523,9 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "works inside dynamic_" $ withLeakCheck $ do
+    it "works inside dynamic_" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic unit
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
          { value, widget } <- detach $ text "foo"
          dynamic_ $ map (\_ -> widget) dyn
 
@@ -535,10 +538,10 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-    it "dynamic_ -> attach -> dynamic_" $ withLeakCheck $ do
+    it "dynamic_ -> attach -> dynamic_" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic unit
       Tuple innerDyn updateInnerDyn <- liftEffect $ newDynamic $ text "inner1"
-      T3 node _ unsub <- runBuilderInDiv' $ do
+      T3 node _ unsub <- runBuilderInDiv' do
          { value, widget } <- detach $ dynamic_ innerDyn
          dynamic_ $ map (\_ -> widget) dyn
 
@@ -556,12 +559,15 @@ spec = describe "Builder" $ do
       -- clean up
       liftEffect unsub
 
-  it "supports element namespaces" $ withLeakCheck $ do
+  it "supports element namespaces" $ withLeakCheck do
     let xmlns = "http://www.w3.org/2000/svg"
-    Tuple _ (Tuple svgNode _) <- runBuilderInDiv $
+    T3 _ (Tuple svgNode _) unsub <- runBuilderInDiv' $
       elDynAttrNS' (Just xmlns) "svg" (pure mempty) (pure unit)
 
     (unsafeCoerce svgNode).namespaceURI `shouldEqual` xmlns
+
+    -- clean up
+    liftEffect unsub
 
 newDynamic :: forall a. a -> Effect (Tuple (Dynamic a) (a -> Effect Unit))
 newDynamic initial = do
