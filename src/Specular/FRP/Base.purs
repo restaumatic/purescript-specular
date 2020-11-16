@@ -8,7 +8,6 @@ module Specular.FRP.Base (
   , filterMapEvent
   , filterJustEvent
 
-  , module X
   , pull
 
   , Behavior
@@ -65,7 +64,6 @@ import Specular.Internal.Incremental.Node (Node)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional as Optional
 import Partial.Unsafe (unsafeCrashWith)
-import Specular.FRP.Internal.Frame (Pull) as X
 import Specular.Internal.Queue (Queue)
 import Specular.Internal.Queue as Queue
 import Unsafe.Coerce (unsafeCoerce)
@@ -83,8 +81,6 @@ newtype Behavior a = Behavior (Dynamic a)
 readBehavior :: forall a. Behavior a -> Effect a
 readBehavior (Behavior (Dynamic node)) = do
   readNode node
-
-type Pull = Effect
 
 pull :: forall a m. MonadEffect m => Effect a -> m a
 pull = liftEffect
