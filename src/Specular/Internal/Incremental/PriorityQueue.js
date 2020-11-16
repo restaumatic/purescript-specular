@@ -62,9 +62,6 @@ var removeMin = function(pq) {
   return pq.none;
 };
 
-// removeMin :: forall a. EffectFn1 (PQ a) (Optional a)
-exports.removeMin = removeMin;
-
 // drain :: forall a. EffectFn2 (PQ a) (EffectFn1 a Unit) Unit
 exports.drain = function(pq, fn) {
   while(pq.count > 0) {
