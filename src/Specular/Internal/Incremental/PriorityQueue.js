@@ -28,6 +28,8 @@ exports.new = function(none, priorityField, presentField, nextField) {
   };
 };
 
+var PRIORITY_WARNING_MARK = 250;
+
 // add :: forall a. EffectFn2 (PQ a) a Boolean
 exports.add = function(pq, node) {
   if(node[pq.presentField]) {
@@ -38,8 +40,13 @@ exports.add = function(pq, node) {
   pq.count++;
 
   var priority = node[pq.priorityField];
+
   while(priority >= pq.priorityHeads.length) {
     pq.priorityHeads.push(pq.none);
+
+    if(pq.priorityHeads.length === PRIORITY_WARNING_MARK) {
+      console.warn("Specular: Node height reached " + PRIORITY_WARNING_MARK);
+    }
   }
 
   node[pq.nextField] = pq.priorityHeads[priority];
