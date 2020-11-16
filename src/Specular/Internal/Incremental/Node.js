@@ -9,7 +9,10 @@ exports._new = function(none, source, dependents, observers, value, height) {
     inRecomputeQueue: false,
     nextInRecomputeQueue: none,
     name: '',
-    changedAt: 0,
+
+    // For initial `changedAt` we want a value lower than all possible stabilization numbers, but different than `stabilizationIsNotInProgress`.
+    // Hence -2.
+    changedAt: -2,
   };
 };
 
