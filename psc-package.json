@@ -19,6 +19,8 @@
     "console",
     "spec",
     "spec-mocha",
-    "foreign"
+    "foreign",
+
+    "free"
   ]
 }
