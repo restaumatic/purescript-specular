@@ -21,6 +21,8 @@
     "spec-mocha",
     "foreign",
 
-    "free"
+    "free",
+    "leibniz",
+    "freeap"
   ]
 }
