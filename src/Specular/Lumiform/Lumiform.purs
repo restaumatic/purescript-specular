@@ -11,13 +11,15 @@ import Data.Maybe (Maybe(..), maybe)
 import Data.NonEmpty (NonEmpty(..), head)
 import Data.Number as Num
 import Data.String.CodeUnits (toChar)
+import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
+import Effect.Exception.Unsafe (unsafeThrow)
 import Specular.Callback (attachEvent)
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Element (dynText, el, text)
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, subscribeDyn_)
+import Specular.FRP (Dynamic, subscribeDyn_, withDynamic_)
 import Specular.Ref (Ref(..), new)
 
 -- DSL
@@ -88,8 +90,8 @@ enumSelect label options constraints = liftFreeAp $ EnumSelect label options con
 -- interpreter
 data WebForm a = WebForm (Widget (Dynamic (Maybe a)))
 
-unform :: forall a . WebForm a -> Widget (Dynamic (Maybe a))
-unform (WebForm w) = w
+runWebForm :: forall a . WebForm a -> Widget (Dynamic (Maybe a))
+runWebForm (WebForm w) = w
 
 instance formFunctor :: Functor WebForm where
   map f (WebForm w)= WebForm (map (map (map f)) w)
@@ -99,6 +101,16 @@ instance formApplicative :: Applicative WebForm where
 
 instance formApply :: Apply WebForm where
   apply (WebForm wdf) (WebForm wda) = WebForm $ (\dmf dma -> (<*>) <$> dmf <*> dma) <$> wdf <*> wda
+
+bind' :: forall a b . WebForm a -> (a -> WebForm b) -> WebForm b
+bind' (WebForm wdma) f = WebForm $ wdma >>= processField (runWebForm <<< f)
+  where
+    processField :: forall ctx out . (ctx -> Widget (Dynamic (Maybe out))) -> Dynamic (Maybe ctx) -> Widget (Dynamic (Maybe out))
+    processField fieldWidget dmCtx = withDynamic dmCtx $ \mCtx -> case mCtx of
+      Nothing -> pure $ pure Nothing
+      Just ctx -> fieldWidget ctx
+    withDynamic :: forall a b . Dynamic a -> (a -> Widget (Dynamic b)) -> Widget (Dynamic b)
+    withDynamic = unsafeThrow "hole - is this possible to implement?"
 
 webform' :: forall a . Form a -> WebForm a
 webform' = foldFreeAp go
@@ -169,4 +181,4 @@ charInputWidget constraints = map (map (_ >>= toChar)) $ stringInputWidget (cMay
 
 
 webform :: forall a . Form a -> Widget (Dynamic (Maybe a))
-webform = unform <<< webform'
+webform = runWebForm <<< webform'
