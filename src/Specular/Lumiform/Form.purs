@@ -1,25 +1,27 @@
-module Specular.Form.Form where
+module Specular.Lumiform.Form where
 
 import Prelude
 
-import Control.Applicative.Free (FreeAp, foldFreeAp, liftFreeAp)
+import Control.Monad.Free (Free, liftF, runFreeM)
+import Control.Monad.Rec.Class (class MonadRec, Step(..), tailRecM)
 import Data.Array (uncons, mapMaybe)
+import Data.Char.Unicode (isLetter)
 import Data.Either (Either(..), either)
 import Data.Functor.Contravariant ((>$<))
 import Data.Int as Int
 import Data.Maybe (Maybe(..), maybe)
 import Data.NonEmpty (NonEmpty(..), head)
 import Data.Number as Num
+import Data.String (length, null)
 import Data.String.CodeUnits (toChar)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
-import Effect.Exception.Unsafe (unsafeThrow)
 import Specular.Callback (attachEvent)
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Element (dynText, el, text)
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, subscribeDyn_, withDynamic_)
+import Specular.FRP (Dynamic, dynamic, subscribeDyn_)
 import Specular.Ref (Ref(..), new)
 
 -- DSL
@@ -60,28 +62,28 @@ instance functorLumiformF :: Functor FormF where
   map f (EnumSelect l o v g) = EnumSelect l o v (f <<< g)
   map f (EnumMultiSelect l o v g) = EnumMultiSelect l o v (f <<< g)
 
-type Form = FreeAp FormF
+type Form = Free FormF
 
 section :: String -> Form Unit
-section s = liftFreeAp $ Section s unit
+section s = liftF $ Section s unit
 
 string :: String -> (Constraints String) -> Form String
-string label constraints = liftFreeAp $ StringInput label constraints identity
+string label constraints = liftF $ StringInput label constraints identity
 
 boolean :: String -> (Constraints Boolean) -> Form Boolean
-boolean label constraints = liftFreeAp $ BooleanInput label constraints identity
+boolean label constraints = liftF $ BooleanInput label constraints identity
 
 int :: String -> (Constraints Int) -> Form Int
-int label constraints = liftFreeAp $ IntInput label constraints identity
+int label constraints = liftF $ IntInput label constraints identity
 
 number :: String -> (Constraints Number) -> Form Number
-number label constraints = liftFreeAp $ NumberInput label constraints identity
+number label constraints = liftF $ NumberInput label constraints identity
 
 char :: String -> (Constraints Char) -> Form Char
-char label constraints = liftFreeAp $ CharInput label constraints identity
+char label constraints = liftF $ CharInput label constraints identity
 
 enumSelect :: String -> Array String -> (Constraints String) -> Form String
-enumSelect label options constraints = liftFreeAp $ EnumSelect label options constraints identity
+enumSelect label options constraints = liftF $ EnumSelect label options constraints identity
 
 -- TODO
 -- enumSelect :: forall a . BoundedEnum a => Show a => Read a => String -> Array a -> (Constraints a) -> Form a
@@ -89,6 +91,7 @@ enumSelect label options constraints = liftFreeAp $ EnumSelect label options con
 
 -- interpreter
 data WebForm a = WebForm (Widget (Dynamic (Maybe a)))
+
 
 runWebForm :: forall a . WebForm a -> Widget (Dynamic (Maybe a))
 runWebForm (WebForm w) = w
@@ -102,18 +105,31 @@ instance formApplicative :: Applicative WebForm where
 instance formApply :: Apply WebForm where
   apply (WebForm wdf) (WebForm wda) = WebForm $ (\dmf dma -> (<*>) <$> dmf <*> dma) <$> wdf <*> wda
 
-bind' :: forall a b . WebForm a -> (a -> WebForm b) -> WebForm b
-bind' (WebForm wdma) f = WebForm $ wdma >>= processField (runWebForm <<< f)
-  where
-    processField :: forall ctx out . (ctx -> Widget (Dynamic (Maybe out))) -> Dynamic (Maybe ctx) -> Widget (Dynamic (Maybe out))
-    processField fieldWidget dmCtx = withDynamic dmCtx $ \mCtx -> case mCtx of
-      Nothing -> pure $ pure Nothing
-      Just ctx -> fieldWidget ctx
-    withDynamic :: forall a b . Dynamic a -> (a -> Widget (Dynamic b)) -> Widget (Dynamic b)
-    withDynamic = unsafeThrow "hole - is this possible to implement?"
+instance formBind :: Bind WebForm where
+  -- bind :: forall a b . WebForm a -> (a -> WebForm b) -> WebForm b
+  bind (WebForm wdma) f = WebForm $ wdma >>= processField (runWebForm <<< f)
+    where
+      processField :: forall ctx out . (ctx -> Widget (Dynamic (Maybe out))) -> Dynamic (Maybe ctx) -> Widget (Dynamic (Maybe out))
+      processField fieldWidget dmCtx = withDynamic dmCtx $ \mCtx -> case mCtx of
+        Nothing -> pure $ pure Nothing
+        Just ctx -> fieldWidget ctx
+      withDynamic :: forall a b . Dynamic a -> (a -> Widget (Dynamic b)) -> Widget (Dynamic b)
+      -- withDynamic = unsafeThrow "hole - is this possible to implement?"
+      withDynamic da f = do
+        dyn2 <- (dynamic $ (f <$> da :: Dynamic (Widget (Dynamic b))) :: Widget (Dynamic (Dynamic b)))
+        pure $ join dyn2
+
+instance formMonad :: Monad WebForm
+
+instance formMonadRec :: MonadRec WebForm where
+  tailRecM f a = do
+    step <- f a
+    case step of
+      (Done b) -> pure b
+      (Loop a') -> tailRecM f a'
 
 webform' :: forall a . Form a -> WebForm a
-webform' = foldFreeAp go
+webform' = runFreeM go
   where
     go :: forall a . FormF a -> WebForm a
     go (Section s a) = WebForm $ do
