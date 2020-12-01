@@ -5,16 +5,13 @@ import Prelude
 import Control.Monad.Free (Free, liftF, runFreeM)
 import Control.Monad.Rec.Class (class MonadRec, Step(..), tailRecM)
 import Data.Array (uncons, mapMaybe)
-import Data.Char.Unicode (isLetter)
 import Data.Either (Either(..), either)
 import Data.Functor.Contravariant ((>$<))
 import Data.Int as Int
 import Data.Maybe (Maybe(..), maybe)
 import Data.NonEmpty (NonEmpty(..), head)
 import Data.Number as Num
-import Data.String (length, null)
 import Data.String.CodeUnits (toChar)
-import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Specular.Callback (attachEvent)
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
@@ -103,10 +100,12 @@ instance formApplicative :: Applicative WebForm where
   pure = WebForm <<< pure <<< pure <<< pure
 
 instance formApply :: Apply WebForm where
-  apply (WebForm wdf) (WebForm wda) = WebForm $ (\dmf dma -> (<*>) <$> dmf <*> dma) <$> wdf <*> wda
+  -- not compatible with Bind instance:
+  -- apply (WebForm wdf) (WebForm wda) = WebForm $ (\dmf dma -> (<*>) <$> dmf <*> dma) <$> wdf <*> wda
+  -- compatible with Bind instance:
+  apply wdf wda = wdf >>= (\x1 -> wda >>= (\x2 -> pure (x1 x2)))
 
 instance formBind :: Bind WebForm where
-  -- bind :: forall a b . WebForm a -> (a -> WebForm b) -> WebForm b
   bind (WebForm wdma) f = WebForm $ wdma >>= processField (runWebForm <<< f)
     where
       processField :: forall ctx out . (ctx -> Widget (Dynamic (Maybe out))) -> Dynamic (Maybe ctx) -> Widget (Dynamic (Maybe out))
@@ -114,7 +113,6 @@ instance formBind :: Bind WebForm where
         Nothing -> pure $ pure Nothing
         Just ctx -> fieldWidget ctx
       withDynamic :: forall a b . Dynamic a -> (a -> Widget (Dynamic b)) -> Widget (Dynamic b)
-      -- withDynamic = unsafeThrow "hole - is this possible to implement?"
       withDynamic da f = do
         dyn2 <- (dynamic $ (f <$> da :: Dynamic (Widget (Dynamic b))) :: Widget (Dynamic (Dynamic b)))
         pure $ join dyn2
