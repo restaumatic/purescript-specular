@@ -324,7 +324,7 @@ switch = mkEffectFn3 \alwaysFire lhs fn -> do
     , dependencies: do
         pure [toSomeNode lhs]
     }
-  runEffectFn2 Node.annotate rhs_node "switch aux"
+  runEffectFn2 Node.annotate rhs_node "switch data"
   main <- runEffectFn1 Node.create 
     { compute: mkEffectFn1 \_ -> do
         rhs <- runEffectFn1 Node.valueExc rhs_node
