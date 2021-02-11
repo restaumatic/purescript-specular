@@ -15,6 +15,7 @@ import Specular.Internal.Incremental.MutableArray as MutableArray
 import Specular.Internal.Incremental.Mutable (Any, Field(..), Immutable, Mutable)
 import Specular.Internal.Incremental.Optional (Optional)
 import Specular.Internal.Incremental.Optional as Optional
+import Specular.Internal.Profiling as Profiling
 import Unsafe.Coerce (unsafeCoerce)
 
 foreign import data Node :: Type -> Type
@@ -136,7 +137,7 @@ valueExc = mkEffectFn1 \node -> do
   pure (Optional.fromSome value_opt)
 
 annotate :: forall a. EffectFn2 (Node a) String Unit
-annotate = set_name
+annotate = if Profiling.enabled then set_name else mkEffectFn2 \_ _ -> pure unit
 
 name :: forall a. Node a -> String
 name node = unsafePerformEffect (runEffectFn1 get_name node)
