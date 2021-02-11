@@ -25,10 +25,12 @@ function prepareProfile() {
 window.SpecularProfiling = {
   open: (url) => {
     const w = window.open(url || 'http://localhost:1234');
-    setTimeout(() => {
-      console.log('sending message to Speedscope');
-      w.postMessage({type: 'loadInitialProfile', profile: SpecularProfiling.getProfile()}, '*');
-    }, 200);
+    window.addEventListener('message', (event) => {
+      if(event.source === w && event.data.type === 'getProfile') {
+        console.log('received getProfile');
+        w.postMessage({ type: 'loadInitialProfile', profile: SpecularProfiling.getProfile() }, '*');
+      }
+    });
   },
 
   getProfile: prepareProfile,
