@@ -21,6 +21,7 @@ import Specular.FRP (Dynamic, holdDyn, subscribeDyn_)
 import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn_, weaken)
 import Specular.Internal.Effect (Ref, newRef, readRef, writeRef)
+import Specular.Profiling as Profiling
 import Unsafe.Reference (unsafeRefEq)
 
 -- | `dynamicListWithIndex dynArray handler`
@@ -83,7 +84,7 @@ updateList
   -> (Int -> Dynamic a -> m b)     -- ^ item handler
   -> Array a                       -- ^ new array value
   -> Effect (Array b)              -- ^ new resulting array is returned
-updateList latestRef mainSlot handler newArray = do
+updateList latestRef mainSlot handler newArray = Profiling.measure "updateList" do
   latest <- readRef latestRef
   newEntries <- map Array.concat $ flip traverse (Array.range 0 (max (Array.length newArray) (Array.length latest))) $ \i -> do
     case Array.index latest i, Array.index newArray i of

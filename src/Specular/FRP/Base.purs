@@ -386,7 +386,11 @@ latestJust dyn = do
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
 readDynamic :: forall m a. MonadEffect m => Dynamic a -> m a
-readDynamic = pull <<< readBehavior <<< current
+readDynamic (Dynamic n) = liftEffect do
+  mark <- runEffectFn1 Profiling.begin "readDynamic"
+  result <- readNode n
+  runEffectFn1 Profiling.end mark
+  pure result
 
 -- | A "type class alias" for the constraints required by most FRP primitives.
 class (MonadEffect m, MonadCleanup m) <= MonadFRP m
