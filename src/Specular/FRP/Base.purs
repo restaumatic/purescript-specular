@@ -237,18 +237,20 @@ changed_ = changed <<< void
 instance functorDynamic :: Functor Dynamic where
   map f (Dynamic node) = Dynamic $ unsafePerformEffect do
     n <- runEffectFn2 I.map f node
-    runEffectFn2 Node.annotate n "mapDynamic"
+    runEffectFn2 Node.annotate n ("map " <> Node.name node)
     pure n
 
 instance applyDynamic :: Apply Dynamic where
   apply (Dynamic f) (Dynamic x) = Dynamic $ unsafePerformEffect do
     n <- runEffectFn3 I.map2 (mkFn2 ($)) f x
-    runEffectFn2 Node.annotate n "applyDynamic"
+    runEffectFn2 Node.annotate n ("apply (" <> Node.name f <> ") (" <> Node.name x <> ")")
     pure n
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic $ unsafePerformEffect do
-    runEffectFn1 I.constant x
+    n <- runEffectFn1 I.constant x
+    runEffectFn2 Node.annotate n "pure"
+    pure n
 
 
 -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
@@ -265,7 +267,7 @@ foldDyn f initial (Event event) = do
   subscribeNode (\_ -> pure unit) n
   pure (Dynamic n)
 
-effectCrash :: forall t304. String -> t304
+effectCrash :: forall a. String -> a
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
