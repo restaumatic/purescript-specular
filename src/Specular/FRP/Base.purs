@@ -45,6 +45,9 @@ module Specular.FRP.Base (
 
   , traceEventIO
   , traceDynIO
+
+  , annotate
+  , annotated
 ) where
 
 import Prelude
@@ -409,6 +412,14 @@ traceNode handler input = unsafePerformEffect do
   n <- runEffectFn2 I.traceChanges (mkEffectFn1 handler) input
   runEffectFn2 Node.annotate n "trace"
   pure n
+
+annotated :: forall a. String -> Dynamic a -> Dynamic a
+annotated name d@(Dynamic n) = unsafePerformEffect do
+  runEffectFn2 Node.annotate n name
+  pure d
+
+annotate :: forall m a. MonadEffect m => Dynamic a -> String -> m Unit
+annotate d@(Dynamic n) name = liftEffect $ runEffectFn2 Node.annotate n name
 
 --- Lifted instances
 
