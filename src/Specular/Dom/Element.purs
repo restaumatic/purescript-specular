@@ -67,6 +67,7 @@ import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDy
 import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
 import Specular.Ref (Ref(..))
 import Unsafe.Coerce (unsafeCoerce)
+import Specular.Internal.Profiling as Profiling
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
@@ -91,10 +92,12 @@ el tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
 
 initElement :: forall r a. EffectFn4 (BuilderEnv r) Node (Array Prop) (RWidget r a) a
 initElement = mkEffectFn4 \env node props body -> do
+  mark <- runEffectFn1 Profiling.begin "el"
   result <- runEffectFn2 runBuilder' (env { parent = node }) body
   foreachE props \(Prop prop) ->
     runEffectFn2 prop node env.cleanup
   appendChild node env.parent
+  runEffectFn1 Profiling.end mark
   pure result
 
 el_ :: forall r a. TagName -> RWidget r a -> RWidget r a
