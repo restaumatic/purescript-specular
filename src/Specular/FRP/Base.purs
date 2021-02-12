@@ -177,7 +177,10 @@ _subscribeEvent = mkEffectFn2 \handler (Event node) ->
 _subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (Node a) Unsubscribe
 _subscribeNode = mkEffectFn2 \handler node -> do
   let h = mkEffectFn1 \value -> do
-            runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
+            runEffectFn2 Queue.enqueue globalEffectQueue do
+              mark <- runEffectFn1 Profiling.begin ("notify " <> Node.name node)
+              handler value
+              runEffectFn1 Profiling.end mark
   runEffectFn2 I.addObserver node h
   pure (runEffectFn2 I.removeObserver node h)
 
@@ -190,14 +193,19 @@ newEvent = liftEffect do
   pure
     { event: Event (I.readEvent evt)
     , fire: \x -> do
+        name <- runEffectFn1 Node.get_name (I.readEvent evt)
+        mark <- runEffectFn1 Profiling.begin ("fire " <> name)
         runEffectFn2 I.triggerEvent evt x
         stabilize
+        runEffectFn1 Profiling.end mark
     }
 
 stabilize :: Effect Unit
 stabilize = do
+  mark <- runEffectFn1 Profiling.begin "Specular.stabilize"
   I.stabilize
   drainEffects
+  runEffectFn1 Profiling.end mark
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
@@ -287,16 +295,23 @@ newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :
 newDynamic initial = liftEffect do
   var <- runEffectFn1 I.newVar initial
   runEffectFn2 Node.annotate (I.readVar var) "root Dynamic"
+  let dynamic = Dynamic (I.readVar var)
   pure
-    { dynamic: Dynamic (I.readVar var)
-    , read: readNode (I.readVar var)
+    { dynamic
+    , read: readDynamic dynamic
     , set: \x -> do
+        name <- runEffectFn1 Node.get_name (I.readVar var)
+        mark <- runEffectFn1 Profiling.begin ("set " <> name)
         runEffectFn2 I.setVar var x
         stabilize
+        runEffectFn1 Profiling.end mark
     , modify: \f -> do
+        name <- runEffectFn1 Node.get_name (I.readVar var)
+        mark <- runEffectFn1 Profiling.begin ("modify " <> name)
         x <- runEffectFn1 Node.valueExc (I.readVar var)
         runEffectFn2 I.setVar var (f x)
         stabilize
+        runEffectFn1 Profiling.end mark
     }
 
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
