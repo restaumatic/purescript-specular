@@ -22,6 +22,7 @@ import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn_, weaken)
 import Specular.Internal.Effect (Ref, newRef, readRef, writeRef)
 import Unsafe.Reference (unsafeRefEq)
+import Debug.Trace
 
 -- | `dynamicListWithIndex dynArray handler`
 -- | Render a list of items from `dynArray`. Each item will be rendered by `handler`.
@@ -88,7 +89,7 @@ updateList latestRef mainSlot handler newArray = do
   newEntries <- map Array.concat $ flip traverse (Array.range 0 (max (Array.length newArray) (Array.length latest))) $ \i -> do
     case Array.index latest i, Array.index newArray i of
       Just entry, Just x  -> do
-        entry.fire x
+        nextMicrotask $ entry.fire x
         pure []
       Just entry, Nothing -> do
         destroySlot entry.slot
@@ -105,6 +106,8 @@ updateList latestRef mainSlot handler newArray = do
   let newLatest = Array.take (Array.length newArray) $ latest <> newEntries
   writeRef latestRef newLatest
   pure $ map _.result newLatest
+
+foreign import nextMicrotask :: Effect Unit -> Effect Unit
 
 dynamicList :: forall m a b
    . MonadFRP m
@@ -144,7 +147,12 @@ dynamicListWithIndex_ :: forall m a
   => Dynamic (Array a)
   -> (Int -> Dynamic a -> m Unit)
   -> m Unit
-dynamicListWithIndex_ dynArray handler = void $ dynamicListWithIndex dynArray handler
+dynamicListWithIndex_ dynArray handler = do
+  (latestRef :: Ref (Array (ListEntry m a Unit)))
+    <- liftEffect $ newRef []
+
+  mainSlot <- newSlot
+  subscribeDyn_ (void <<< updateList latestRef mainSlot handler) dynArray
 
 dynamicList_ :: forall m a
    . MonadFRP m
@@ -152,4 +160,4 @@ dynamicList_ :: forall m a
   => Dynamic (Array a)
   -> (Dynamic a -> m Unit)
   -> m Unit
-dynamicList_ dynArray handler = void $ dynamicListWithIndex dynArray (\_ -> handler)
+dynamicList_ dynArray handler = dynamicListWithIndex_ dynArray (\_ -> handler)

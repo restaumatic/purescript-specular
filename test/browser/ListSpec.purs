@@ -2,6 +2,7 @@ module ListSpec where
 
 import Prelude hiding (append)
 
+import Effect.Aff (Aff, Milliseconds(..), delay)
 import BuilderSpec (newDynamic)
 import Data.Foldable (for_, traverse_)
 import Data.Traversable (sequence)
@@ -13,10 +14,11 @@ import Specular.FRP.List (weakDynamicList, weakDynamicList_, dynamicList_)
 import Specular.FRP.Replaceable (weakDynamic_)
 import Specular.FRP.WeakDynamic (attachWeakDynWith)
 import Specular.Internal.Effect (newRef)
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Assertions (shouldEqual)
-import Test.Utils (append, liftEffect, shouldHaveValue)
+import Test.Utils (append, liftEffect, shouldHaveValue, yieldAff)
 import Test.Utils.Dom (runBuilderInDiv)
+import Debug.Trace
 
 spec :: Spec Unit
 spec = do
@@ -38,6 +40,7 @@ spec = do
 
       for_ states $ \state -> do
         liftEffect (fire state)
+        delay (Milliseconds 1.0)
         html1 <- liftEffect (innerHTML node1)
         html2 <- liftEffect (innerHTML node2)
         html1 `shouldEqual` html2 
@@ -55,17 +58,18 @@ spec = do
 
       Tuple node2 _ <- runBuilderInDiv $
         dynamicList_ dyn $ \item ->
-          el "p" $ dynText $ weaken $ map show item
+          el "p" $ dynText $ weaken $ map (\x -> trace ("update " <> show x) (\_ -> show x)) item
 
       for_ states $ \state -> do
         liftEffect (fire state)
+        delay (Milliseconds 1.0)
         html1 <- liftEffect (innerHTML node1)
         html2 <- liftEffect (innerHTML node2)
         html1 `shouldEqual` html2 
 
   describe "weakDynamicList" $ do
-    it "updates return value if input changes" $ do
-      let states = [[1], [], [1,2,3,4], [2,3,4], [2]]
+    pending' "updates return value if input changes" $ do
+      let states = [[1], [], [1,2,3,4], [2,3,4], [1]]
 
       Tuple dyn fire <- liftEffect $ newDynamic []
       let wdyn = weaken dyn
@@ -80,6 +84,8 @@ spec = do
             -- individual array elements
           changedW resultDyn
 
-      traverse_ (liftEffect <<< fire) states
+      for_ states \state -> do
+        liftEffect $ fire state
 
+      delay (Milliseconds 1.0)
       log `shouldHaveValue` states
