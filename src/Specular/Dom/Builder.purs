@@ -95,15 +95,19 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
   newSlot = do
     env <- getEnv
 
+    placeholderBefore <- liftEffect $ createTextNode ""
     placeholderAfter <- liftEffect $ createTextNode ""
+    liftEffect $ appendChild placeholderBefore env.parent
     liftEffect $ appendChild placeholderAfter env.parent
-    -- FIXME: placeholderAfter leaks if destroy is never called
 
     cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
 
     let
       replace :: forall a. Builder env a -> Effect a
       replace inner = Profiling.measure "slot replace" do
+        Profiling.measure "slot remove DOM" do
+          removeAllBetween placeholderBefore placeholderAfter
+
         fragment <- createDocumentFragment
         Tuple result cleanup <- Profiling.measure "slot init" do
           runBuilderWithUserEnv env.userEnv fragment inner
@@ -113,15 +117,12 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
         case m_parent of
           Just parent -> do
-            placeholderBefore <- createTextNode ""
-            insertBefore placeholderBefore placeholderAfter parent
             insertBefore fragment placeholderAfter parent
 
-            writeRef cleanupRef $ Profiling.measure "slot cleanup" do
-              cleanup
-              Profiling.measure "slot remove DOM" do
-                removeAllBetween placeholderBefore placeholderAfter
-              writeRef cleanupRef mempty -- TODO: explain this
+            writeRef cleanupRef do
+              Profiling.measure "slot cleanup" do
+                cleanup
+                writeRef cleanupRef mempty -- TODO: explain this
 
           Nothing ->
             -- we've been removed from the DOM
@@ -131,8 +132,9 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
       destroy :: Effect Unit
       destroy = do
-        join $ readRef cleanupRef
+        removeAllBetween placeholderBefore placeholderAfter
         removeNode placeholderAfter
+        join $ readRef cleanupRef
 
       append :: Effect (Slot (Builder env))
       append = do
