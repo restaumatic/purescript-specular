@@ -48,6 +48,8 @@ module Specular.FRP.Base (
 
   , annotate
   , annotated
+
+  , map2
 ) where
 
 import Prelude
@@ -254,6 +256,12 @@ instance applyDynamic :: Apply Dynamic where
     n <- runEffectFn3 I.map2 (mkFn2 ($)) f x
     runEffectFn2 Node.annotate n ("apply (" <> Node.name f <> ") (" <> Node.name x <> ")")
     pure n
+
+map2 :: forall a b c. (a -> b -> c) -> Dynamic a -> Dynamic b -> Dynamic c
+map2 f (Dynamic x) (Dynamic y) = Dynamic $ unsafePerformEffect do
+  n <- runEffectFn3 I.map2 (mkFn2 f) x y
+  runEffectFn2 Node.annotate n ("map2 (" <> Node.name x <> ") (" <> Node.name y <> ")")
+  pure n
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic $ unsafePerformEffect do
