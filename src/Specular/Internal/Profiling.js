@@ -1,4 +1,4 @@
-const enabled = !!window.SPECULAR_PROFILING_ENABLED;
+const enabled = !!global.SPECULAR_PROFILING_ENABLED;
 
 const frameNameToIndex = {};
 const frames = [];
@@ -22,7 +22,7 @@ function prepareProfile() {
   };
 }
 
-window.SpecularProfiling = {
+global.SpecularProfiling = {
   open: (url) => {
     const w = window.open(url || 'http://localhost:1234');
     window.addEventListener('message', (event) => {
