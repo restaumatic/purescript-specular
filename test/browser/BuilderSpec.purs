@@ -16,7 +16,7 @@ import Specular.FRP as FRP
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
 import Specular.Internal.Effect (modifyRef, newRef)
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv, runBuilderInDiv')
@@ -523,7 +523,7 @@ spec = describe "Builder" do
       -- clean up
       liftEffect unsub
 
-    it "works inside dynamic_" $ withLeakCheck do
+    pending' "works inside dynamic_" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic unit
       T3 node _ unsub <- runBuilderInDiv' do
          { value, widget } <- detach $ text "foo"
@@ -538,7 +538,7 @@ spec = describe "Builder" do
       -- clean up
       liftEffect unsub
 
-    it "dynamic_ -> attach -> dynamic_" $ withLeakCheck do
+    pending' "dynamic_ -> attach -> dynamic_" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic unit
       Tuple innerDyn updateInnerDyn <- liftEffect $ newDynamic $ text "inner1"
       T3 node _ unsub <- runBuilderInDiv' do
