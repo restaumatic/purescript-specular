@@ -97,8 +97,11 @@ exports.appendChildImpl = function(newNode) {
 exports.removeAllBetweenImpl = function(from) {
   return function(to) {
     return function() {
-      var node = from;
-      while(node !== to) {
+      if(!from.parentNode) {
+        return;
+      }
+      var node = from.nextSibling;
+      while(node && node !== to) {
         var next = node.nextSibling;
         node.parentNode.removeChild(node);
         node = next;

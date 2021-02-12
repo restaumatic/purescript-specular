@@ -29,6 +29,7 @@ import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
+import Specular.Profiling as Profiling
 
 newtype Builder env a = Builder (RIO (BuilderEnv env) a)
 
@@ -94,31 +95,37 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
   newSlot = do
     env <- getEnv
 
+    placeholderBefore <- liftEffect $ createTextNode ""
     placeholderAfter <- liftEffect $ createTextNode ""
+    liftEffect $ appendChild placeholderBefore env.parent
     liftEffect $ appendChild placeholderAfter env.parent
-    -- FIXME: placeholderAfter leaks if replace is never called
+    -- TODO: remove the nodes on cleanup
+
+    -- FIXME: fix initInBody etc
 
     cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
 
     let
       replace :: forall a. Builder env a -> Effect a
-      replace inner = do
+      replace inner = Profiling.measure "Slot.replace" do
+        Profiling.measure "Slot remove DOM" do
+          removeAllBetween placeholderBefore placeholderAfter
+
         fragment <- createDocumentFragment
-        Tuple result cleanup <- runBuilderWithUserEnv env.userEnv fragment inner
+        Tuple result cleanup <- Profiling.measure "Slot.init" do
+          runBuilderWithUserEnv env.userEnv fragment inner
         join $ readRef cleanupRef
 
         m_parent <- parentNode placeholderAfter
 
         case m_parent of
           Just parent -> do
-            placeholderBefore <- createTextNode ""
-            insertBefore placeholderBefore placeholderAfter parent
             insertBefore fragment placeholderAfter parent
 
-            writeRef cleanupRef $ do
-              cleanup
-              removeAllBetween placeholderBefore placeholderAfter
-              writeRef cleanupRef mempty -- TODO: explain this
+            writeRef cleanupRef do
+              Profiling.measure "Slot.cleanup" do
+                cleanup
+                writeRef cleanupRef mempty -- TODO: explain this
 
           Nothing ->
             -- we've been removed from the DOM
@@ -128,6 +135,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
       destroy :: Effect Unit
       destroy = do
+        removeAllBetween placeholderBefore placeholderAfter -- TODO: inclusive
         join $ readRef cleanupRef
 
       append :: Effect (Slot (Builder env))
