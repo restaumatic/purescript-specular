@@ -67,7 +67,8 @@ import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDy
 import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
 import Specular.Ref (Ref(..))
 import Unsafe.Coerce (unsafeCoerce)
-import Specular.Internal.Profiling as Profiling
+import Specular.Internal.Profiling as ProfilingInternal
+import Specular.Profiling as Profiling
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
@@ -92,12 +93,12 @@ el tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
 
 initElement :: forall r a. EffectFn4 (BuilderEnv r) Node (Array Prop) (RWidget r a) a
 initElement = mkEffectFn4 \env node props body -> do
-  mark <- runEffectFn1 Profiling.begin "el"
+  mark <- runEffectFn1 ProfilingInternal.begin "el"
   result <- runEffectFn2 runBuilder' (env { parent = node }) body
   foreachE props \(Prop prop) ->
     runEffectFn2 prop node env.cleanup
   appendChild node env.parent
-  runEffectFn1 Profiling.end mark
+  runEffectFn1 ProfilingInternal.end mark
   pure result
 
 el_ :: forall r a. TagName -> RWidget r a -> RWidget r a
@@ -194,7 +195,7 @@ attrsUnlessD conditionD attrs' = attrsD $ conditionD <#> if _ then mempty else a
 
 on :: EventType -> Callback DOM.Event -> Prop
 on eventType cb = Prop $ mkEffectFn2 \node cleanups -> do
-  _ <- DOM.addEventListener eventType (triggerCallback cb) node
+  _ <- DOM.addEventListener eventType (\e -> Profiling.measure ("event: " <> eventType) $ triggerCallback cb e) node
   -- Note: we don't actually need to detach the listener when cleaning up -
   -- the node will be removed anyway.
   pure unit
