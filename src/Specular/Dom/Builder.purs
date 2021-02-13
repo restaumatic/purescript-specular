@@ -133,6 +133,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
       destroy :: Effect Unit
       destroy = do
         removeAllBetween placeholderBefore placeholderAfter
+        removeNode placeholderBefore
         removeNode placeholderAfter
         join $ readRef cleanupRef
 

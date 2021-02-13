@@ -9,7 +9,7 @@ import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dyn
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody)
 import Specular.FRP (newDynamic)
-import Test.Spec (Spec, after_, describe, it)
+import Test.Spec (Spec, after_, describe, it, describeOnly)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
 import Specular.Dom.Node.Class (createElement)
@@ -25,6 +25,7 @@ spec =
         Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
 
         liftEffect remove1
+        liftEffect (innerHTML parent) `shouldReturn` ""
         liftEffect (numChildNodes parent) `shouldReturn` 0
 
       it "should remove DOM content from multiple instances" do
@@ -36,6 +37,7 @@ spec =
         liftEffect remove1
         liftEffect (innerHTML parent) `shouldReturn` """<p>widget2</p>"""
         liftEffect remove2
+        liftEffect (innerHTML parent) `shouldReturn` ""
         liftEffect (numChildNodes parent) `shouldReturn` 0
 
     it "builds static DOM" $ withLeakCheck do
