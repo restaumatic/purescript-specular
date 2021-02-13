@@ -325,9 +325,15 @@ holdUniqDynBy eq = foldDynMaybe (\new old -> if eq new old then Nothing else Jus
 -- | value, and the new value is not equal to the previous value with respect to
 -- | the given equality test.
 uniqDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> Dynamic a -> m (Dynamic a)
-uniqDynBy eq dyn = do
-  initialValue <- pull $ readBehavior $ current dyn
-  holdUniqDynBy eq initialValue (changed dyn)
+uniqDynBy eq dyn@(Dynamic node) = do
+  -- HACK: For now we have to observe node to be sure we have the latest value
+  let handler = mkEffectFn1 \_ -> pure unit
+  initialValue <- liftEffect do
+    runEffectFn2 I.addObserver node handler
+    runEffectFn1 Node.valueExc node
+  uniqDyn <- holdUniqDynBy eq initialValue (changed dyn)
+  liftEffect $ runEffectFn2 I.removeObserver node handler
+  pure uniqDyn
 
 uniqDyn :: forall m a. MonadFRP m => Eq a => Dynamic a -> m (Dynamic a)
 uniqDyn = uniqDynBy (==)
