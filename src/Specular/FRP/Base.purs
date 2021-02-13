@@ -45,6 +45,9 @@ module Specular.FRP.Base (
 
   , traceEventIO
   , traceDynIO
+
+  , annotate
+  , annotated
 ) where
 
 import Prelude
@@ -66,6 +69,7 @@ import Specular.Internal.Incremental.Optional as Optional
 import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Queue (Queue)
 import Specular.Internal.Queue as Queue
+import Specular.Internal.Profiling as Profiling
 import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------------------
@@ -184,14 +188,19 @@ newEvent = liftEffect do
   pure
     { event: Event (I.readEvent evt)
     , fire: \x -> do
+        name <- runEffectFn1 Node.get_name (I.readEvent evt)
+        mark <- runEffectFn1 Profiling.begin ("fire " <> name)
         runEffectFn2 I.triggerEvent evt x
         stabilize
+        runEffectFn1 Profiling.end mark
     }
 
 stabilize :: Effect Unit
 stabilize = do
+  mark <- runEffectFn1 Profiling.begin "Specular.stabilize"
   I.stabilize
   drainEffects
+  runEffectFn1 Profiling.end mark
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
@@ -237,18 +246,20 @@ changed_ = changed <<< void
 instance functorDynamic :: Functor Dynamic where
   map f (Dynamic node) = Dynamic $ unsafePerformEffect do
     n <- runEffectFn2 I.map f node
-    runEffectFn2 Node.annotate n "mapDynamic"
+    runEffectFn2 Node.annotate n ("map " <> Node.name node)
     pure n
 
 instance applyDynamic :: Apply Dynamic where
   apply (Dynamic f) (Dynamic x) = Dynamic $ unsafePerformEffect do
     n <- runEffectFn3 I.map2 (mkFn2 ($)) f x
-    runEffectFn2 Node.annotate n "applyDynamic"
+    runEffectFn2 Node.annotate n ("apply (" <> Node.name f <> ") (" <> Node.name x <> ")")
     pure n
 
 instance applicativeDynamic :: Applicative Dynamic where
   pure x = Dynamic $ unsafePerformEffect do
-    runEffectFn1 I.constant x
+    n <- runEffectFn1 I.constant x
+    runEffectFn2 Node.annotate n "pure"
+    pure n
 
 
 -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
@@ -265,7 +276,7 @@ foldDyn f initial (Event event) = do
   subscribeNode (\_ -> pure unit) n
   pure (Dynamic n)
 
-effectCrash :: forall t304. String -> t304
+effectCrash :: forall a. String -> a
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
@@ -273,16 +284,23 @@ newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :
 newDynamic initial = liftEffect do
   var <- runEffectFn1 I.newVar initial
   runEffectFn2 Node.annotate (I.readVar var) "root Dynamic"
+  let dynamic = Dynamic (I.readVar var)
   pure
-    { dynamic: Dynamic (I.readVar var)
-    , read: readNode (I.readVar var)
+    { dynamic
+    , read: readDynamic dynamic
     , set: \x -> do
+        name <- runEffectFn1 Node.get_name (I.readVar var)
+        mark <- runEffectFn1 Profiling.begin ("set " <> name)
         runEffectFn2 I.setVar var x
         stabilize
+        runEffectFn1 Profiling.end mark
     , modify: \f -> do
+        name <- runEffectFn1 Node.get_name (I.readVar var)
+        mark <- runEffectFn1 Profiling.begin ("modify " <> name)
         x <- runEffectFn1 Node.valueExc (I.readVar var)
         runEffectFn2 I.setVar var (f x)
         stabilize
+        runEffectFn1 Profiling.end mark
     }
 
 -- | Like `foldDyn`, but the Dynamic will not update if the folding function
@@ -384,7 +402,11 @@ latestJust dyn = do
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
 readDynamic :: forall m a. MonadEffect m => Dynamic a -> m a
-readDynamic = pull <<< readBehavior <<< current
+readDynamic (Dynamic n) = liftEffect do
+  mark <- runEffectFn1 Profiling.begin "readDynamic"
+  result <- readNode n
+  runEffectFn1 Profiling.end mark
+  pure result
 
 -- | A "type class alias" for the constraints required by most FRP primitives.
 class (MonadEffect m, MonadCleanup m) <= MonadFRP m
@@ -403,6 +425,14 @@ traceNode handler input = unsafePerformEffect do
   n <- runEffectFn2 I.traceChanges (mkEffectFn1 handler) input
   runEffectFn2 Node.annotate n "trace"
   pure n
+
+annotated :: forall a. String -> Dynamic a -> Dynamic a
+annotated name d@(Dynamic n) = unsafePerformEffect do
+  runEffectFn2 Node.annotate n name
+  pure d
+
+annotate :: forall m a. MonadEffect m => Dynamic a -> String -> m Unit
+annotate d@(Dynamic n) name = liftEffect $ runEffectFn2 Node.annotate n name
 
 --- Lifted instances
 

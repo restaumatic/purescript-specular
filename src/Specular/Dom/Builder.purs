@@ -29,6 +29,7 @@ import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
+import Specular.Profiling as Profiling
 
 newtype Builder env a = Builder (RIO (BuilderEnv env) a)
 
@@ -102,9 +103,10 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
     let
       replace :: forall a. Builder env a -> Effect a
-      replace inner = do
+      replace inner = Profiling.measure "slot replace" do
         fragment <- createDocumentFragment
-        Tuple result cleanup <- runBuilderWithUserEnv env.userEnv fragment inner
+        Tuple result cleanup <- Profiling.measure "slot init" do
+          runBuilderWithUserEnv env.userEnv fragment inner
         join $ readRef cleanupRef
 
         m_parent <- parentNode placeholderAfter
@@ -115,9 +117,10 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
             insertBefore placeholderBefore placeholderAfter parent
             insertBefore fragment placeholderAfter parent
 
-            writeRef cleanupRef $ do
+            writeRef cleanupRef $ Profiling.measure "slot cleanup" do
               cleanup
-              removeAllBetween placeholderBefore placeholderAfter
+              Profiling.measure "slot remove DOM" do
+                removeAllBetween placeholderBefore placeholderAfter
               writeRef cleanupRef mempty -- TODO: explain this
 
           Nothing ->
