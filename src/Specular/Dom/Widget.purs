@@ -5,6 +5,8 @@ module Specular.Dom.Widget (
   , runWidgetInBody
   , runMainWidgetInNode
   , runMainWidgetInBody
+  , spawnWidgetInNode
+  , spawnWidgetInBody
 
   , class MonadWidget
 
@@ -14,9 +16,9 @@ module Specular.Dom.Widget (
 
 import Prelude
 
-import Data.Tuple (Tuple, fst)
+import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
-import Effect.Class (liftEffect)
+import Effect.Class (liftEffect, class MonadEffect)
 import Effect.Uncurried (mkEffectFn1, runEffectFn1)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
@@ -24,7 +26,7 @@ import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, lif
 import Specular.FRP (class MonadFRP)
 import Specular.Internal.RIO (RIO(..))
 import Control.Monad.Replace (class MonadReplace, newSlot, replaceSlot, destroySlot)
-import Control.Monad.Cleanup (onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 
 type Widget = RWidget Unit
 
@@ -52,6 +54,19 @@ runMainWidgetInBody :: forall a. Widget a -> Effect a
 runMainWidgetInBody widget = do
   body <- documentBody
   runMainWidgetInNode body widget
+
+-- | Runs a widget in the specified parent element. The widget is destroyed and removed from DOM on cleanup.
+spawnWidgetInNode :: forall m a. MonadEffect m => MonadCleanup m => Node -> Widget a -> m a
+spawnWidgetInNode node widget = do
+  Tuple result cleanup <- liftEffect $ runWidgetInNode node widget
+  onCleanup cleanup
+  pure result
+
+-- | Runs a widget in `document.body`. The widget is destroyed and removed from DOM on cleanup.
+spawnWidgetInBody :: forall m a. MonadEffect m => MonadCleanup m => Widget a -> m a
+spawnWidgetInBody widget = do
+  body <- liftEffect documentBody
+  spawnWidgetInNode body widget
 
 foreign import documentBody :: Effect Node
 
