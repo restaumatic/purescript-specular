@@ -93,16 +93,3 @@ instance monadDomBuilderReaderT :: MonadDomBuilder m => MonadDomBuilder (ReaderT
     liftBuilderWithRun (mkEffectFn2 \benv run ->
       runEffectFn2 fn benv (mkEffectFn2 \benv' m ->
         runEffectFn2 run benv' (runReaderT m e)))
-
-class MonadDetach m where
-  -- | Initialize a widget without displaying it immediately.
-  -- | Returns the `value` and a monadic action (`widget`) to display the widget.
-  -- |
-  -- | When the `widget` computation is executed twice, the widget should only
-  -- | appear in the latest place it is displayed.
-  detach :: forall a. Warn (Text "`detach` is deprecated, and will be removed") => m a -> m { value :: a, widget :: m Unit }
-
-instance monadDetachReaderT :: (Monad m, MonadDetach m) => MonadDetach (ReaderT r m) where
-  detach inner = ReaderT $ \env -> do
-    { value, widget } <- detach $ runReaderT inner env
-    pure { value, widget: lift widget }
