@@ -109,15 +109,17 @@ spec = describe "Builder" do
     it "nested, same Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
       T3 node result unsub <- runBuilderInDiv' do
-         dynamic_ $ dyn $> dynamic_ dyn
+         dynamic_ $ dyn <#> \d -> do
+           d
+           dynamic_ dyn
 
       liftEffect (innerHTML node) `shouldReturn`
-        """foo"""
+        """foofoo"""
 
       liftEffect $ updateDyn $ text "bar"
 
       liftEffect (innerHTML node) `shouldReturn`
-        """bar"""
+        """barbar"""
 
       -- clean up
       liftEffect unsub
