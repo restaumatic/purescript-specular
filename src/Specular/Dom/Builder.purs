@@ -24,7 +24,7 @@ import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEff
 import Foreign.Object as SM
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder)
-import Specular.Dom.Node.Class (appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText)
+import Specular.Dom.Browser (appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
@@ -97,7 +97,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
     placeholderAfter <- liftEffect $ createTextNode ""
     liftEffect $ appendChild placeholderAfter env.parent
-    -- FIXME: placeholderAfter leaks if replace is never called
+    -- FIXME: placeholderAfter leaks if destroy is never called
 
     cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
 
@@ -132,6 +132,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
       destroy :: Effect Unit
       destroy = do
         join $ readRef cleanupRef
+        removeNode placeholderAfter
 
       append :: Effect (Slot (Builder env))
       append = do

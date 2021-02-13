@@ -31,3 +31,11 @@ exports.setInputValueWithChange = function(value) {
     };
   };
 };
+
+
+// numChildNodes :: Node -> Effect Int
+exports.numChildNodes = function(node) {
+  return function() {
+    return node.childNodes.length;
+  };
+};

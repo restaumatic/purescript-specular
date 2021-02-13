@@ -183,3 +183,12 @@ exports.preventDefault = function (event) {
     return event.preventDefault();
   }
 };
+
+// removeNode :: Node -> Effect Unit
+exports.removeNode = function(node) {
+  return function() {
+    if(node.parentNode) {
+      node.parentNode.removeChild(node);
+    }
+  };
+};

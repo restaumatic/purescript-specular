@@ -92,6 +92,9 @@ removeAllBetween = removeAllBetweenImpl
 moveAllBetweenInclusive :: Node -> Node -> Node -> Effect Unit
 moveAllBetweenInclusive = moveAllBetweenInclusiveImpl
 
+-- | Remove node from its parent node. No-op when the node has no parent.
+foreign import removeNode :: Node -> Effect Unit
+
 foreign import createTextNodeImpl :: String -> Effect Node
 foreign import setTextImpl :: Node -> String -> Effect Unit
 foreign import createDocumentFragmentImpl :: Effect Node

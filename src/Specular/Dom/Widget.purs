@@ -2,6 +2,7 @@ module Specular.Dom.Widget (
     Widget
   , RWidget
   , runWidgetInNode
+  , runWidgetInBody
   , runMainWidgetInNode
   , runMainWidgetInBody
 
@@ -13,15 +14,17 @@ module Specular.Dom.Widget (
 
 import Prelude
 
-import Control.Monad.Replace (class MonadReplace)
 import Data.Tuple (Tuple, fst)
 import Effect (Effect)
+import Effect.Class (liftEffect)
 import Effect.Uncurried (mkEffectFn1, runEffectFn1)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
 import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, liftBuilder)
 import Specular.FRP (class MonadFRP)
 import Specular.Internal.RIO (RIO(..))
+import Control.Monad.Replace (class MonadReplace, newSlot, replaceSlot, destroySlot)
+import Control.Monad.Cleanup (onCleanup)
 
 type Widget = RWidget Unit
 
@@ -29,7 +32,16 @@ type RWidget = Builder
 
 -- | Runs a widget in the specified parent element. Returns the result and cleanup action.
 runWidgetInNode :: forall a. Node -> Widget a -> Effect (Tuple a (Effect Unit))
-runWidgetInNode parent widget = runBuilder parent widget
+runWidgetInNode parent widget = runBuilder parent do
+  slot <- newSlot
+  onCleanup (destroySlot slot)
+  liftEffect $ replaceSlot slot widget
+
+-- | Runs a widget `document.body`. Returns the result and cleanup action.
+runWidgetInBody :: forall a. Widget a -> Effect (Tuple a (Effect Unit))
+runWidgetInBody widget = do
+  body <- documentBody
+  runWidgetInNode body widget
 
 -- | Runs a widget in the specified parent element and discards cleanup action.
 runMainWidgetInNode :: forall a. Node -> Widget a -> Effect a
