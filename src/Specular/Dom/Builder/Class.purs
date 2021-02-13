@@ -16,6 +16,7 @@ import Specular.Dom.Browser as DOM
 import Specular.FRP (class MonadFRP, WeakDynamic, newEvent, weakDynamic_)
 import Specular.FRP as FRP
 import Specular.Internal.Effect (DelayedEffects)
+import Prim.TypeError (class Warn, Text)
 
 type BuilderEnv env =
   { parent :: Node
@@ -99,7 +100,7 @@ class MonadDetach m where
   -- |
   -- | When the `widget` computation is executed twice, the widget should only
   -- | appear in the latest place it is displayed.
-  detach :: forall a. m a -> m { value :: a, widget :: m Unit }
+  detach :: forall a. Warn (Text "`detach` is deprecated, and will be removed") => m a -> m { value :: a, widget :: m Unit }
 
 instance monadDetachReaderT :: (Monad m, MonadDetach m) => MonadDetach (ReaderT r m) where
   detach inner = ReaderT $ \env -> do
