@@ -11,12 +11,33 @@ import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody)
 import Specular.FRP (newDynamic)
 import Test.Spec (Spec, after_, describe, it)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
-import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv')
+import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
+import Specular.Dom.Node.Class (createElement)
+import Specular.Dom.Widget (runWidgetInNode)
 
 spec :: Spec Unit
 spec =
   after_ (liftEffect clearDocument) $
   describe "New Builder (Specular.Dom.Element)" do
+    describe "runWidgetInNode" do
+      it "runWidgetInNode should remove DOM content on cleanup" do
+        parent <- liftEffect $ createElement "div"
+        Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
+
+        liftEffect remove1
+        liftEffect (numChildNodes parent) `shouldReturn` 0
+
+      it "should remove DOM content from multiple instances" do
+        parent <- liftEffect $ createElement "div"
+        Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
+        Tuple _ remove2 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget2"
+
+        liftEffect (innerHTML parent) `shouldReturn` """<p>widget1</p><p>widget2</p>"""
+        liftEffect remove1
+        liftEffect (innerHTML parent) `shouldReturn` """<p>widget2</p>"""
+        liftEffect remove2
+        liftEffect (numChildNodes parent) `shouldReturn` 0
+
     it "builds static DOM" $ withLeakCheck do
       Tuple node result <- runBuilderInDiv do
          el "div" [attrs ("class" := "content")] do

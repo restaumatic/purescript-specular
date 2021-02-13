@@ -37,3 +37,5 @@ foreign import setInputValueWithChange :: String -> Node -> Effect Unit
 
 dispatchTrivialEvent :: Node -> EventType -> Effect Unit
 dispatchTrivialEvent node eventType = dispatchEvent node eventType (unsafeToForeign {})
+
+foreign import numChildNodes :: Node -> Effect Int
