@@ -7,7 +7,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Builder.Class (detach, domEventWithSample, el, elAttr, elDynAttr, elDynAttr', elDynAttrNS', rawHtml, text)
+import Specular.Dom.Builder.Class (domEventWithSample, el, elAttr, elDynAttr, elDynAttr', elDynAttrNS', rawHtml, text)
 import Specular.Dom.Element (dynText)
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widgets.Button (buttonOnClick)
@@ -109,15 +109,17 @@ spec = describe "Builder" do
     it "nested, same Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
       T3 node result unsub <- runBuilderInDiv' do
-         dynamic_ $ dyn $> dynamic_ dyn
+         dynamic_ $ dyn <#> \d -> do
+           d
+           dynamic_ dyn
 
       liftEffect (innerHTML node) `shouldReturn`
-        """foo"""
+        """foofoo"""
 
       liftEffect $ updateDyn $ text "bar"
 
       liftEffect (innerHTML node) `shouldReturn`
-        """bar"""
+        """barbar"""
 
       -- clean up
       liftEffect unsub
@@ -492,72 +494,6 @@ spec = describe "Builder" do
       -- clean up
       liftEffect unsub1
       liftEffect unsub2
-
-  describe "detach" do
-    it "simple case" $ withLeakCheck do
-      T3 node result unsub <- runBuilderInDiv' do
-         { value, widget } <- detach $ text "foo" *> pure 7
-         text "bar"
-         widget
-         pure value
-
-      result `shouldEqual` 7
-
-      liftEffect (innerHTML node) `shouldReturn`
-        """barfoo"""
-
-      -- clean up
-      liftEffect unsub
-
-    it "double use" $ withLeakCheck do
-      T3 node _ unsub <- runBuilderInDiv' do
-         { widget } <- detach $ text "foo"
-         text "bar"
-         widget
-         text "baz"
-         widget
-
-      liftEffect (innerHTML node) `shouldReturn`
-        """barbazfoo"""
-
-      -- clean up
-      liftEffect unsub
-
-    it "works inside dynamic_" $ withLeakCheck do
-      Tuple dyn updateDyn <- liftEffect $ newDynamic unit
-      T3 node _ unsub <- runBuilderInDiv' do
-         { value, widget } <- detach $ text "foo"
-         dynamic_ $ map (\_ -> widget) dyn
-
-      liftEffect (innerHTML node) `shouldReturn` """foo"""
-
-      liftEffect $ updateDyn unit
-
-      liftEffect (innerHTML node) `shouldReturn` """foo"""
-
-      -- clean up
-      liftEffect unsub
-
-    it "dynamic_ -> attach -> dynamic_" $ withLeakCheck do
-      Tuple dyn updateDyn <- liftEffect $ newDynamic unit
-      Tuple innerDyn updateInnerDyn <- liftEffect $ newDynamic $ text "inner1"
-      T3 node _ unsub <- runBuilderInDiv' do
-         { value, widget } <- detach $ dynamic_ innerDyn
-         dynamic_ $ map (\_ -> widget) dyn
-
-      liftEffect (innerHTML node) `shouldReturn` """inner1"""
-
-      liftEffect $ updateInnerDyn $ text "inner2"
-      liftEffect (innerHTML node) `shouldReturn` """inner2"""
-
-      liftEffect $ updateDyn unit
-      liftEffect (innerHTML node) `shouldReturn` """inner2"""
-
-      liftEffect $ updateInnerDyn $ text "inner3"
-      liftEffect (innerHTML node) `shouldReturn` """inner3"""
-
-      -- clean up
-      liftEffect unsub
 
   it "supports element namespaces" $ withLeakCheck do
     let xmlns = "http://www.w3.org/2000/svg"

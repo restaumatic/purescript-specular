@@ -22,7 +22,7 @@ import Effect.Class (liftEffect, class MonadEffect)
 import Effect.Uncurried (mkEffectFn1, runEffectFn1)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder (Builder, runBuilder, unBuilder)
-import Specular.Dom.Builder.Class (class MonadDetach, class MonadDomBuilder, liftBuilder)
+import Specular.Dom.Builder.Class (class MonadDomBuilder, liftBuilder)
 import Specular.FRP (class MonadFRP)
 import Specular.Internal.RIO (RIO(..))
 import Control.Monad.Replace (class MonadReplace, newSlot, replaceSlot, destroySlot)
@@ -71,8 +71,8 @@ spawnWidgetInBody widget = do
 foreign import documentBody :: Effect Node
 
 -- A handy alias for all the constraints you'll need
-class (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) <= MonadWidget m
-instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, MonadDetach m, Monoid (m Unit)) => MonadWidget m
+class (MonadDomBuilder m, MonadFRP m, MonadReplace m, Monoid (m Unit)) <= MonadWidget m
+instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, Monoid (m Unit)) => MonadWidget m
 
 -- | Lift a `Widget` into any `MonadWidget` monad.
 liftWidget :: forall m a. MonadDomBuilder m => Widget a -> m a

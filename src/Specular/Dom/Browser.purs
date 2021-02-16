@@ -74,8 +74,8 @@ appendRawHtml = appendRawHtmlImpl
 
 -- | `removeAllBetween from to`
 -- |
--- | Remove `from` and all nodes after `from` and before `to` from their
--- | parent. `to` is not removed.
+-- | Remove all nodes after `from` and before `to` from their
+-- | parent. `from` and `to` are not removed.
 -- |
 -- | Assumes that `from` and `to` have the same parent,
 -- | and `from` is before `to`.
