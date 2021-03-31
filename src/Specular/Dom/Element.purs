@@ -54,7 +54,7 @@ import Data.Tuple (Tuple(..))
 import Effect (foreachE)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn3, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Foreign.Object as Object
-import Specular.Callback (Callback, mkCallback, triggerCallback)
+import Specular.Callback (Callback)
 import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode, setText, (:=))
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder (mkBuilder', runBuilder')
@@ -195,7 +195,7 @@ attrsUnlessD conditionD attrs' = attrsD $ conditionD <#> if _ then mempty else a
 
 on :: EventType -> Callback DOM.Event -> Prop
 on eventType cb = Prop $ mkEffectFn2 \node cleanups -> do
-  _ <- DOM.addEventListener eventType (\e -> Profiling.measure ("event: " <> eventType) $ triggerCallback cb e) node
+  _ <- DOM.addEventListener eventType (\e -> Profiling.measure ("event: " <> eventType) $ cb e) node
   -- Note: we don't actually need to detach the listener when cleaning up -
   -- the node will be removed anyway.
   pure unit
@@ -204,13 +204,13 @@ onClick :: Callback DOM.Event -> Prop
 onClick cb = on "click" cb
 
 onClick_ :: Callback Unit -> Prop
-onClick_ = onClick <<< cmap (\_ -> unit)
+onClick_ cb = onClick $ \_ -> cb unit
 
 preventDefault :: Callback DOM.Event
-preventDefault = mkCallback DOM.preventDefault
+preventDefault = DOM.preventDefault
 
 stopPropagation :: Callback DOM.Event
-stopPropagation = mkCallback (runEffectFn1 _stopPropagation)
+stopPropagation = runEffectFn1 _stopPropagation
 
 foreign import _stopPropagation :: EffectFn1 DOM.Event Unit
 
@@ -232,7 +232,7 @@ valueD dyn = Prop $ mkEffectFn2 \node cleanups ->
 -- | Only works on input elements.
 bindValueOnChange :: Ref String -> Prop
 bindValueOnChange (Ref val update) =
-  valueD val <> on "change" (withTargetValue (const >$< update))
+  valueD val <> on "change" (withTargetValue (const >>> update))
 
 -- | Set up a two-way binding between the `value` of an `<input>` element,
 -- | and the given `Ref`.
@@ -242,12 +242,12 @@ bindValueOnChange (Ref val update) =
 -- | Only works on input elements.
 bindValueOnInput :: Ref String -> Prop
 bindValueOnInput (Ref val update) =
-  valueD val <> on "input" (withTargetValue (const >$< update))
+  valueD val <> on "input" (withTargetValue (const >>> update))
 
 withTargetValue :: Callback String -> Callback DOM.Event
-withTargetValue cb = mkCallback \event -> do
+withTargetValue cb = \event -> do
   value <- getTextInputValue (unsafeEventTarget event)
-  triggerCallback cb value
+  cb value
 
 unsafeEventTarget :: DOM.Event -> Node
 unsafeEventTarget e = (unsafeCoerce e).target
@@ -266,12 +266,12 @@ checkedD dyn = Prop $ mkEffectFn2 \node cleanups ->
 -- | Only works on input `type="checkbox"` and `type="radio"` elements.
 bindChecked :: Ref Boolean -> Prop
 bindChecked (Ref val update) =
-  checkedD val <> on "change" (withTargetChecked (const >$< update))
+  checkedD val <> on "change" (withTargetChecked (const >>> update))
 
 withTargetChecked :: Callback Boolean -> Callback DOM.Event
-withTargetChecked cb = mkCallback \event -> do
+withTargetChecked cb = \event -> do
   value <- getCheckboxChecked (unsafeEventTarget event)
-  triggerCallback cb value
+  cb value
 
 -- * CSS classes
 

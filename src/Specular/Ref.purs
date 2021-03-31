@@ -26,12 +26,11 @@ module Specular.Ref
 import Prelude
 
 import Control.Apply (lift2)
-import Data.Functor.Contravariant (cmap, (>$<))
 import Data.Functor.Invariant (class Invariant)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
-import Specular.Callback (Callback, attachEvent, contramapCallbackDyn, mkCallback, nullCallback, triggerCallback)
+import Specular.Callback (Callback, attachEvent, contramapCallbackDyn, nullCallback)
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, subscribeEvent_, weaken)
 
@@ -39,7 +38,7 @@ import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDy
 data Ref a = Ref (Dynamic a) (Callback (a -> a))
 
 instance invariantRef :: Invariant Ref where
-  imap f g (Ref v update) = Ref (f <$> v) (cmap (\h -> g <<< h <<< f) update)
+  imap f g (Ref v update) = Ref (f <$> v) ((\h -> g <<< h <<< f) >>> update)
 
 -- | Old name for `new`.
 newRef :: forall m a. MonadEffect m => a -> m (Ref a)
@@ -49,13 +48,13 @@ newRef = new
 new :: forall m a. MonadEffect m => a -> m (Ref a)
 new initial = do
   {dynamic, modify} <- newDynamic initial
-  pure $ Ref dynamic (mkCallback modify)
+  pure $ Ref dynamic modify
 
 newRefWithEvent :: forall m a. MonadFRP m => a -> Event (a -> a) -> m (Ref a)
 newRefWithEvent initial extraUpdate = do
   {dynamic, modify} <- newDynamic initial
   subscribeEvent_ modify extraUpdate
-  pure $ Ref dynamic (mkCallback modify)
+  pure $ Ref dynamic modify
 
 -- | Old name for `value`
 refValue :: forall a. Ref a -> Dynamic a
@@ -79,7 +78,7 @@ refUpdateConst = set
 
 -- | A Callback to overwrite value of this Ref.
 set :: forall a. Ref a -> Callback a
-set = cmap (\new _old -> new) <<< refUpdate
+set r = (\new _old -> new) >>> modify r
 
 type Lens s a = { get :: s -> a, set :: s -> a -> s }
 type Prism s a = { preview :: s -> Maybe a, review :: a -> s }
@@ -97,25 +96,25 @@ pureFocusRef :: forall s a. Lens s a -> Ref s -> Ref a
 pureFocusRef lens (Ref value update) =
   Ref
     (map lens.get value)
-    (cmap
+    (
       (\modify_a s ->
         lens.set s (modify_a (lens.get s)))
-      update)
+      >>> update)
 
 previewRef :: forall s a. Prism s a -> Ref s -> Ref (Maybe a)
 previewRef prism (Ref value update) =
   Ref
     (map prism.preview value)
-    (cmap
+    (
       (\modify_a s ->
           case (modify_a <<< prism.preview) s of
             (Just a) -> prism.review a
             _ -> s
-      ) update)
+      ) >>> update)
 
 
 updateRef :: forall a. Ref a -> a -> Effect Unit
-updateRef (Ref _ update) = triggerCallback update <<< const
+updateRef (Ref _ update) = update <<< const
 
 readRef :: forall m a. MonadEffect m => Ref a -> m a
 readRef (Ref value update) = pull $ readBehavior $ current value
@@ -127,7 +126,7 @@ wrapViewWidget
   -> Ref a -> m Unit
 wrapViewWidget widget (Ref value update) = do
   updateE <- widget (weaken value)
-  attachEvent updateE $ const >$< update
+  attachEvent updateE $ update <<< const
 
 constRef :: forall a. a -> Ref a
 constRef x = Ref (pure x) nullCallback

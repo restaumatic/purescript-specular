@@ -1,9 +1,6 @@
 module Specular.Callback
   ( Callback
-  , mkCallback
   , newCallback
-
-  , triggerCallback
   , attachEvent
   , attachDomEvent
   , attachDyn
@@ -34,59 +31,46 @@ import Specular.FRP (class MonadFRP, Dynamic, Event, current, newEvent, pull, re
 -- | Can be thought of as "inverse of `Event`".
 -- |
 -- | The `Contravariant` instance can be used to map over the payload.
-newtype Callback a = Callback (a -> Effect Unit)
+type Callback a = (a -> Effect Unit)
 
-instance contravariantCallback :: Contravariant Callback where
-  cmap f (Callback cb) = Callback (cb <<< f)
-
-instance semigroupCallback :: Semigroup (Callback a) where
-  append (Callback a) (Callback b) = Callback (\x -> a x *> b x)
-
-instance monoidCallback :: Monoid (Callback a) where
-  mempty = nullCallback
 
 -- | Map over the callback payload using a `Dynamic` function.
 -- | The Dynamic value will be read at callback trigger time.
 contramapCallbackDyn :: forall a b. Dynamic (b -> a) -> Callback a -> Callback b
-contramapCallbackDyn fD (Callback cb) = Callback \x -> do
+contramapCallbackDyn fD cb = \x -> do
   f <- readDynamic fD
   cb (f x)
 
 contramapCallbackDyn_ :: forall a b. Dynamic a -> Callback a -> Callback b
-contramapCallbackDyn_ fD (Callback cb) = Callback \_ -> do
+contramapCallbackDyn_ fD cb = \_ -> do
   f <- readDynamic fD
   cb f
 
 -- | Map over the callback payload using a `Dynamic` function. If it returns Nothing, the callback will not be triggered.
 -- | The Dynamic value will be read at callback trigger time.
 contramapCallbackDynMaybe :: forall a b. Dynamic (b -> Maybe a) -> Callback a -> Callback b
-contramapCallbackDynMaybe fD (Callback cb) = Callback \x -> do
+contramapCallbackDynMaybe fD cb = \x -> do
   f <- readDynamic fD
   traverse_ cb (f x)
 
 -- | Map over the callback payload using an effectful function.
 -- | The effect will be executed at callback trigger time.
 contramapCallbackEffect :: forall a b. (b -> Effect a) -> Callback a -> Callback b
-contramapCallbackEffect f (Callback cb) = Callback (f >=> cb)
+contramapCallbackEffect f cb = (f >=> cb)
 
-mkCallback :: forall a. (a -> Effect Unit) -> Callback a
-mkCallback = Callback
 
 -- | Create a new (`Event`, `Callback`) pair.
 -- | Firing the callback will cause the event to occur.
 newCallback :: forall m a. MonadEffect m => m { event :: Event a, callback :: Callback a }
-newCallback = map (\{event,fire} -> {event, callback: Callback fire}) newEvent
+newCallback = map (\{event,fire} -> {event, callback: fire}) newEvent
 
--- | Trigger the action in Effect.
-triggerCallback :: forall a. Callback a -> a -> Effect Unit
-triggerCallback (Callback cb) = cb
 
 -- | Triger the action each time a given `Event` fires.
 attachEvent :: forall m a. MonadFRP m => Event a -> Callback a -> m Unit
-attachEvent event (Callback cb) = subscribeEvent_ cb event
+attachEvent event cb = subscribeEvent_ cb event
 
 attachDyn :: forall m a. MonadFRP m => Dynamic a -> Callback a -> m Unit
-attachDyn dyn (Callback cb) = subscribeDyn_ cb dyn
+attachDyn dyn cb = subscribeDyn_ cb dyn
 
 -- | Trigger a callback each time a DOM event fires.
 -- | The payload will be the DOM event. It is advised to `cmap` it to a nicer type.
@@ -97,12 +81,12 @@ attachDomEvent eventType node callback = do
 
 -- | A Callback that just ignores the input values.
 nullCallback :: forall a. Callback a
-nullCallback = Callback (\_ -> pure unit)
+nullCallback = \_ -> pure unit
 
 dynCallback :: forall a. Dynamic (Callback a) -> Callback a
-dynCallback dynCb = Callback \x -> do
+dynCallback dynCb = \x -> do
   cb <- readDynamic dynCb
-  triggerCallback cb x
+  cb x
 
 mbCallback :: forall a. Callback a -> Callback (Maybe a)
-mbCallback (Callback cb) = Callback $ traverse_ cb
+mbCallback = traverse_
