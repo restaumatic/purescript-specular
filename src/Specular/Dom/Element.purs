@@ -48,7 +48,6 @@ module Specular.Dom.Element
 import Prelude
 
 import Data.Array as Array
-import Data.Functor.Contravariant (cmap, (>$<))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (foreachE)

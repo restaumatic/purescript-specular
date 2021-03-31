@@ -17,7 +17,6 @@ module Specular.Callback
 import Prelude
 
 import Data.Foldable (traverse_)
-import Data.Functor.Contravariant (class Contravariant)
 import Data.Maybe (Maybe)
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
@@ -25,12 +24,11 @@ import Specular.Dom.Browser (Node)
 import Specular.Dom.Browser as SpecularDom
 import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Node.Class (EventType)
-import Specular.FRP (class MonadFRP, Dynamic, Event, current, newEvent, pull, readBehavior, readDynamic, subscribeDyn_, subscribeEvent_)
+import Specular.FRP (class MonadFRP, Dynamic, Event, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
 
 -- | A handle that lets the owner trigger some action with payload of type `a`.
 -- | Can be thought of as "inverse of `Event`".
 -- |
--- | The `Contravariant` instance can be used to map over the payload.
 type Callback a = (a -> Effect Unit)
 
 
