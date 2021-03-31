@@ -50,7 +50,7 @@ import Prelude
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Effect (foreachE)
+import Effect (foreachE, Effect)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn3, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Foreign.Object as Object
 import Specular.Callback (Callback)
@@ -202,8 +202,8 @@ on eventType cb = Prop $ mkEffectFn2 \node cleanups -> do
 onClick :: Callback DOM.Event -> Prop
 onClick cb = on "click" cb
 
-onClick_ :: Callback Unit -> Prop
-onClick_ cb = onClick $ \_ -> cb unit
+onClick_ :: Effect Unit -> Prop
+onClick_ cb = onClick $ \_ -> cb
 
 preventDefault :: Callback DOM.Event
 preventDefault = DOM.preventDefault
