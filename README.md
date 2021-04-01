@@ -40,7 +40,8 @@ which :: Dynamic Bool
 (which >>= if _ then d1 else d2) :: Dynamic Int
 ```
 
-We can introduce new Dynamics using `newDynamic`:
+We can introduce new Dynamics using `newDynamic`, this is only required for top level components/widgets. Root dynamics
+will be replaced by [Refs](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref) in the future, since they are almost the same.
 
 ```purescript
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
@@ -85,11 +86,24 @@ subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect U
 #### [Callback](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Callback#t:Callback)
 
 `Callback a` represents an action handler which consumes a value of type `a`. Think of it as `a -> Effect Unit`.
+This represenation is likely to change in the future to `a -> Effect Unit`.
 
 ```purescript
 -- | Trigger the action in Effect.
 triggerCallback :: forall a. Callback a -> a -> Effect Unit
 ```
+
+The DOM API that Specular exposes accepts callbacks, please also have a look at `Ref` bellow.
+
+```purescript
+-- | Create a button that triggers `removeTask` callback
+el "button" [class_ "close", attrs ("type":="button" ), onClick_ $ removeTask task ] do
+  text "Remove"
+
+-- | Define a callback which modifies the content of `tasks` `Ref` by filtering out a task with a given id
+let removeTask task = mkCallback \_ ->  triggerCallback (Ref.modify tasks) (filter $ \c -> c.id /= task.id)
+```
+
 
 #### [Ref](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref)
 
@@ -112,6 +126,8 @@ newRef :: forall m a. MonadEffect m => a -> m (Ref a)
 ```
 
 `Ref` is not a `Functor`, because it's read-write. It's `Invariant`, that is, it can be mapped over using a bijection.
+
+This API will also likely change in the future, so that our interface resembles a [Ref](https://pursuit.purescript.org/packages/purescript-refs/5.0.0/docs/Effect.Ref#t:Ref)
 
 ### Building DOM content
 
@@ -283,6 +299,97 @@ Example:
 el "button" [attr "type" "button", onClick_ save] do
   text "Save"
 ```
+
+For inputs we have predefined props that make `change` and `input` events handling easier (available in [Specular.Dom.Element](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Element))
+
+```purescript
+-- * Input value
+-- | Attach dynamically-changing `value` property to an input element.
+-- | The value can still be changed by user interaction.
+-- |
+-- | Only works on `<input>` and `<select>` elements.
+valueD :: Dynamic String -> Prop
+
+-- | Set up a two-way binding between the `value` of an `<input>` element,
+-- | and the given `Ref`.
+-- |
+-- | The `Ref` will be updated on `change` event, i.e. at the end of user inteaction, not on every keystroke.
+-- |
+-- | Only works on input elements.
+bindValueOnChange :: Ref String -> Prop
+
+
+-- | Attach dynamically-changing `checked` property to an input element.
+-- | The value can still be changed by user interaction.
+-- |
+-- | Only works on input `type="checkbox"` and `type="radio"` elements.
+checkedD :: Dynamic Boolean -> Prop
+
+-- | Set up a two-way binding between the `checked` of an `<input>` element,
+-- | and the given `Ref`.
+-- |
+-- | Only works on input `type="checkbox"` and `type="radio"` elements.
+bindChecked :: Ref Boolean -> Prop
+
+```
+
+Example: 
+
+```purescript
+
+import Prelude
+import Specular.Ref (Ref, newRef)
+import Specular.Dom.Browser ((:=))
+import Specular.Dom.Element (el, attrs, bindValueOnChange)
+import Specular.Dom.Widget (emptyWidget)
+
+let description :: Ref String = newRef ""
+
+el "input" [attrs ("type" := "text")    , bindValueOnChange description] emptyWidget
+
+```
+
+
+#### A Counter example
+
+```purescript
+module Counter where
+
+import Prelude
+import Effect (Effect)
+
+import Data.Functor.Contravariant (cmap)
+
+import Specular.Callback (mkCallback, triggerCallback)
+import Specular.Dom.Browser ((:=))
+import Specular.Dom.Element (attrs, class_,  el,  onClick_, text, dynText)
+import Specular.Dom.Widget (runMainWidgetInBody)
+import Specular.Ref (Ref, value, newRef, modify)
+
+
+
+counterWidget :: Effect Unit
+counterWidget = do
+  -- | Will append widget to the body
+  runMainWidgetInBody do
+    counter :: Ref Int <- newRef 0
+  
+    -- | Subtract 1 from counter value the straight forward way
+    let subtractCb = mkCallback \_ -> triggerCallback (modify counter) (add 1)
+
+    -- | Add 1 to counter value using the contravariant instance
+    let addCb = cmap (\_ -> add 1) (modify counter)
+
+    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ addCb ] do
+      text "+"
+
+    dynText $ show <$> value counter
+
+    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ subtractCb ] do
+      text "-"
+```
+
+
 
 ## Why not just use Reflex and GHCJS?
 
