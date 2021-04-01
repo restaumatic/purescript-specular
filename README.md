@@ -127,7 +127,7 @@ newRef :: forall m a. MonadEffect m => a -> m (Ref a)
 
 `Ref` is not a `Functor`, because it's read-write. It's `Invariant`, that is, it can be mapped over using a bijection.
 
-This API will also likely change in the future, so that our interface resembles a more standard [Ref](https://pursuit.purescript.org/packages/purescript-refs/5.0.0/docs/Effect.Ref#t:Ref)
+This API will also likely change in the future, so that our interface resembles a standard [Ref](https://pursuit.purescript.org/packages/purescript-refs/5.0.0/docs/Effect.Ref#t:Ref)
 
 ### Building DOM content
 
@@ -353,7 +353,7 @@ el "input" [attrs ("type" := "text")    , bindValueOnChange description] emptyWi
 #### A Counter example
 
 ```purescript
-module Counter where
+module Main where
 
 import Prelude
 import Effect (Effect)
@@ -368,14 +368,14 @@ import Specular.Ref (Ref, value, newRef, modify)
 
 
 
-counterWidget :: Effect Unit
-counterWidget = do
+main :: Effect Unit
+main = do
   -- | Will append widget to the body
   runMainWidgetInBody do
     counter :: Ref Int <- newRef 0
   
     -- | Subtract 1 from counter value the straight forward way
-    let subtractCb = mkCallback \_ -> triggerCallback (modify counter) (add 1)
+    let subtractCb = mkCallback \_ -> triggerCallback (modify counter) (add (negate 1))
 
     -- | Add 1 to counter value using the contravariant instance
     let addCb = cmap (\_ -> add 1) (modify counter)
@@ -390,6 +390,76 @@ counterWidget = do
 ```
 
 <p class="callout warning">Warning: examples which can be found in this repo which are using "FixFRP" are deprecated !</p>
+
+
+## Getting started using spago
+
+Initialize a repository and install purescript
+
+- `npm init`
+- `npm install --save-dev purescript@0.13.8`
+
+Add `node_modules/.bin` to path:
+- `export PATH="./node_modules/.bin:$PATH"`
+
+Initialize `spago`: 
+
+- `spago init`
+
+to check if everything is working so far:
+- `spago build`
+
+Since `Specular` is not in an official `package-set`, you will have to add it manually:
+
+```dhall
+let upstream = -- This should exist in your `packages.dhall` file
+in  upstream
+  with specular =
+  { dependencies =
+    [ "prelude"
+      , "aff"
+        , "typelevel-prelude"
+        , "record"
+        , "unsafe-reference"
+        , "random"
+        , "generics-rep"
+        , "debug"
+        , "foreign-object"
+        , "contravariant"
+        , "avar"
+        ,"psci-support"
+        ,"console"
+        ,"spec"
+        ,"foreign"
+    ]
+    ,
+    repo
+      =
+      "https://github.com/restaumatic/purescript-specular.git"
+      ,
+    version
+      =
+      "master"
+  }
+``
+
+Install specular:
+- `spago install`
+- `spago build`
+
+Replace the content of `src/Main.purs` with the counter example, and run: 
+- `spago bundle-app`
+
+Create and open `index.html` file.
+```html
+<html>
+  <body>
+    <script>window.global = {}</script>
+    <script src="index.js"></script>
+  </body>
+</html>
+```
+The ugly global is required for now (possibly a browserify artifact)
 
 ## Why not just use Reflex and GHCJS?
 
