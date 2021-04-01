@@ -127,7 +127,7 @@ newRef :: forall m a. MonadEffect m => a -> m (Ref a)
 
 `Ref` is not a `Functor`, because it's read-write. It's `Invariant`, that is, it can be mapped over using a bijection.
 
-This API will also likely change in the future, so that our interface resembles a [Ref](https://pursuit.purescript.org/packages/purescript-refs/5.0.0/docs/Effect.Ref#t:Ref)
+This API will also likely change in the future, so that our interface resembles a more standard [Ref](https://pursuit.purescript.org/packages/purescript-refs/5.0.0/docs/Effect.Ref#t:Ref)
 
 ### Building DOM content
 
