@@ -441,7 +441,7 @@ in  upstream
       =
       "master"
   }
-``
+```
 
 Install specular:
 - `spago install`
