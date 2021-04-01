@@ -461,6 +461,8 @@ Create and open `index.html` file.
 ```
 The ugly global is required for now (possibly a browserify artifact)
 
+If everything worked correctly, there should be a Spec(ta)ular counter!  :) 
+
 ## Why not just use Reflex and GHCJS?
 
 In short: code size. Specular demos are 240K unminified (with DCE - `pulp build
