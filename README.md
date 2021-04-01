@@ -389,7 +389,7 @@ counterWidget = do
       text "-"
 ```
 
-
+<p class="callout warning">Warning: examples which can be found in this repo which are using "FixFRP" are deprecated !</p>
 
 ## Why not just use Reflex and GHCJS?
 
