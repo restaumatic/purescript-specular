@@ -372,7 +372,7 @@ main :: Effect Unit
 main = do
   -- | Will append widget to the body
   runMainWidgetInBody do
-    counter :: Ref Int <- newRef 0
+    counter :: Ref Int <- Ref.new 0
   
     -- | Subtract 1 from counter value the straight forward way
     let subtractCb = mkCallback \_ -> triggerCallback (modify counter) (add (negate 1))
