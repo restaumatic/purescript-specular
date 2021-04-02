@@ -313,7 +313,7 @@ valueD :: Dynamic String -> Prop
 -- | Set up a two-way binding between the `value` of an `<input>` element,
 -- | and the given `Ref`.
 -- |
--- | The `Ref` will be updated on `change` event, i.e. at the end of user inteaction, not on every keystroke.
+-- | The `Ref` will be updated on `change` event, i.e. at the end of user interaction, not on every keystroke.
 -- |
 -- | Only works on input elements.
 bindValueOnChange :: Ref String -> Prop
