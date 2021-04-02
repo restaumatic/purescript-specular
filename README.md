@@ -93,7 +93,7 @@ This represenation is likely to change in the future to `a -> Effect Unit`.
 triggerCallback :: forall a. Callback a -> a -> Effect Unit
 ```
 
-The DOM API that Specular exposes accepts callbacks, please also have a look at `Ref` bellow.
+The DOM API that Specular exposes accepts callbacks, please also have a look at `Ref` below.
 
 ```purescript
 -- | Create a button that triggers `removeTask` callback
