@@ -101,7 +101,11 @@ el "button" [class_ "close", attrs ("type":="button" ), onClick_ $ removeTask ta
   text "Remove"
 
 -- | Define a callback which modifies the content of `tasks` `Ref` by filtering out a task with a given id
-let removeTask task = mkCallback \_ ->  triggerCallback (Ref.modify tasks) (filter $ \c -> c.id /= task.id)
+let removeTask task = mkCallback \_ ->  triggerCallback (Ref.modify tasks) (filter \c -> c.id /= task.id)
+
+-- | .. or using the `Callback` `Contravariant` instance
+let removeTask task = cmap (\_ ->  filter \c -> c.id /= task.id) (Ref.modify tasks)
+
 ```
 
 
@@ -364,7 +368,8 @@ import Specular.Callback (mkCallback, triggerCallback)
 import Specular.Dom.Browser ((:=))
 import Specular.Dom.Element (attrs, class_,  el,  onClick_, text, dynText)
 import Specular.Dom.Widget (runMainWidgetInBody)
-import Specular.Ref (Ref, value, newRef, modify)
+import Specular.Ref (Ref)
+import Specular.Ref as Ref
 
 
 
@@ -375,15 +380,15 @@ main = do
     counter :: Ref Int <- Ref.new 0
   
     -- | Subtract 1 from counter value the straight forward way
-    let subtractCb = mkCallback \_ -> triggerCallback (modify counter) (add (negate 1))
+    let subtractCb = mkCallback \_ -> triggerCallback (Ref.modify counter) (add (negate 1))
 
     -- | Add 1 to counter value using the contravariant instance
-    let addCb = cmap (\_ -> add 1) (modify counter)
+    let addCb = cmap (\_ -> add 1) (Ref.modify counter)
 
     el "button" [class_ "btn", attrs ("type":="button" ), onClick_ addCb ] do
       text "+"
 
-    dynText $ show <$> value counter
+    dynText $ show <$> Ref.value counter
 
     el "button" [class_ "btn", attrs ("type":="button" ), onClick_ subtractCb ] do
       text "-"
