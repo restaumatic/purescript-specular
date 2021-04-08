@@ -40,8 +40,9 @@ which :: Dynamic Bool
 (which >>= if _ then d1 else d2) :: Dynamic Int
 ```
 
-We can introduce new Dynamics using `newDynamic`, this is only required for top level components/widgets. Root dynamics
-will be replaced by [Refs](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref) in the future, since they are almost the same.
+We can introduce new root Dynamics using `newDynamic`. Root Dynamics are read-write
+and will be replaced by [Refs](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref) in the future, since they are almost the same.
+
 
 ```purescript
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
@@ -93,11 +94,12 @@ This represenation is likely to change in the future to `a -> Effect Unit`.
 triggerCallback :: forall a. Callback a -> a -> Effect Unit
 ```
 
+
 The DOM API that Specular exposes accepts callbacks, please also have a look at `Ref` below.
 
 ```purescript
 -- | Create a button that triggers `removeTask` callback
-el "button" [class_ "close", attrs ("type":="button" ), onClick_ $ removeTask task ] do
+el "button" [class_ "close", attr "type" "button", onClick_ $ removeTask task ] do
   text "Remove"
 
 -- | Define a callback which modifies the content of `tasks` `Ref` by filtering out a task with a given id
@@ -107,7 +109,6 @@ let removeTask task = mkCallback \_ ->  triggerCallback (Ref.modify tasks) (filt
 let removeTask task = cmap (\_ ->  filter \c -> c.id /= task.id) (Ref.modify tasks)
 
 ```
-
 
 #### [Ref](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref)
 
@@ -177,7 +178,7 @@ el_ :: forall a. TagName -> Widget a -> Widget a
 attrs :: Attrs -> Prop
 
 -- | Attach a static attribute to the element.
-attrs :: AttrName -> AttrValue -> Prop
+attr :: AttrName -> AttrValue -> Prop
 
 -- | Attach CSS classes to the element
 classes :: [ClassName] -> Prop
@@ -304,7 +305,8 @@ el "button" [attr "type" "button", onClick_ save] do
   text "Save"
 ```
 
-For inputs we have predefined props that make `change` and `input` events handling easier (available in [Specular.Dom.Element](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Element))
+
+For inputs, we have predefined props that make `change` and `input` events handling easier (available in [Specular.Dom.Element](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Element))
 
 ```purescript
 -- * Input value
@@ -344,12 +346,13 @@ Example:
 import Prelude
 import Specular.Ref (Ref, newRef)
 import Specular.Dom.Browser ((:=))
-import Specular.Dom.Element (el, attrs, bindValueOnChange)
+
+import Specular.Dom.Element (el, attr, bindValueOnChange)
 import Specular.Dom.Widget (emptyWidget)
 
 let description :: Ref String = newRef ""
 
-el "input" [attrs ("type" := "text")    , bindValueOnChange description] emptyWidget
+el "input" [attr "type" "text", bindValueOnChange description] emptyWidget
 
 ```
 
@@ -365,8 +368,7 @@ import Effect (Effect)
 import Data.Functor.Contravariant (cmap)
 
 import Specular.Callback (mkCallback, triggerCallback)
-import Specular.Dom.Browser ((:=))
-import Specular.Dom.Element (attrs, class_,  el,  onClick_, text, dynText)
+import Specular.Dom.Element (attr, class_,  el,  onClick_, text, dynText)
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Specular.Ref (Ref)
 import Specular.Ref as Ref
@@ -385,24 +387,33 @@ main = do
     -- | Add 1 to counter value using the contravariant instance
     let addCb = cmap (\_ -> add 1) (Ref.modify counter)
 
-    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ addCb ] do
+
+    el "button" [class_ "btn", attr "type" "button", onClick_ addCb ] do
       text "+"
 
     dynText $ show <$> Ref.value counter
 
-    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ subtractCb ] do
+
+    el "button" [class_ "btn", attr "type" "button", onClick_ subtractCb ] do
       text "-"
 ```
 
 <p class="callout warning">Warning: examples which can be found in this repo which are using "FixFRP" are deprecated !</p>
 
 
-## Getting started using spago
+## Getting started - using starter app
+
+Clone this repository and start hacking: https://github.com/restaumatic/purescript-specular-starter
+
+## Getting started - manually
+
+We will use spago in this example, because spago allows us to override package sets.
 
 Initialize a repository and install purescript
 
 - `npm init`
 - `npm install --save-dev purescript@0.13.8`
+- `npm install --save-dev spago`
 
 Add `node_modules/.bin` to path:
 - `export PATH="./node_modules/.bin:$PATH"`
@@ -414,11 +425,16 @@ Initialize `spago`:
 to check if everything is working so far:
 - `spago build`
 
-Since `Specular` is not in an official `package-set`, you will have to add it manually:
+
+Since `Specular` is not in an official `package-set`, you will have to add it manually,
+by appending `with specular` to your `in upstream` block in `packages.dhall` file.
 
 ```dhall
-let upstream = -- This should exist in your `packages.dhall` file
+-- Something like this will exist in your packages.dhall
+let upstream =
+  https://github.com/purescript/package-sets/releases/download/psc-0.13.8-20210226/packages.dhall sha256:7e973070e323137f27e12af93bc2c2f600d53ce4ae73bb51f34eb7d7ce0a43ea
 in  upstream
+  -- Add specular:
   with specular =
   { dependencies =
     [ "prelude"
@@ -432,10 +448,6 @@ in  upstream
         , "foreign-object"
         , "contravariant"
         , "avar"
-        ,"psci-support"
-        ,"console"
-        ,"spec"
-        ,"foreign"
     ]
     ,
     repo
@@ -449,7 +461,7 @@ in  upstream
 ```
 
 Install specular:
-- `spago install`
+- `spago install specular`
 - `spago build`
 
 Replace the content of `src/Main.purs` with the counter example, and run: 
@@ -464,7 +476,8 @@ Create and open `index.html` file.
   </body>
 </html>
 ```
-The ugly global is required for now (possibly a browserify artifact)
+
+The ugly global is required for now (possibly a browserify artifact).
 
 If everything worked correctly, there should be a Spec(ta)ular counter!  :) 
 
