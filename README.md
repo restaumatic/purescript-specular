@@ -43,6 +43,7 @@ which :: Dynamic Bool
 We can introduce new root Dynamics using `newDynamic`. Root Dynamics are read-write
 and will be replaced by [Refs](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref) in the future, since they are almost the same.
 
+
 ```purescript
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
 newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit, modify :: (a -> a) -> Effect Unit }
@@ -86,13 +87,15 @@ subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect U
 #### [Callback](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Callback#t:Callback)
 
 `Callback a` represents an action handler which consumes a value of type `a`. Think of it as `a -> Effect Unit`.
+This represenation is likely to change in the future to `a -> Effect Unit`.
 
 ```purescript
 -- | Trigger the action in Effect.
 triggerCallback :: forall a. Callback a -> a -> Effect Unit
 ```
 
-The DOM API that Specular uses is accepting callbacks, please also have a look at `Ref` below.
+
+The DOM API that Specular exposes accepts callbacks, please also have a look at `Ref` below.
 
 ```purescript
 -- | Create a button that triggers `removeTask` callback
@@ -128,6 +131,8 @@ newRef :: forall m a. MonadEffect m => a -> m (Ref a)
 ```
 
 `Ref` is not a `Functor`, because it's read-write. It's `Invariant`, that is, it can be mapped over using a bijection.
+
+This API will also likely change in the future, so that our interface resembles a standard [Ref](https://pursuit.purescript.org/packages/purescript-refs/5.0.0/docs/Effect.Ref#t:Ref)
 
 ### Building DOM content
 
@@ -300,6 +305,7 @@ el "button" [attr "type" "button", onClick_ save] do
   text "Save"
 ```
 
+
 For inputs, we have predefined props that make `change` and `input` events handling easier (available in [Specular.Dom.Element](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Element))
 
 ```purescript
@@ -340,6 +346,7 @@ Example:
 import Prelude
 import Specular.Ref (Ref, newRef)
 import Specular.Dom.Browser ((:=))
+
 import Specular.Dom.Element (el, attr, bindValueOnChange)
 import Specular.Dom.Widget (emptyWidget)
 
@@ -380,16 +387,19 @@ main = do
     -- | Add 1 to counter value using the contravariant instance
     let addCb = cmap (\_ -> add 1) (Ref.modify counter)
 
+
     el "button" [class_ "btn", attr "type" "button", onClick_ addCb ] do
       text "+"
 
     dynText $ show <$> Ref.value counter
+
 
     el "button" [class_ "btn", attr "type" "button", onClick_ subtractCb ] do
       text "-"
 ```
 
 <p class="callout warning">Warning: examples which can be found in this repo which are using "FixFRP" are deprecated !</p>
+
 
 ## Getting started - using starter app
 
@@ -414,6 +424,7 @@ Initialize `spago`:
 
 to check if everything is working so far:
 - `spago build`
+
 
 Since `Specular` is not in an official `package-set`, you will have to add it manually,
 by appending `with specular` to your `in upstream` block in `packages.dhall` file.
@@ -466,7 +477,7 @@ Create and open `index.html` file.
 </html>
 ```
 
-The ugly global is required for now (possibly a browserify artifact)
+The ugly global is required for now (possibly a browserify artifact).
 
 If everything worked correctly, there should be a Spec(ta)ular counter!  :) 
 
