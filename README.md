@@ -173,7 +173,7 @@ el_ :: forall a. TagName -> Widget a -> Widget a
 attrs :: Attrs -> Prop
 
 -- | Attach a static attribute to the element.
-attrs :: AttrName -> AttrValue -> Prop
+attr :: AttrName -> AttrValue -> Prop
 
 -- | Attach CSS classes to the element
 classes :: [ClassName] -> Prop
@@ -340,12 +340,12 @@ Example:
 import Prelude
 import Specular.Ref (Ref, newRef)
 import Specular.Dom.Browser ((:=))
-import Specular.Dom.Element (el, attrs, bindValueOnChange)
+import Specular.Dom.Element (el, attr, bindValueOnChange)
 import Specular.Dom.Widget (emptyWidget)
 
 let description :: Ref String = newRef ""
 
-el "input" [attrs ("type" := "text")    , bindValueOnChange description] emptyWidget
+el "input" [attr "type" "text", bindValueOnChange description] emptyWidget
 
 ```
 
@@ -361,8 +361,7 @@ import Effect (Effect)
 import Data.Functor.Contravariant (cmap)
 
 import Specular.Callback (mkCallback, triggerCallback)
-import Specular.Dom.Browser ((:=))
-import Specular.Dom.Element (attrs, class_,  el,  onClick_, text, dynText)
+import Specular.Dom.Element (attr, class_,  el,  onClick_, text, dynText)
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Specular.Ref (Ref)
 import Specular.Ref as Ref
@@ -381,12 +380,12 @@ main = do
     -- | Add 1 to counter value using the contravariant instance
     let addCb = cmap (\_ -> add 1) (Ref.modify counter)
 
-    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ addCb ] do
+    el "button" [class_ "btn", attr "type" "button", onClick_ addCb ] do
       text "+"
 
     dynText $ show <$> Ref.value counter
 
-    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ subtractCb ] do
+    el "button" [class_ "btn", attr "type" "button", onClick_ subtractCb ] do
       text "-"
 ```
 
