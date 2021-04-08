@@ -40,7 +40,8 @@ which :: Dynamic Bool
 (which >>= if _ then d1 else d2) :: Dynamic Int
 ```
 
-We can introduce new Dynamics using `newDynamic`:
+We can introduce new root Dynamics using `newDynamic`. Root Dynamics are read-write
+and will be replaced by [Refs](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref) in the future, since they are almost the same.
 
 ```purescript
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
@@ -89,6 +90,21 @@ subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect U
 ```purescript
 -- | Trigger the action in Effect.
 triggerCallback :: forall a. Callback a -> a -> Effect Unit
+```
+
+The DOM API that Specular uses is accepting callbacks, please also have a look at `Ref` below.
+
+```purescript
+-- | Create a button that triggers `removeTask` callback
+el "button" [class_ "close", attr "type" "button", onClick_ $ removeTask task ] do
+  text "Remove"
+
+-- | Define a callback which modifies the content of `tasks` `Ref` by filtering out a task with a given id
+let removeTask task = mkCallback \_ ->  triggerCallback (Ref.modify tasks) (filter \c -> c.id /= task.id)
+
+-- | .. or using the `Callback` `Contravariant` instance
+let removeTask task = cmap (\_ ->  filter \c -> c.id /= task.id) (Ref.modify tasks)
+
 ```
 
 #### [Ref](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref)
@@ -283,6 +299,177 @@ Example:
 el "button" [attr "type" "button", onClick_ save] do
   text "Save"
 ```
+
+For inputs, we have predefined props that make `change` and `input` events handling easier (available in [Specular.Dom.Element](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Dom.Element))
+
+```purescript
+-- * Input value
+-- | Attach dynamically-changing `value` property to an input element.
+-- | The value can still be changed by user interaction.
+-- |
+-- | Only works on `<input>` and `<select>` elements.
+valueD :: Dynamic String -> Prop
+
+-- | Set up a two-way binding between the `value` of an `<input>` element,
+-- | and the given `Ref`.
+-- |
+-- | The `Ref` will be updated on `change` event, i.e. at the end of user interaction, not on every keystroke.
+-- |
+-- | Only works on input elements.
+bindValueOnChange :: Ref String -> Prop
+
+
+-- | Attach dynamically-changing `checked` property to an input element.
+-- | The value can still be changed by user interaction.
+-- |
+-- | Only works on input `type="checkbox"` and `type="radio"` elements.
+checkedD :: Dynamic Boolean -> Prop
+
+-- | Set up a two-way binding between the `checked` of an `<input>` element,
+-- | and the given `Ref`.
+-- |
+-- | Only works on input `type="checkbox"` and `type="radio"` elements.
+bindChecked :: Ref Boolean -> Prop
+
+```
+
+Example: 
+
+```purescript
+
+import Prelude
+import Specular.Ref (Ref, newRef)
+import Specular.Dom.Browser ((:=))
+import Specular.Dom.Element (el, attrs, bindValueOnChange)
+import Specular.Dom.Widget (emptyWidget)
+
+let description :: Ref String = newRef ""
+
+el "input" [attrs ("type" := "text")    , bindValueOnChange description] emptyWidget
+
+```
+
+
+#### A Counter example
+
+```purescript
+module Main where
+
+import Prelude
+import Effect (Effect)
+
+import Data.Functor.Contravariant (cmap)
+
+import Specular.Callback (mkCallback, triggerCallback)
+import Specular.Dom.Browser ((:=))
+import Specular.Dom.Element (attrs, class_,  el,  onClick_, text, dynText)
+import Specular.Dom.Widget (runMainWidgetInBody)
+import Specular.Ref (Ref)
+import Specular.Ref as Ref
+
+
+
+main :: Effect Unit
+main = do
+  -- | Will append widget to the body
+  runMainWidgetInBody do
+    counter :: Ref Int <- Ref.new 0
+  
+    -- | Subtract 1 from counter value the straight forward way
+    let subtractCb = mkCallback \_ -> triggerCallback (Ref.modify counter) (add (negate 1))
+
+    -- | Add 1 to counter value using the contravariant instance
+    let addCb = cmap (\_ -> add 1) (Ref.modify counter)
+
+    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ addCb ] do
+      text "+"
+
+    dynText $ show <$> Ref.value counter
+
+    el "button" [class_ "btn", attrs ("type":="button" ), onClick_ subtractCb ] do
+      text "-"
+```
+
+<p class="callout warning">Warning: examples which can be found in this repo which are using "FixFRP" are deprecated !</p>
+
+## Getting started - using starter app
+
+Clone this repository and start hacking: https://github.com/restaumatic/purescript-specular-starter
+
+## Getting started - manually
+
+We will use spago in this example, because spago allows us to override package sets.
+
+Initialize a repository and install purescript
+
+- `npm init`
+- `npm install --save-dev purescript@0.13.8`
+- `npm install --save-dev spago`
+
+Add `node_modules/.bin` to path:
+- `export PATH="./node_modules/.bin:$PATH"`
+
+Initialize `spago`: 
+
+- `spago init`
+
+to check if everything is working so far:
+- `spago build`
+
+Since `Specular` is not in an official `package-set`, you will have to add it manually,
+by appending `with specular` to your `in upstream` block in `packages.dhall` file.
+
+```dhall
+-- Something like this will exist in your packages.dhall
+let upstream =
+  https://github.com/purescript/package-sets/releases/download/psc-0.13.8-20210226/packages.dhall sha256:7e973070e323137f27e12af93bc2c2f600d53ce4ae73bb51f34eb7d7ce0a43ea
+in  upstream
+  -- Add specular:
+  with specular =
+  { dependencies =
+    [ "prelude"
+      , "aff"
+        , "typelevel-prelude"
+        , "record"
+        , "unsafe-reference"
+        , "random"
+        , "generics-rep"
+        , "debug"
+        , "foreign-object"
+        , "contravariant"
+        , "avar"
+    ]
+    ,
+    repo
+      =
+      "https://github.com/restaumatic/purescript-specular.git"
+      ,
+    version
+      =
+      "master"
+  }
+```
+
+Install specular:
+- `spago install specular`
+- `spago build`
+
+Replace the content of `src/Main.purs` with the counter example, and run: 
+- `spago bundle-app`
+
+Create and open `index.html` file.
+```html
+<html>
+  <body>
+    <script>window.global = {}</script>
+    <script src="index.js"></script>
+  </body>
+</html>
+```
+
+The ugly global is required for now (possibly a browserify artifact)
+
+If everything worked correctly, there should be a Spec(ta)ular counter!  :) 
 
 ## Why not just use Reflex and GHCJS?
 
