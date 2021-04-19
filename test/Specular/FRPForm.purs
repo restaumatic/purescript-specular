@@ -3,14 +3,12 @@ module Specular.FRPForm where
 
 import Prelude
 
-import Data.Char.Unicode (isLetter)
 import Data.Maybe (Maybe (..), maybe)
 import Data.String (length, null)
 import Data.Traversable (for, intercalate)
 import Effect (Effect)
 import Specular.Dom.Element (dynText)
 import Specular.Dom.Widget (runMainWidgetInBody)
-import Specular.Lumiform.Form (assert, char, int, number, section, string, webform)
 import Data.Semigroup
 import Data.Monoid
 import Control.Monad.Maybe.Trans
@@ -18,7 +16,6 @@ import Control.Monad.Writer.Trans
 import Data.Tuple
 import Data.Either
 import Specular.Dom.Element (dynText, el, text)
-import Data.String.Read as Read
 import Data.Int as Int
 import Data.Eq
 import Data.Maybe
