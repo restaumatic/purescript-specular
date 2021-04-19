@@ -8,3 +8,5 @@
 /.purs*
 /.psa*
 package-lock.json
+dist/
+.cache/
