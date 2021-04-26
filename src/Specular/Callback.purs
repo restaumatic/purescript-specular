@@ -12,6 +12,9 @@ module Specular.Callback
   , nullCallback
   , dynCallback
   , mbCallback
+  -- | Deprecated
+  , mkCallback
+  , triggerCallback
   ) where
 
 import Prelude
@@ -88,3 +91,9 @@ dynCallback dynCb = \x -> do
 
 mbCallback :: forall a. Callback a -> Callback (Maybe a)
 mbCallback = traverse_
+
+mkCallback :: forall a. Callback a -> Callback a
+mkCallback = identity
+
+triggerCallback :: forall a. Callback a -> Callback a
+triggerCallback = identity
