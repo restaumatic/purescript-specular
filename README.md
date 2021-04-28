@@ -84,31 +84,6 @@ We can observe `Event`s by being notified of their occurences.
 subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m a
 ```
 
-#### [Callback](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Callback#t:Callback)
-
-`Callback a` represents an action handler which consumes a value of type `a`. Think of it as `a -> Effect Unit`.
-This represenation is likely to change in the future to `a -> Effect Unit`.
-
-```purescript
--- | Trigger the action in Effect.
-triggerCallback :: forall a. Callback a -> a -> Effect Unit
-```
-
-
-The DOM API that Specular exposes accepts callbacks, please also have a look at `Ref` below.
-
-```purescript
--- | Create a button that triggers `removeTask` callback
-el "button" [class_ "close", attr "type" "button", onClick_ $ removeTask task ] do
-  text "Remove"
-
--- | Define a callback which modifies the content of `tasks` `Ref` by filtering out a task with a given id
-let removeTask task = mkCallback \_ ->  triggerCallback (Ref.modify tasks) (filter \c -> c.id /= task.id)
-
--- | .. or using the `Callback` `Contravariant` instance
-let removeTask task = cmap (\_ ->  filter \c -> c.id /= task.id) (Ref.modify tasks)
-
-```
 
 #### [Ref](https://pursuit.purescript.org/packages/purescript-specular/docs/Specular.Ref#t:Ref)
 
@@ -120,9 +95,9 @@ We can think of a `Ref` as of `Effect.Ref`, but with additional functions:
 
 `Ref a` consists of:
 - `Ref.value :: Ref a -> Dynamic a` to observe the value
-- `Ref.modify :: Ref a -> Callback (a -> a)` to modify the value using a function
+- `Ref.modify :: Ref a -> (a -> a) -> Effect Unit` to modify the value using a function
 
-As a shortcut we have `Ref.set :: Ref a -> Callback a` to replace the value completely.
+As a shortcut we have `Ref.set :: Ref a -> a -> Effect Unit` to replace the value completely.
 
 Creating a Ref:
 
@@ -286,20 +261,20 @@ Warning: Re-rendering a whole DOM block on each change has performance implicati
 #### Handling events
 
 ```purescript
--- | Connect a DOM event on the node to a Callback.
-on :: EventType -> Callback DOM.Event -> Prop
+-- | Connect a DOM event on the node to a callback.
+on :: EventType -> (DOM.Event -> Effect Unit) -> Prop
 
 -- | Shorthand: `on "click"`
-onClick :: Callback DOM.Event -> Prop
+onClick :: (DOM.Event -> Effect Unit) -> Prop
 
 -- | Like `onClick`, but takes a callback which ignores the DOM event.
-onClick_ :: Callback Unit -> Prop
+onClick_ :: Effect Unit -> Prop
 ```
 
 Example:
 
 ```purescript
--- Assume save :: Callback Unit
+-- Assume save :: Effect Unit
 
 el "button" [attr "type" "button", onClick_ save] do
   text "Save"
@@ -365,14 +340,11 @@ module Main where
 import Prelude
 import Effect (Effect)
 
-import Data.Functor.Contravariant (cmap)
 
-import Specular.Callback (mkCallback, triggerCallback)
 import Specular.Dom.Element (attr, class_,  el,  onClick_, text, dynText)
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Specular.Ref (Ref)
 import Specular.Ref as Ref
-
 
 
 main :: Effect Unit
@@ -380,13 +352,12 @@ main = do
   -- | Will append widget to the body
   runMainWidgetInBody do
     counter :: Ref Int <- Ref.new 0
-  
-    -- | Subtract 1 from counter value the straight forward way
-    let subtractCb = mkCallback \_ -> triggerCallback (Ref.modify counter) (add (negate 1))
 
-    -- | Add 1 to counter value using the contravariant instance
-    let addCb = cmap (\_ -> add 1) (Ref.modify counter)
+    -- | Subtract 1 from counter value
+    let subtractCb = (Ref.modify counter) (add (negate 1))
 
+    -- | Add 1 to counter value
+    let addCb =  (Ref.modify counter) (add 1)
 
     el "button" [class_ "btn", attr "type" "button", onClick_ addCb ] do
       text "+"
