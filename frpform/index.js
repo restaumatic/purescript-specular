@@ -1,2 +1,2 @@
-var {main} = require('../output/Specular.FRPForm/index.js');
+var {main} = require('../output/Specular.FRPFormExample/index.js');
 main();
