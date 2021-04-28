@@ -26,7 +26,7 @@ import Specular.FRP
 import Specular.Ref
 import Specular.Callback
 import Data.Functor.Contravariant
-import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
+import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Element (dynText, el, text)
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getTextInputValue, setTextInputValue)
@@ -44,39 +44,41 @@ import Specular.Dom.Node.Class ((:=))
 
 type Form a = MaybeT (WriterT Touch Dynamic) a
 
--- the history of user input of the form: whether it has been touched by a user input or remains intact
+-- MaybeT - introduces possible unavailability of form value due to validation failure
+-- WriterT Touch - introduces out-of-band form data, form meta-data like intact/touched property
+-- also played around with ReaderT but didn't find any useful application of it
+
+-- the intact/touched propery of the form: whether it has been touched by a user input or remains intact
+-- handled by WriterT tranformer, must be a Monoid
 data Touch = Intact | Touched | Touching
 
 instance touchSemigroup :: Semigroup Touch where
   append Touching _ = Touching
   append _ Touching = Touching
-  append Touched  _ = Touched
+  append Touched _ = Touched
   append _ Touched = Touched
   append _ _ = Intact
 
 instance monoidTouch :: Monoid Touch where
   mempty = Intact
 
--- unwraping Dynamic of Form
+-- unwraping Dynamic of a Form, then you can handle Dynamic as usual
 formDynamic :: forall a . Form a -> Dynamic (Tuple (Maybe a) Touch)
 formDynamic form = runWriterT (runMaybeT form)
 
-whenFormTouched :: forall a m . MonadReplace m => MonadFRP m => Form a -> (Maybe a -> m Unit) -> m Unit
-whenFormTouched form action = withDynamic_ (formDynamic form) case _ of
-  Tuple ma Touched -> action ma
-  _ -> pure unit
-
-whenIntactNothing :: forall a m . MonadReplace m => MonadFRP m => Form a -> m Unit -> m Unit
-whenIntactNothing form action = withDynamic_ (formDynamic form) case _ of
+-- or you can use shortcut functions like:
+whenFormIntactNothing :: forall a m . MonadReplace m => MonadFRP m => Form a -> m Unit -> m Unit
+whenFormIntactNothing form action = withDynamic_ (formDynamic form) case _ of
   Tuple Nothing Intact -> action
   _ -> pure unit
 
-whenTouchedJust :: forall a m . MonadReplace m => MonadFRP m => Form a -> (a -> m Unit) -> m Unit
-whenTouchedJust form action = withDynamic_ (formDynamic form) case _ of
+whenFormTouchedJust :: forall a m . MonadReplace m => MonadFRP m => Form a -> (a -> m Unit) -> m Unit
+whenFormTouchedJust form action = withDynamic_ (formDynamic form) case _ of
   Tuple (Just a) Touched -> action a
   _ -> pure unit
 
--- these are the things we can do with From that we cannot do with plain Dynamic
+-- with functions in below one can manipulate Forms
+-- these are the things one cannot to with plain Dynamic
 justOf :: forall a . Form (Maybe a) -> Form a
 justOf form = MaybeT $ WriterT $ do
   mmaw <-  runWriterT (runMaybeT form )
@@ -111,6 +113,8 @@ rightOf f = justOf $ rightToMaybe <$> f
 selection :: forall a . Eq a => Form a -> Form (Array a) -> Form (Maybe a)
 selection selected options = selected >>= \a -> (find (_ `eq` a)) <$> options
 
+-- but how can we create a Form?
+
 -- Field - a primitive, atomic Form
 
 type Field a =
@@ -127,27 +131,23 @@ writeField input = (\a -> const a) >$< modify input.inputValueRef
 
 readField :: forall a . Field a -> Form a
 readField input = MaybeT $ WriterT $ do
-  Tuple a w <- refValue input.inputValueRef
+  Tuple a w <- value input.inputValueRef
   pure (Tuple (Just a) w)
 
 ---
 
-stringInputWidget :: Callback (Tuple String Touch) -> Widget Unit
-stringInputWidget callback = do
-  Tuple element _ <- elDynAttr' "input" (pure mempty) (pure unit)
+stringInputWidget :: Field String -> Widget (Callback String)
+stringInputWidget field = do
+  Tuple element _ <- elAttr' "input" mempty (pure unit)
   domChanged <- domEventWithSample (\_ -> getTextInputValue element) "input" element
-  attachEvent domChanged ((\str -> Tuple str Touched) >$< callback)
-  pure unit
+  attachEvent domChanged ((\str -> Tuple str Touched) >$< writeField field)
+  pure $ ((\str -> Tuple str Intact) >$< writeField field) <> mkCallback (setTextInputValue element)
 
-selectInputWidget
-  :: forall a .
-  Eq a
-  => Show a
-  => BoundedEnum a
-  => Form (Array a)
-  -> Callback (Tuple (Last a) Touch)
+selectInputWidget ::
+  forall a . Eq a => Show a => BoundedEnum a => Form (Array a)
+  -> Field (Last a)
   -> Widget Unit
-selectInputWidget options callback = do
+selectInputWidget options field = do
   withDynamic_ (formDynamic options) \dyn -> do
     let options = case dyn of
           (Tuple Nothing _) -> []
@@ -155,7 +155,7 @@ selectInputWidget options callback = do
     let toOption value = el "option" [attr "value" (show (fromEnum value))] $ text $ show value
     (Tuple selectEl _) <- el' "select" $ traverse_ toOption options
     domChanged <- domEventWithSample (\_ -> getTextInputValue selectEl) "change" selectEl
-    attachEvent domChanged ((\str -> Tuple (Last (Just (unsafePartial (fromJust (toEnum (fromJust (fromString str))))))) Touched) >$< callback)
+    attachEvent domChanged ((\str -> Tuple (Last (Just (unsafePartial (fromJust (toEnum (fromJust (fromString str))))))) Touched) >$< writeField field)
     pure unit
 
 ---
@@ -254,69 +254,75 @@ data Person = Person {
   personShirtSize :: ShirtSize
 }
 
-personForm :: Effect (Widget (Form Person))
+personForm :: Effect (Widget (Tuple (Form Person) (Callback (Tuple String String))))
 personForm = do
   ageInput <- newField
   nameInput <- newField
   titleInput <- newField
   shirtSizeInput <- newField
 
-  pure $ do
-    let
-      ageOrError = (newInt >=> newAge) <$> readField ageInput
-      age = rightOf ageOrError
-      ageError = leftOf ageOrError
-      nameOrError = do
-        v <- readField nameInput
-        if null v
-          then pure $ Left "must not be empty"
-          else do
-          (Age a) <- age
-          if a.ageToInt  < 10 && length v > 10
-            then pure $ Left "Too long name for such a young child"
-            else pure $ Right $ Name { nameToString: v }
-      name = rightOf nameOrError
-      nameError = leftOf nameOrError
-      allowedTitles = pure [Mr, Ms]
-      maybeTitle = selection (lastOf (readField titleInput)) allowedTitles
-      title = justOf maybeTitle
-      titleError = "Title must be selected" <$ nothingOf maybeTitle
-      allowedShirtSizes title = case title of
-        Ms -> [S, M]
-        Mr -> [M, L, XL]
-      allowedSizes = allowedShirtSizes <$> title
-      maybeShirtSize = selection (lastOf (readField shirtSizeInput)) allowedSizes
-      shirtSizeError = "Shirt size must be selected" <$ nothingOf maybeShirtSize
-      shirtSize = justOf maybeShirtSize
-      person = (\a n t s -> Person { personAge: a, personName: n, personTitle: t, personShirtSize: s}) <$> age <*> name <*> title <*> shirtSize
+  let
+    ageOrError = (newInt >=> newAge) <$> readField ageInput
+    age = rightOf ageOrError
+    ageError = leftOf ageOrError
+    nameOrError = do
+      v <- readField nameInput
+      if null v
+        then pure $ Left "must not be empty"
+        else do
+        (Age a) <- age
+        if a.ageToInt  < 10 && length v > 10
+          then pure $ Left "Too long name for such a young child"
+          else pure $ Right $ Name { nameToString: v }
+    name = rightOf nameOrError
+    nameError = leftOf nameOrError
+    allowedTitles = pure [Mr, Ms]
+    maybeTitle = selection (lastOf (readField titleInput)) allowedTitles
+    title = justOf maybeTitle
+    titleError = "Title must be selected" <$ nothingOf maybeTitle
+    allowedShirtSizes title = case title of
+      Ms -> [S, M]
+      Mr -> [M, L, XL]
+    allowedSizes = allowedShirtSizes <$> title
+    maybeShirtSize = selection (lastOf (readField shirtSizeInput)) allowedSizes
+    shirtSizeError = "Shirt size must be selected" <$ nothingOf maybeShirtSize
+    shirtSize = justOf maybeShirtSize
+    person = (\a n t s -> Person { personAge: a, personName: n, personTitle: t, personShirtSize: s}) <$> age <*> name <*> title <*> shirtSize
 
+  pure do
     el "h1" [] $ text "Form Demo"
-    whenIntactNothing person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
-    el "div" [] do
-      el "span" [] $ text "Age"
+    whenFormIntactNothing person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
+    setAge <- el "div" [] do
+      text "Age"
       el "div" [] do
-        stringInputWidget (writeField ageInput)
-        whenIntactNothing age $ el "span" [attr "style" "color: green;"] $ text "obligatory"
-        whenTouchedJust ageError $ el "span" [attr "style" "color: red;"] <<< text
-    el "div" [] do
-      el "span" [] $ text "Name"
+        set <- stringInputWidget ageInput
+        whenFormIntactNothing age $ el "span" [attr "style" "color: green;"] $ text "obligatory"
+        whenFormTouchedJust ageError $ el "span" [attr "style" "color: red;"] <<< text
+        pure set
+        -- el "button" [onClick_ ((const "" ) >$< foo)] $ text "Clear"
+    setName <- el "div" [] do
+      text "Name"
       el "div" [] do
-        stringInputWidget (writeField nameInput)
-        whenIntactNothing name $ el "span" [attr "style" "color: green;"] $ text "obligatory"
-        whenTouchedJust nameError $ el "span" [attr "style" "color: red;"] <<< text
+        set <- stringInputWidget nameInput
+        whenFormIntactNothing name $ el "span" [attr "style" "color: green;"] $ text "obligatory"
+        whenFormTouchedJust nameError $ el "span" [attr "style" "color: red;"] <<< text
+        pure set
     el "div" [] do
-      el "span" [] $ text "Title"
+      text "Title"
       el "div" [] do
-        selectInputWidget allowedTitles (writeField titleInput)
+        selectInputWidget allowedTitles titleInput
     el "div" [] do
-      el "span" [] $ text "Shirt Size"
+      text "Shirt Size"
       el "div" [] do
-        selectInputWidget allowedSizes (writeField shirtSizeInput)
-    whenTouchedJust person $ const $ el "button" [] $ text "Submit"
-    pure person
+        selectInputWidget allowedSizes shirtSizeInput
+    whenFormTouchedJust person $ const $ el "button" [] $ text "Submit"
+    pure (Tuple person $ mkCallback $ \(Tuple name age) -> do
+      triggerCallback setAge age
+      triggerCallback setName name)
 
 main :: Effect Unit
 main = do
   f <- personForm
-  _ <- runMainWidgetInBody f
+  (Tuple person set) <- runMainWidgetInBody $ f
+  triggerCallback set (Tuple "Eryk" "37")
   pure unit
