@@ -1,5 +1,11 @@
 ## Next release
 
+## 0.11.0
+- 2021-04-28 Breaking change. Unwrapped `Callback a` into `a -> Effect Unit` to make working with callbacks more intuitive (not having to
+  use contravariance all over the place). A simple upgrade path is to copy the old Specular.Callback module into your
+  own project and remove the newtype wrapper.
+
+
 ## 0.8.3
 
 - 2020-10-26 Refactored `Slot` API to avoid using polytypes in records. This was done to enable experimenting with a certain modification of the PureScript compiler, which breaks in this case; and it causes no harm otherwise.
