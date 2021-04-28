@@ -15,7 +15,6 @@ module Specular.Ref
   , constRef
 
   , wrapViewWidget
-  , Callback
   , Lens
   , Prism
   -- Deprecated, use `set` instead
@@ -36,12 +35,7 @@ import Effect.Class (class MonadEffect)
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, readDynamic, subscribeEvent_, weaken)
 
--- | A handle that lets the owner trigger some action with payload of type `a`.
--- | Can be thought of as "inverse of `Event`".
--- |
-type Callback a = (a -> Effect Unit)
-
-data Ref a = Ref (Dynamic a) (Callback (a -> a))
+data Ref a = Ref (Dynamic a) ((a -> a) -> Effect Unit)
 
 instance invariantRef :: Invariant Ref where
   imap f g (Ref v update) = Ref (f <$> v) ((\h -> g <<< h <<< f) >>> update)
@@ -71,19 +65,19 @@ value :: forall a. Ref a -> Dynamic a
 value (Ref v _) = v
 
 -- | Old name for `modify`.
-refUpdate :: forall a. Ref a -> Callback (a -> a)
+refUpdate :: forall a. Ref a -> (a -> a) -> Effect Unit
 refUpdate = modify
 
 -- | A Callback to modify value of this Ref using a function.
-modify :: forall a. Ref a -> Callback (a -> a)
+modify :: forall a. Ref a -> (a -> a) -> Effect Unit
 modify (Ref _ update) = update
 
 -- | Old name for `set`.
-refUpdateConst :: forall a. Ref a -> Callback a
+refUpdateConst :: forall a. Ref a -> a -> Effect Unit
 refUpdateConst = set
 
 -- | A Callback to overwrite value of this Ref.
-set :: forall a. Ref a -> Callback a
+set :: forall a. Ref a -> a -> Effect Unit
 set r = (\new _old -> new) >>> modify r
 
 type Lens s a = { get :: s -> a, set :: s -> a -> s }

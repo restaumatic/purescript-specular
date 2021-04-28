@@ -63,7 +63,7 @@ import Specular.Dom.Widget (RWidget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setCheckboxChecked, setTextInputValue)
 import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDyn_)
 import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
-import Specular.Ref (Ref(..), Callback)
+import Specular.Ref (Ref(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Specular.Internal.Profiling as ProfilingInternal
 import Specular.Profiling as Profiling
@@ -191,23 +191,23 @@ attrsUnlessD conditionD attrs' = attrsD $ conditionD <#> if _ then mempty else a
 
 -- * Events
 
-on :: EventType -> Callback DOM.Event -> Prop
+on :: EventType -> (DOM.Event -> Effect Unit) -> Prop
 on eventType cb = Prop $ mkEffectFn2 \node cleanups -> do
   _ <- DOM.addEventListener eventType (\e -> Profiling.measure ("event: " <> eventType) $ cb e) node
   -- Note: we don't actually need to detach the listener when cleaning up -
   -- the node will be removed anyway.
   pure unit
 
-onClick :: Callback DOM.Event -> Prop
+onClick :: (DOM.Event -> Effect Unit) -> Prop
 onClick cb = on "click" cb
 
 onClick_ :: Effect Unit -> Prop
 onClick_ cb = onClick $ \_ -> cb
 
-preventDefault :: Callback DOM.Event
+preventDefault :: DOM.Event -> Effect Unit
 preventDefault = DOM.preventDefault
 
-stopPropagation :: Callback DOM.Event
+stopPropagation :: DOM.Event -> Effect Unit
 stopPropagation = runEffectFn1 _stopPropagation
 
 foreign import _stopPropagation :: EffectFn1 DOM.Event Unit
@@ -242,7 +242,7 @@ bindValueOnInput :: Ref String -> Prop
 bindValueOnInput (Ref val update) =
   valueD val <> on "input" (withTargetValue (const >>> update))
 
-withTargetValue :: Callback String -> Callback DOM.Event
+withTargetValue :: (String -> Effect Unit) -> (DOM.Event -> Effect Unit)
 withTargetValue cb = \event -> do
   value <- getTextInputValue (unsafeEventTarget event)
   cb value
@@ -266,7 +266,7 @@ bindChecked :: Ref Boolean -> Prop
 bindChecked (Ref val update) =
   checkedD val <> on "change" (withTargetChecked (const >>> update))
 
-withTargetChecked :: Callback Boolean -> Callback DOM.Event
+withTargetChecked :: (Boolean -> Effect Unit) -> (DOM.Event -> Effect Unit)
 withTargetChecked cb = \event -> do
   value <- getCheckboxChecked (unsafeEventTarget event)
   cb value
