@@ -20,7 +20,7 @@
     "bower": "^1.8.8",
     "phantomjs-prebuilt": "^2.1.16",
     "psc-package": "^3.0.1",
-    "pulp": "15.0.0",
+    "pulp": "^15.0.0",
     "puppeteer": "^5.4.1"
   },
   "dependencies": {
