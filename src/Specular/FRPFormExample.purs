@@ -1,4 +1,5 @@
 module Specular.FRPFormExample where
+-- FRP Form POC example, to run: pulp --psc-package build && parcel build frpform/index.js
 
 import Prelude
 
