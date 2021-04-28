@@ -1,23 +1,26 @@
 module Specular.Ref
   ( Ref(..)
-  , newRef
   , new
   , newRefWithEvent
   , value
   , modify
+  , read
+  , write
   , refUpdateConst
-  , set
   , focusRef
   , pureFocusRef
   , previewRef
-  , readRef
-
   , constRef
-
   , wrapViewWidget
   , Lens
   , Prism
-  -- Deprecated, use `set` instead
+  -- Deprecated, use 'write' instead
+  , set
+  -- Deprecated, use 'new' instead
+  , newRef
+  -- Deprecated, use 'read' instead
+  , readRef
+  -- Deprecated, use `write` instead
   , updateRef
   -- Deprecated, use `value` instead
   , refValue
@@ -68,7 +71,7 @@ value (Ref v _) = v
 refUpdate :: forall a. Ref a -> (a -> a) -> Effect Unit
 refUpdate = modify
 
--- | A Callback to modify value of this Ref using a function.
+-- | Modify value of this Ref using a function.
 modify :: forall a. Ref a -> (a -> a) -> Effect Unit
 modify (Ref _ update) = update
 
@@ -76,9 +79,17 @@ modify (Ref _ update) = update
 refUpdateConst :: forall a. Ref a -> a -> Effect Unit
 refUpdateConst = set
 
--- | A Callback to overwrite value of this Ref.
+-- | Overwrite value of this Ref.
+write :: forall a. Ref a -> a -> Effect Unit
+write r = (\new _old -> new) >>> modify r
+
+-- | Overwrite value of this Ref. Old name for `write`
 set :: forall a. Ref a -> a -> Effect Unit
-set r = (\new _old -> new) >>> modify r
+set = write
+
+-- Old name for `write`
+updateRef :: forall a. Ref a -> a -> Effect Unit
+updateRef = write
 
 type Lens s a = { get :: s -> a, set :: s -> a -> s }
 type Prism s a = { preview :: s -> Maybe a, review :: a -> s }
@@ -113,12 +124,14 @@ previewRef prism (Ref value update) =
       ) >>> update)
 
 
--- Old name for `set`
-updateRef :: forall a. Ref a -> a -> Effect Unit
-updateRef = set
+-- | Read the current value of a Ref
+read :: forall m a. MonadEffect m => Ref a -> m a
+read (Ref value update) = pull $ readBehavior $ current value
 
+
+-- | Old name for `read`
 readRef :: forall m a. MonadEffect m => Ref a -> m a
-readRef (Ref value update) = pull $ readBehavior $ current value
+readRef = read
 
 wrapViewWidget
   :: forall m a
