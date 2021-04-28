@@ -21,8 +21,7 @@
     "phantomjs-prebuilt": "^2.1.16",
     "psc-package": "^3.0.1",
     "pulp": "15.0.0",
-    "puppeteer": "^5.4.1",
-    "purescript": "^0.13.8"
+    "puppeteer": "^5.4.1"
   },
   "dependencies": {
     "karma": "^5.2.3",
