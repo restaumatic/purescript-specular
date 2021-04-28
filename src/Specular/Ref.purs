@@ -14,11 +14,11 @@ module Specular.Ref
   , wrapViewWidget
   , Lens
   , Prism
-  -- Deprecated, use 'write' instead
+  -- Deprecated, use `write` instead
   , set
-  -- Deprecated, use 'new' instead
+  -- Deprecated, use `new` instead
   , newRef
-  -- Deprecated, use 'read' instead
+  -- Deprecated, use `read` instead
   , readRef
   -- Deprecated, use `write` instead
   , updateRef
