@@ -77,6 +77,11 @@ whenInputTouchedJust form action = withDynamic_ (inputDynamic form) case _ of
   Tuple (Just a) Touched -> action a
   _ -> pure unit
 
+whenInputJust :: forall a m . MonadReplace m => MonadFRP m => Input a -> (a -> m Unit) -> m Unit
+whenInputJust form action = withDynamic_ (inputDynamic form) case _ of
+  Tuple (Just a) _ -> action a
+  _ -> pure unit
+
 -- with functions in below one can manipulate Inputs
 -- these are the things one cannot to with plain Dynamic
 justOf :: forall a . Input (Maybe a) -> Input a
@@ -143,6 +148,7 @@ stringFieldWidget field = do
   attachEvent domChanged ((\str -> Tuple str Touched) >$< writeField field)
   pure $ ((\str -> Tuple str Intact) >$< writeField field) <> mkCallback (setTextInputValue element)
 
+-- this doens't work for now
 selectFieldWidget ::
   forall a . Eq a => Show a => BoundedEnum a => Input (Array a)
   -> Field (Last a)
@@ -157,3 +163,7 @@ selectFieldWidget options field = do
     domChanged <- domEventWithSample (\_ -> getTextInputValue selectEl) "change" selectEl
     attachEvent domChanged ((\str -> Tuple (Last (Just (unsafePartial (fromJust (toEnum (fromJust (fromString str))))))) Touched) >$< writeField field)
     pure unit
+
+-- Form is a Widget that provides input and "callback" to modify input fields
+
+type Form i o = Widget (Tuple (Input i) (Callback o))
