@@ -53,7 +53,6 @@ import Data.Tuple (Tuple(..))
 import Effect (foreachE, Effect)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn3, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Foreign.Object as Object
-import Specular.Callback (Callback)
 import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode, setText, (:=))
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder (mkBuilder', runBuilder')
@@ -64,7 +63,7 @@ import Specular.Dom.Widget (RWidget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setCheckboxChecked, setTextInputValue)
 import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDyn_)
 import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
-import Specular.Ref (Ref(..))
+import Specular.Ref (Ref(..), Callback)
 import Unsafe.Coerce (unsafeCoerce)
 import Specular.Internal.Profiling as ProfilingInternal
 import Specular.Profiling as Profiling

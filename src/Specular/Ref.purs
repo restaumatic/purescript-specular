@@ -3,24 +3,27 @@ module Specular.Ref
   , newRef
   , new
   , newRefWithEvent
-  , refValue
   , value
-  , refUpdate
   , modify
   , refUpdateConst
   , set
   , focusRef
   , pureFocusRef
   , previewRef
-  , updateRef
   , readRef
 
   , constRef
 
   , wrapViewWidget
-
+  , Callback
   , Lens
   , Prism
+  -- Deprecated, use `set` instead
+  , updateRef
+  -- Deprecated, use `value` instead
+  , refValue
+  -- Deprecated, use `modify` instead
+  , refUpdate
   ) where
 
 import Prelude
@@ -30,10 +33,10 @@ import Data.Functor.Invariant (class Invariant)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
-import Specular.Callback (Callback, attachEvent, contramapCallbackDyn, nullCallback)
 import Specular.Dom.Widget (class MonadWidget)
-import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, subscribeEvent_, weaken)
+import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, readDynamic, subscribeEvent_, weaken)
 
+type Callback a = (a -> Effect Unit)
 
 data Ref a = Ref (Dynamic a) (Callback (a -> a))
 
@@ -87,10 +90,10 @@ focusRef :: forall s a. Dynamic (Lens s a) -> Ref s -> Ref a
 focusRef lensD (Ref value update) =
   Ref
     (lift2 _.get lensD value)
-    (contramapCallbackDyn
-      (lensD <#> \lens modify_a s ->
-        lens.set s (modify_a (lens.get s)))
-      update)
+    (\x -> do
+      f <- readDynamic (lensD <#> \lens modify_a s -> lens.set s (modify_a (lens.get s)))
+      update (f x)
+    )
 
 pureFocusRef :: forall s a. Lens s a -> Ref s -> Ref a
 pureFocusRef lens (Ref value update) =
@@ -113,8 +116,9 @@ previewRef prism (Ref value update) =
       ) >>> update)
 
 
+-- Old name for `set`
 updateRef :: forall a. Ref a -> a -> Effect Unit
-updateRef (Ref _ update) = update <<< const
+updateRef = set
 
 readRef :: forall m a. MonadEffect m => Ref a -> m a
 readRef (Ref value update) = pull $ readBehavior $ current value
@@ -124,9 +128,9 @@ wrapViewWidget
    . MonadWidget m
   => (WeakDynamic a -> m (Event a))
   -> Ref a -> m Unit
-wrapViewWidget widget (Ref value update) = do
+wrapViewWidget widget r@(Ref value update) = do
   updateE <- widget (weaken value)
-  attachEvent updateE $ update <<< const
+  subscribeEvent_ (set r) updateE
 
 constRef :: forall a. a -> Ref a
-constRef x = Ref (pure x) nullCallback
+constRef x = Ref (pure x) (const (pure unit))
