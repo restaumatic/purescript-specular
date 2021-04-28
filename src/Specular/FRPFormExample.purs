@@ -71,16 +71,16 @@ showName (Name n) = n.nameToString
 
 mkPersonForm :: Effect (Form Person (Tuple String String))
 mkPersonForm = do
-  ageInput <- newField
-  nameInput <- newField
-  repeatedNameInput <- newField
+  ageField <- newField
+  nameField <- newField
+  repeatedNameField <- newField
 
   let
-    ageOrError = (mkInt >=> mkAge) <$> readField ageInput
+    ageOrError = (mkInt >=> mkAge) <$> readField ageField
     age = rightOf ageOrError
     ageError = leftOf ageOrError
     nameOrError = do
-      v <- readField nameInput
+      v <- readField nameField
       if null v
         then pure $ Left "must not be empty"
         else do
@@ -92,7 +92,7 @@ mkPersonForm = do
     nameError = leftOf nameOrError
     repeatedNameOrError = do
       (Name originalName) <- name
-      repeatedName <- readField repeatedNameInput
+      repeatedName <- readField repeatedNameField
       pure $ if originalName.nameToString == repeatedName
         then Right originalName
         else Left "Name mismatch"
@@ -106,21 +106,21 @@ mkPersonForm = do
     setAge <- el "div" [] do
       text "Age"
       el "div" [] do
-        set <- stringFieldWidget ageInput
+        set <- stringFieldWidget ageField
         whenInputIntactNothing age $ el "span" [attr "style" "color: green;"] $ text "mandatory"
         whenInputTouchedJust ageError $ el "span" [attr "style" "color: red;"] <<< text
         pure set
     setName <- el "div" [] do
       text "Name"
       el "div" [] do
-        set <- stringFieldWidget nameInput
+        set <- stringFieldWidget nameField
         whenInputIntactNothing name $ el "span" [attr "style" "color: green;"] $ text "mandatory"
         whenInputTouchedJust nameError $ el "span" [attr "style" "color: red;"] <<< text
         pure set
     el "div" [] do
       text "Repeat Name"
       el "div" [] do
-        _ <- stringFieldWidget repeatedNameInput
+        _ <- stringFieldWidget repeatedNameField
         whenInputTouchedJust repeatedNameError $ el "span" [attr "style" "color: red;"] <<< text
         whenInputIntactNothing repeatedName $ el "span" [attr "style" "color: green;"] $ text "mandatory"
     whenInputJust person $ \(Person person) -> do
@@ -136,7 +136,7 @@ main :: Effect Unit
 main = do
   personForm <- mkPersonForm
   runMainWidgetInBody do
-    (Tuple person populatePerson) <- el "div" [attr "style" "padding: 10px;"]personForm
+    (Tuple person populatePerson) <- el "div" [attr "style" "padding: 10px;"] personForm
     el "button" [onClick_ ((const (Tuple "Eryk" "38")) >$< populatePerson)] $ text "Populate"
     whenInputJust person $ \p -> el "button" [] $ text "Submit"
   pure unit
