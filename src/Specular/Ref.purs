@@ -36,6 +36,9 @@ import Effect.Class (class MonadEffect)
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, readDynamic, subscribeEvent_, weaken)
 
+-- | A handle that lets the owner trigger some action with payload of type `a`.
+-- | Can be thought of as "inverse of `Event`".
+-- |
 type Callback a = (a -> Effect Unit)
 
 data Ref a = Ref (Dynamic a) (Callback (a -> a))
