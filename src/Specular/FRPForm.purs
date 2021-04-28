@@ -1,5 +1,5 @@
 module Specular.FRPForm where
--- FRP Input POC, to run: npm run node-test && parcel build frpform/index.js
+-- FRP Input POC, to run: pulp --psc-package build && parcel build frpform/index.js
 
 import Prelude
 
@@ -326,6 +326,6 @@ personForm = do
 main :: Effect Unit
 main = do
   f <- personForm
-  (Tuple person set) <- runMainWidgetInBody $ f
-  triggerCallback set (Tuple "Eryk" "37")
+  (Tuple person setNameAndAge) <- runMainWidgetInBody $ f
+  triggerCallback setNameAndAge (Tuple "Eryk" "37")
   pure unit
