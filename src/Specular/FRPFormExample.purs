@@ -37,8 +37,6 @@ import Data.Foldable (traverse_)
 import Data.Enum
 import Data.Int
 import Specular.Dom.Builder.Class (el', elAttr')
-import Partial.Unsafe (unsafePartial)
-import Specular.Dom.Node.Class ((:=))
 
 
 newInt :: String -> Either String Int
