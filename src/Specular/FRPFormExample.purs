@@ -103,24 +103,22 @@ mkPersonForm = do
   pure do
     el "h1" [] $ text "Person Form"
     whenInputIntactNothing person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
-    setAge <- el "div" [] do
+    el "div" [] do
       text "Age"
       el "div" [] do
-        set <- stringFieldWidget ageField
+        stringFieldWidget ageField
         whenInputIntactNothing age $ el "span" [attr "style" "color: green;"] $ text "mandatory"
         whenInputTouchedJust ageError $ el "span" [attr "style" "color: red;"] <<< text
-        pure set
-    setName <- el "div" [] do
+    el "div" [] do
       text "Name"
       el "div" [] do
-        set <- stringFieldWidget nameField
+        stringFieldWidget nameField
         whenInputIntactNothing name $ el "span" [attr "style" "color: green;"] $ text "mandatory"
         whenInputTouchedJust nameError $ el "span" [attr "style" "color: red;"] <<< text
-        pure set
     el "div" [] do
       text "Repeat Name"
       el "div" [] do
-        _ <- stringFieldWidget repeatedNameField
+        stringFieldWidget repeatedNameField
         whenInputTouchedJust repeatedNameError $ el "span" [attr "style" "color: red;"] <<< text
         whenInputIntactNothing repeatedName $ el "span" [attr "style" "color: green;"] $ text "mandatory"
     whenInputJust person $ \(Person person) -> do
@@ -129,8 +127,8 @@ mkPersonForm = do
         el "p" [] $ text $ "Age: " <> showAge person.personAge
         el "p" [] $ text $ "Name: " <> showName person.personName
     pure (Tuple person $ mkCallback $ \(Tuple name age) -> do
-      triggerCallback setAge age
-      triggerCallback setName name)
+      triggerCallback (writeField ageField) (Tuple age mempty)
+      triggerCallback (writeField nameField) (Tuple name mempty))
 
 main :: Effect Unit
 main = do

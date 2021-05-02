@@ -140,12 +140,16 @@ readField input = MaybeT $ WriterT $ do
 
 -- then we can wrap Fields with Widgets
 
-stringFieldWidget :: Field String -> Widget (Callback String)
+stringFieldWidget :: Field String -> Widget Unit
 stringFieldWidget field = do
   Tuple element _ <- elAttr' "input" mempty (pure unit)
   domChanged <- domEventWithSample (\_ -> getTextInputValue element) "input" element
   attachEvent domChanged ((\str -> Tuple str Touched) >$< writeField field)
-  pure $ ((\str -> Tuple str Intact) >$< writeField field) <> mkCallback (setTextInputValue element)
+  subscribeEvent_ (setTextInputValue element) (changed (fieldDyn field))
+    where
+    fieldDyn :: forall a . Field a -> Dynamic a
+    fieldDyn field = (\(Tuple a b) -> a) <$> value field.inputValueRef
+
 
 -- this doens't work for now
 selectFieldWidget ::
