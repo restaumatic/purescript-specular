@@ -97,12 +97,13 @@ We can think of a `Ref` as of `Effect.Ref`, but with additional functions:
 - `Ref.value :: Ref a -> Dynamic a` to observe the value
 - `Ref.modify :: Ref a -> (a -> a) -> Effect Unit` to modify the value using a function
 
-As a shortcut we have `Ref.set :: Ref a -> a -> Effect Unit` to replace the value completely.
+As a shortcut we have `Ref.write :: Ref a -> a -> Effect Unit` to replace the value completely, 
+and a `Ref.read :: forall a. => Ref a -> Effect a` to read the current value of a `Ref`.
 
 Creating a Ref:
 
 ```purescript
-newRef :: forall m a. MonadEffect m => a -> m (Ref a)
+Ref.new :: forall a. a -> Effect (Ref a)
 ```
 
 `Ref` is not a `Functor`, because it's read-write. It's `Invariant`, that is, it can be mapped over using a bijection.
