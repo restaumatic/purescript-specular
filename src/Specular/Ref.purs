@@ -43,7 +43,7 @@ import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
 import Specular.Dom.Widget (class MonadWidget)
-import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, readDynamic, subscribeEvent_, weaken)
+import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, newDynamic, readDynamic, subscribeEvent_, weaken)
 
 data Ref a = Ref (Dynamic a) ((a -> a) -> Effect Unit)
 
@@ -81,7 +81,7 @@ write r = (\new _old -> new) >>> modify r
 
 -- | Read the current value of a Ref
 read :: forall m a. MonadEffect m => Ref a -> m a
-read (Ref value update) = pull $ readBehavior $ current value
+read (Ref value update) = readDynamic value
 
 -- | Create a Ref with a value
 const  :: forall a. a -> Ref a
