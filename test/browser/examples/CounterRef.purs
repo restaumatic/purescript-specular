@@ -24,11 +24,8 @@ spec = describe "Counter" $ do
     liftEffect (innerHTML node) `shouldReturn`
       ( """<p>0</p>""" <>
         """<button class="increment" type="button">Increment</button>""" <>
-        """<button class="decrement" type="button">Decrement</button>""" <>
-        """<button class="reset" type="button">Reset</button>"""
+        """<button class="decrement" type="button">Decrement</button>"""
       )
-
-
 
   it "reacts to increment/decrement buttons" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
@@ -41,8 +38,7 @@ spec = describe "Counter" $ do
     liftEffect (innerHTML node) `shouldReturn`
       ( """<p>1</p>""" <>
         """<button class="increment" type="button">Increment</button>""" <>
-        """<button class="decrement" type="button">Decrement</button>""" <>
-        """<button class="reset" type="button">Reset</button>"""
+        """<button class="decrement" type="button">Decrement</button>"""
       )
 
     liftEffect $ dispatchTrivialEvent decrementButton "click"
@@ -52,26 +48,9 @@ spec = describe "Counter" $ do
     liftEffect (innerHTML node) `shouldReturn`
       ( """<p>-2</p>""" <>
         """<button class="increment" type="button">Increment</button>""" <>
-        """<button class="decrement" type="button">Decrement</button>""" <>
-        """<button class="reset" type="button">Reset</button>"""
+        """<button class="decrement" type="button">Decrement</button>"""
       )
 
-  it "it can reset to zero" $ do
-    Tuple node _ <- runBuilderInDiv mainWidget
-
-    incrementButton <- liftEffect $ querySelector ".increment" node
-    resetButton <- liftEffect $ querySelector ".reset" node
-
-    liftEffect $ dispatchTrivialEvent incrementButton "click"
-    liftEffect $ dispatchTrivialEvent incrementButton "click"
-    liftEffect $ dispatchTrivialEvent resetButton "click"
-
-    liftEffect (innerHTML node) `shouldReturn`
-      ( """<p>0</p>""" <>
-        """<button class="increment" type="button">Increment</button>""" <>
-        """<button class="decrement" type="button">Decrement</button>""" <>
-        """<button class="reset" type="button">Reset</button>"""
-      )
 
 
 mainWidget :: Widget Unit
@@ -84,9 +63,6 @@ mainWidget = do
     -- | Add 1 to counter value
     let addCb =  (Ref.modify counter) (add 1)
 
-    -- | Reset counter to 0
-    let reset =  Ref.write counter 0
-
     el_ "p" $ dynText $ show <$> Ref.value counter
 
     el "button" [class_ "increment", attr "type" "button", onClick_ addCb ] do
@@ -94,6 +70,3 @@ mainWidget = do
 
     el "button" [class_ "decrement", attr "type" "button", onClick_ subtractCb ] do
       text "Decrement"
-
-    el "button" [class_ "reset", attr "type" "button", onClick_ reset] do
-      text "Reset"
