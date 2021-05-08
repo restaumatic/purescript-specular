@@ -76,10 +76,8 @@ mkPersonForm = do
   repeatedNameField <- newField
 
   let
-    ageOrError = (mkInt >=> mkAge) <$> readField ageField
-    age = rightOf ageOrError
-    ageError = leftOf ageOrError
-    nameOrError = do
+    Tuple ageError age = eitherOf $ (mkInt >=> mkAge) <$> readField ageField
+    Tuple nameError name = eitherOf $ do
       v <- readField nameField
       if null v
         then pure $ Left "must not be empty"
@@ -88,16 +86,12 @@ mkPersonForm = do
         if a.ageToInt  < 10 && length v > 10
           then pure $ Left "Too long name for such a young child"
           else pure $ Right $ Name { nameToString: v }
-    name = rightOf nameOrError
-    nameError = leftOf nameOrError
-    repeatedNameOrError = do
+    Tuple repeatedNameError repeatedName = eitherOf $ do
       (Name originalName) <- name
       repeatedName <- readField repeatedNameField
       pure $ if originalName.nameToString == repeatedName
         then Right originalName
         else Left "Name mismatch"
-    repeatedNameError = leftOf repeatedNameOrError
-    repeatedName = rightOf repeatedNameOrError
     person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> (name <* repeatedName)
 
   pure do

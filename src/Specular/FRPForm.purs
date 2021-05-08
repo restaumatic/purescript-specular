@@ -114,6 +114,9 @@ rightOf f = justOf $ rightToMaybe <$> f
   where
     rightToMaybe = either (const Nothing) Just
 
+eitherOf :: forall a e . Input (Either e a) -> Tuple (Input e) (Input a)
+eitherOf i = Tuple (leftOf i) (rightOf i)
+
 selection :: forall a . Eq a => Input a -> Input (Array a) -> Input (Maybe a)
 selection selected options = selected >>= \a -> (find (_ `eq` a)) <$> options
 
