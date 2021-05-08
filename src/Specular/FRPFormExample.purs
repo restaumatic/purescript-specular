@@ -92,7 +92,7 @@ mkPersonForm = do
       pure $ if originalName.nameToString == repeatedName
         then Right originalName
         else Left "Name mismatch"
-    person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> (name <* repeatedName)
+    person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> repeatedName
 
   pure do
     el "h1" [] $ text "Person Form"
