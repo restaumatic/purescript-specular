@@ -192,7 +192,7 @@ attrsUnlessD conditionD attrs' = attrsD $ conditionD <#> if _ then mempty else a
 -- * Events
 
 on :: EventType -> (DOM.Event -> Effect Unit) -> Prop
-on eventType cb = Prop $ mkEffectFn2 \node cleanups -> do
+on eventType cb = Prop $ mkEffectFn2 \node _cleanups -> do
   _ <- DOM.addEventListener eventType (\e -> Profiling.measure ("event: " <> eventType) $ cb e) node
   -- Note: we don't actually need to detach the listener when cleaning up -
   -- the node will be removed anyway.

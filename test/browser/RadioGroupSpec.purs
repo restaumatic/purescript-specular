@@ -15,14 +15,14 @@ spec = describe "radioGroup" $ do
   pending' "works" $ do
     log <- liftEffect $ newRef []
     Tuple div _ <- runBuilderInDiv $ do
-      dyn <- radioGroup 
+      dyn <- radioGroup
         { options: ["foo", "bar"]
         , initialValueIndex: 0
         , render: \_ _ input -> input (pure mempty)
         }
       subscribeDyn_ (append log) dyn
 
-    inputFoo <- liftEffect $ querySelector "input:nth-child(1)" div
+    _inputFoo <- liftEffect $ querySelector "input:nth-child(1)" div
     inputBar <- liftEffect $ querySelector "input:nth-child(2)" div
 
     log `shouldHaveValue` ["foo"]

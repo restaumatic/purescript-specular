@@ -1,6 +1,6 @@
 module DynamicSpec where
 
-import Prelude
+import Prelude hiding (append)
 import Test.Spec (Spec, describe, it)
 
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
@@ -11,9 +11,8 @@ import Effect.Console (log) as Console
 import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, readDynamic, Dynamic)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
-import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
-import Debug (traceM)
+-- | import Debug (traceM)
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -285,22 +284,22 @@ spec = describe "Dynamic" $ do
         dyn = rootDynOuter.dynamic >>= _.dynamic
       unsub3 <- liftEffect $ execCleanupT do
         flip subscribeDyn_ dyn \x -> do
-          traceM $ "receiver 1: " <> show x
+          append log $ Right $ "receiver 1: " <> show x
         flip subscribeDyn_ rootDynOuter.dynamic \x -> do
           value <- x.read
           when (value > 0) do
-            traceM "set begin"
+            append log $ Right "set begin"
             x.set (value + 1)
-            traceM "set end"
+            append log $ Right "set end"
         flip subscribeDyn_ dyn \x -> do
-          traceM $ "receiver 2: " <> show x
-          append log x
+          -- | traceM $ "receiver 2: " <> show x
+          append log $ Left x
 
       liftEffect do
         inner <- newDynamic 1
         rootDynOuter.set inner
 
-      log `shouldHaveValue` [0, 1, 2]
+      log `shouldHaveValue` [(Right "receiver 1: 0"),(Left 0),(Right "set begin"),(Right "receiver 1: 1"),(Left 1),(Right "receiver 1: 2"),(Left 2),(Right "set end")]
 
       -- clean up
       liftEffect unsub3
@@ -308,9 +307,9 @@ spec = describe "Dynamic" $ do
   describe "subscribeDyn_" $ do
     it "simple case - no changes" $ withLeakCheck $ do
       log <- liftEffect $ newRef ([] :: Array (Either Int Int))
-      {dynamic: dyn, set: fire} <- newDynamic 1
+      {dynamic: dyn, set: _fire} <- newDynamic 1
 
-      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn_ (\x ->
+      Tuple _derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn_ (\x ->
         do
           append log (Left x)
         ) dyn
@@ -323,9 +322,9 @@ spec = describe "Dynamic" $ do
   describe "subscribeDyn" $ do
     it "simple case - no changes" $ withLeakCheck $ do
       log <- liftEffect $ newRef ([] :: Array (Either Int Int))
-      {dynamic: dyn, set: fire} <- newDynamic 1
+      {dynamic: dyn, set: _fire} <- newDynamic 1
 
-      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
+      Tuple _derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
         do
           append log (Left x)
           pure (2 * x)

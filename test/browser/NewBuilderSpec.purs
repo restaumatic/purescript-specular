@@ -6,14 +6,12 @@ import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dynText, el, el_, rawHtml, text)
-import Specular.Dom.Node.Class ((:=))
-import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody)
+import Specular.Dom.Node.Class ((:=), createElement)
+import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody, runWidgetInNode)
 import Specular.FRP (newDynamic)
 import Test.Spec (Spec, after_, describe, it)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
-import Specular.Dom.Node.Class (createElement)
-import Specular.Dom.Widget (runWidgetInNode)
 
 spec :: Spec Unit
 spec =
@@ -41,7 +39,7 @@ spec =
         liftEffect (numChildNodes parent) `shouldReturn` 0
 
     it "builds static DOM" $ withLeakCheck do
-      Tuple node result <- runBuilderInDiv do
+      Tuple node _result <- runBuilderInDiv do
          el "div" [attrs ("class" := "content")] do
            text "foo"
            el "span" [] $ text "bar"
@@ -55,7 +53,7 @@ spec =
 
     it "updates attributes" $ withLeakCheck do
       {dynamic,set} <- liftEffect $ newDynamic $ "k1" := "v1" <> "k2" := "v2"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
          el "div" [attrsD dynamic] emptyWidget
 
       liftEffect (innerHTML node) `shouldReturn`
@@ -83,7 +81,7 @@ spec =
 
       it "multiple instances" do
         {dynamic: d1, set: set_d1} <- newDynamic ["foo"]
-        {dynamic: d2, set: set_d2} <- newDynamic ["bar"]
+        {dynamic: d2, set: _set_d2} <- newDynamic ["bar"]
         liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classesD d1, classesD d2] emptyWidget
         liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
         liftEffect $ set_d1 ["foo", "baz"]
@@ -102,7 +100,7 @@ spec =
 
     it "dynText" $ withLeakCheck do
       {dynamic,set} <- liftEffect $ newDynamic $ "foo"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
          el "div" [] $ dynText dynamic
 
       liftEffect (innerHTML node) `shouldReturn`
