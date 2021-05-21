@@ -3,7 +3,6 @@ module RadioGroupSpec where
 import Prelude hiding (append)
 
 import Specular.Internal.Effect (newRef)
-import Data.Monoid (mempty)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Widgets.RadioGroup (radioGroup)
 import Specular.FRP.Base (subscribeDyn_)

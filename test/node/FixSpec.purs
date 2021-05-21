@@ -3,7 +3,6 @@ module FixSpec where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
-import Effect.Class (liftEffect)
 import Specular.Internal.Effect (newRef)
 import Data.Tuple (Tuple(..))
 import Specular.FRP (Dynamic, Event, WeakDynamic, holdDyn, never, newEvent, subscribeEvent_, weaken)

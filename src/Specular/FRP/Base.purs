@@ -56,7 +56,6 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Data.Array as Array
 import Data.Function.Uncurried (mkFn2)
 import Data.HeytingAlgebra (ff, implies, tt)
 import Data.Maybe (Maybe(..), maybe)

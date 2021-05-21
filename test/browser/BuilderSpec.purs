@@ -19,7 +19,7 @@ import Specular.Internal.Effect (modifyRef, newRef)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck)
-import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv, runBuilderInDiv')
+import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv')
 import Unsafe.Coerce (unsafeCoerce)
 
 spec :: Spec Unit

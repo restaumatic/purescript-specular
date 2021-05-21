@@ -16,7 +16,6 @@ import Specular.Dom.Browser as DOM
 import Specular.FRP (class MonadFRP, WeakDynamic, newEvent, weakDynamic_)
 import Specular.FRP as FRP
 import Specular.Internal.Effect (DelayedEffects)
-import Prim.TypeError (class Warn, Text)
 
 type BuilderEnv env =
   { parent :: Node

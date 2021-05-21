@@ -46,6 +46,7 @@ trigger (SpyIO spy) x y = spy.fn x *> pure y
 assertValues :: forall a. Eq a => Show a => SpyIO a -> Array a -> Aff Unit
 assertValues (SpyIO spy) = shouldHaveValue spy.values
 
+class ShouldHaveInferredType :: forall k. Type -> k -> Constraint
 class ShouldHaveInferredType actual expected where
   -- | Assert that the given value has inferred type @expected@.
   -- | If the assertion turns out to be false, the call will not compile.

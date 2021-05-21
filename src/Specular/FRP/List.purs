@@ -22,7 +22,6 @@ import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn_, weaken)
 import Specular.Internal.Effect (Ref, newRef, readRef, writeRef)
 import Unsafe.Reference (unsafeRefEq)
-import Debug
 
 -- | `dynamicListWithIndex dynArray handler`
 -- | Render a list of items from `dynArray`. Each item will be rendered by `handler`.

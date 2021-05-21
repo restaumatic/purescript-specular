@@ -9,7 +9,7 @@ import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dyn
 import Specular.Dom.Node.Class ((:=))
 import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody)
 import Specular.FRP (newDynamic)
-import Test.Spec (Spec, after_, describe, it, describeOnly)
+import Test.Spec (Spec, after_, describe, it)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
 import Specular.Dom.Node.Class (createElement)

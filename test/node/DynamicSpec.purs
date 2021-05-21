@@ -1,9 +1,8 @@
 module DynamicSpec where
 
-import Prelude hiding (append)
-import Test.Spec
+import Prelude
+import Test.Spec (Spec, describe, it)
 
-import Data.Traversable (traverse, for_)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
@@ -12,9 +11,9 @@ import Effect.Console (log) as Console
 import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, readDynamic, Dynamic)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
-import Test.Spec (Spec, describe, describeOnly, it)
+import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
-import Debug
+import Debug (traceM)
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do

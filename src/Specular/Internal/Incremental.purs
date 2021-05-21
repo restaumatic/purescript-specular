@@ -5,7 +5,6 @@ import Prelude
 import Data.Function.Uncurried (Fn2, runFn2)
 import Effect (Effect)
 import Effect.Console as Console
-import Effect.Ref (Ref)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Effect (foreachUntil)

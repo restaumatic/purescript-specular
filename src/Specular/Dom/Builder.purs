@@ -14,7 +14,7 @@ import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
-import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot, appendSlot, replaceSlot, destroySlot)
+import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
@@ -22,9 +22,8 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
-import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDomBuilder)
-import Specular.Dom.Browser (appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
+import Specular.Dom.Browser (Node, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
@@ -170,7 +169,7 @@ instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
       pure node
     subscribeWeakDyn_ (setText node) dstr
 
-  rawHtml html = mkBuilder \env -> 
+  rawHtml html = mkBuilder \env ->
     appendRawHtml html env.parent
 
   elDynAttrNS' namespace tagName dynAttrs inner = do

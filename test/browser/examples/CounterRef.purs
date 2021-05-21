@@ -3,10 +3,9 @@ module Examples.CounterRef (spec, mainWidget) where
 import Prelude
 
 import Data.Tuple (Tuple(..))
-import Effect (Effect)
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Element (attr, class_, el, el_, onClick_, text, dynText)
-import Specular.Dom.Widget (class MonadWidget, Widget, runMainWidgetInBody)
+import Specular.Dom.Widget (Widget)
 import Specular.Ref (Ref)
 import Specular.Ref as Ref
 import Test.Spec (Spec, describe, it)

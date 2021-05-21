@@ -14,6 +14,7 @@ class Monad m <= MonadCleanup m where
   onCleanup :: Effect Unit -> m Unit
 
 
+newtype CleanupT :: forall k. (k -> Type) -> k -> Type
 newtype CleanupT m a = CleanupT (ReaderT DelayedEffects m a)
 
 derive newtype instance functorCleanupT :: Functor m => Functor (CleanupT m)
