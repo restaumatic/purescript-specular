@@ -15,7 +15,7 @@ import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, never, subscribeEven
 import Specular.FRP as FRP
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
-import Specular.Internal.Effect (modifyRef, newRef)
+import Effect.Ref (modify_, new)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck)
@@ -228,12 +228,12 @@ spec = describe "Builder" do
 
     it "does not rerender contents when not necessary" $ withLeakCheck do
       Tuple dynMb updateDyn  <- liftEffect $ newDynamic $ Nothing
-      count <- liftEffect $ newRef 0
+      count <- liftEffect $ new 0
 
       T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> do
-          liftEffect $ modifyRef count (_ + 1)
+          liftEffect $ modify_ (_ + 1) count
           dynText dyn
         elDynAttr "span" (pure mempty) $ pure unit
 
@@ -308,12 +308,12 @@ spec = describe "Builder" do
 
       it "does not rerender contents when not necessary" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
-        count <- liftEffect $ newRef 0
+        count <- liftEffect $ new 0
 
         T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb do
-            liftEffect $ modifyRef count (_ + 1)
+            liftEffect $ modify_ (_ + 1) count
             text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
 
@@ -388,12 +388,12 @@ spec = describe "Builder" do
 
       it "does not rerender contents when not necessary" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
-        count <- liftEffect $ newRef 0
+        count <- liftEffect $ new 0
 
         T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb do
-            liftEffect $ modifyRef count (_ + 1)
+            liftEffect $ modify_ (_ + 1) count
             text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
 
@@ -418,7 +418,7 @@ spec = describe "Builder" do
         event <- domEventWithSample (\_ -> pure unit) "click" button
         pure {button,event}
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect $ dispatchTrivialEvent button "click"
@@ -445,7 +445,7 @@ spec = describe "Builder" do
         event :: Event Unit
         event = switch result
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect (innerHTML node) `shouldReturn` ""
@@ -478,7 +478,7 @@ spec = describe "Builder" do
         event :: Event Unit
         event = switchWeakDyn result
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect (innerHTML node) `shouldReturn` ""

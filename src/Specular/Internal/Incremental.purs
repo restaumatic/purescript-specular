@@ -111,17 +111,17 @@ removeDependent = mkEffectFn2 \node dependent -> do
 
 handleRefcountChange :: forall a. EffectFn2 (Node a) Int Unit
 handleRefcountChange = mkEffectFn2 \node oldRefcount -> do
-  newRefcount <- runEffectFn1 Node.refcount node
-  if oldRefcount == 0 && newRefcount > 0 then
+  newcount <- runEffectFn1 Node.refcount node
+  if oldRefcount == 0 && newcount > 0 then
     runEffectFn1 connect node
-  else if oldRefcount > 0 && newRefcount == 0 then
+  else if oldRefcount > 0 && newcount == 0 then
     runEffectFn1 disconnect node
   else
     pure unit
 
   -- Update globalTotalRefcount
   oldTotalRefcount <- runEffectFn1 Ref.read globalTotalRefcount
-  runEffectFn2 Ref.write globalTotalRefcount (oldTotalRefcount - oldRefcount + newRefcount)
+  runEffectFn2 Ref.write globalTotalRefcount (oldTotalRefcount - oldRefcount + newcount)
 
 -- Preconditions:
 -- - node does not have value computed

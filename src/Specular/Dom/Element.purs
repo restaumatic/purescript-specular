@@ -62,7 +62,8 @@ import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes,
 import Specular.Dom.Widget (RWidget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setCheckboxChecked, setTextInputValue)
 import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDyn_)
-import Specular.Internal.Effect (DelayedEffects, newRef, pushDelayed, readRef, writeRef)
+import Effect.Ref (new, read, write)
+import Specular.Internal.Effect (DelayedEffects, pushDelayed)
 import Specular.Ref (Ref(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Specular.Internal.Profiling as ProfilingInternal
@@ -130,12 +131,12 @@ attrs a = Prop $ mkEffectFn2 \node _ ->
 -- | uses of `attrs` or `attrsD` on the same element.
 attrsD :: Dynamic Attrs -> Prop
 attrsD dynAttrs = Prop $ mkEffectFn2 \node cleanups -> do
-  attrsRef <- newRef Object.empty
+  attrsRef <- new Object.empty
   let
     -- TODO: this could be implemented more efficiently with Brutal Mutability (TM)
     resetAttributes = mkEffectFn1 \newAttrs -> do
-      oldAttrs <- readRef attrsRef
-      writeRef attrsRef newAttrs
+      oldAttrs <- read attrsRef
+      write newAttrs attrsRef
       let
         changed = Object.filterWithKey (\k v -> Object.lookup k oldAttrs /= Just v) newAttrs
         removed = Array.filter (\k -> not (k `Object.member` newAttrs)) $ Object.keys oldAttrs

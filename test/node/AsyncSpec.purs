@@ -12,7 +12,7 @@ import Effect.Class (liftEffect)
 import Specular.FRP (current, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
 import Specular.FRP.Base (readBehavior, subscribeDyn_, readDynamic)
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, clear, shouldHaveValue, shouldReturn)
@@ -22,7 +22,7 @@ spec = do
   describe "asyncRequestMaybe" $ do
     it "makes a request for initial value" $ do
       avar <- AVar.empty
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let request =  AVar.take avar
 
@@ -38,7 +38,7 @@ spec = do
 
     it "makes a request when the value changes" $ do
       avar <- AVar.empty
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let request =  AVar.take avar
 
@@ -61,7 +61,7 @@ spec = do
     it "ignores responses to requests older than the current" $ do
       avar1 <- AVar.empty
       avar2 <- AVar.empty
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
@@ -87,7 +87,7 @@ spec = do
     it "ignores out-of-order responses" $ do
       avar1 <- AVar.empty
       avar2 <- AVar.empty
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
@@ -128,7 +128,7 @@ spec = do
 
       -- In `log` we'll have pairs of (String, String)
       -- The first String is the request description, the second is the result.
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       Tuple result _ <- runCleanupT do
         status <- asyncRequestMaybe $ map snd dyn
@@ -172,7 +172,7 @@ spec = do
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       _ <- liftEffect $ runCleanupT $ do
         result <- performEvent $ map
           (\x -> liftEffect (append log ("handler:" <> x)) *> pure x)

@@ -2,7 +2,7 @@ module EventSpec where
 
 import Prelude hiding (append)
 import Control.Monad.Cleanup (execCleanupT)
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Data.Maybe (Maybe(..))
 import Specular.FRP (filterMapEvent, holdDyn, leftmost, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Specular.FRP.Base (subscribeDyn_)
@@ -14,7 +14,7 @@ spec = describe "Event" $ do
 
   it "pushes values to subscribers, honors unsubscribe" $ withLeakCheck $ do
     {event,fire} <- liftEffect newEvent
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
     unsub1 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "1:" <> x) event
     unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "2:" <> x) event
     liftEffect $ fire "A"
@@ -31,7 +31,7 @@ spec = describe "Event" $ do
     it "different root events" $ withLeakCheck $ do
       root1 <- liftEffect newEvent
       root2 <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let event = mergeEvents pure pure
                               (\l r -> pure $ "both: " <> l <> ", " <> r)
@@ -52,7 +52,7 @@ spec = describe "Event" $ do
 
     it "coincidence" $ withLeakCheck $ do
       root <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let event = mergeEvents
                     (\x -> pure $ "left: " <> x)
@@ -73,7 +73,7 @@ spec = describe "Event" $ do
   it "sampleAt" $ withLeakCheck $ do
     root <- liftEffect newEvent
     b <- liftEffect $ newBehavior "A"
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
 
     let event = sampleAt root.event b.behavior
     unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
@@ -88,7 +88,7 @@ spec = describe "Event" $ do
 
   it "filterMapEvent" $ withLeakCheck $ do
     root <- liftEffect newEvent
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
 
     let event = filterMapEvent (\x -> if x < 5 then Just (2 * x) else Nothing) root.event
     unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
@@ -106,7 +106,7 @@ spec = describe "Event" $ do
     it "different root events" $ withLeakCheck $ do
       root1 <- liftEffect newEvent
       root2 <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let event = leftmost [ root1.event, root2.event ]
       unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
@@ -124,7 +124,7 @@ spec = describe "Event" $ do
 
     it "coincidence chooses leftmost" $ withLeakCheck $ do
       root <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let event = leftmost [ 1 <$ root.event, 2 <$ root.event, 3 <$ root.event ]
 
@@ -138,7 +138,7 @@ spec = describe "Event" $ do
 
   it "does not occur during frames started by firing listeners" $ withLeakCheck $ do
     root <- liftEffect newEvent
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
 
     unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (\_ -> do
         unsub2 <- execCleanupT $ do
@@ -155,7 +155,7 @@ spec = describe "Event" $ do
 
   it "events are delivered in order of firing" $ withLeakCheck $ do
     {event,fire} <- liftEffect newEvent
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
 
     unsub1 <- liftEffect $ execCleanupT $ flip subscribeEvent_ event \x ->
       when (x == "first") $

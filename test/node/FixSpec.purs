@@ -3,7 +3,7 @@ module FixSpec where
 import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Data.Tuple (Tuple(..))
 import Specular.FRP (Dynamic, Event, WeakDynamic, holdDyn, never, newEvent, subscribeEvent_, weaken)
 import Specular.FRP.Fix (fixDyn, fixEvent, fixFRP)
@@ -16,7 +16,7 @@ spec :: Spec Unit
 spec = do
   describe "fixEvent" $ do
     it "connects result Event to input Event" $ do
-     log <- liftEffect $ newRef []
+     log <- liftEffect $ new []
      Tuple fire _ <- liftEffect $ runCleanupT $
        fixEvent $ \input -> do
          _ <- subscribeEvent_ (append log) input
@@ -30,7 +30,7 @@ spec = do
 
 {-
     pending' "input and output occur simultaneously" $ do
-     log <- liftEffect $ newRef []
+     log <- liftEffect $ new []
      Tuple fire _ <- liftEffect $ runCleanupT $
        fixEvent $ \input -> do
          {event: output, fire} <- liftEffect newEvent
@@ -50,7 +50,7 @@ spec = do
 
   describe "fixDyn" $ do
    it "gives input WeakDynamic initial value" $ do
-     log <- liftEffect $ newRef []
+     log <- liftEffect $ new []
      Tuple _ _ <- liftEffect $ runCleanupT $
        fixDyn $ \input -> do
          _ <- subscribeWeakDyn_ (append log) input
@@ -62,7 +62,7 @@ spec = do
 
    it "propagates output changes to input" $ do
      {event,fire} <- liftEffect newEvent
-     log <- liftEffect $ newRef []
+     log <- liftEffect $ new []
      Tuple _ _ <- liftEffect $ runCleanupT $
        fixDyn $ \input -> do
          _ <- subscribeWeakDyn_ (append log) input
@@ -76,7 +76,7 @@ spec = do
 
    pending' "input and output change simultaneously" $ do
      {event,fire} <- liftEffect newEvent
-     log <- liftEffect $ newRef []
+     log <- liftEffect $ new []
      Tuple _ _ <- liftEffect $ runCleanupT $
        fixDyn $ \input -> do
          output <- holdDyn 1 event
@@ -108,7 +108,7 @@ spec = do
                         unit)
 
     it "works for Events and Dynamics" $ do
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple fire _ <- liftEffect $ runCleanupT $
         fixFRP $ \input -> do
           {event, fire} <- liftEffect newEvent

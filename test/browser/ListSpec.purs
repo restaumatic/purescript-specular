@@ -13,7 +13,7 @@ import Specular.FRP (changedW, dynamic_, subscribeEvent_, weaken)
 import Specular.FRP.List (weakDynamicList, weakDynamicList_, dynamicList_)
 import Specular.FRP.Replaceable (weakDynamic_)
 import Specular.FRP.WeakDynamic (attachWeakDynWith)
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, liftEffect, shouldHaveValue)
@@ -76,7 +76,7 @@ spec = do
       Tuple dyn fire <- liftEffect $ newDynamic []
       let wdyn = weaken dyn
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       _ <- runBuilderInDiv do
         resultDyn <- weakDynamicList wdyn pure

@@ -2,7 +2,7 @@ module RadioGroupSpec where
 
 import Prelude hiding (append)
 
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Widgets.RadioGroup (radioGroup)
 import Specular.FRP.Base (subscribeDyn_)
@@ -13,7 +13,7 @@ import Test.Utils.Dom (dispatchTrivialEvent, querySelector, runBuilderInDiv)
 spec :: Spec Unit
 spec = describe "radioGroup" $ do
   pending' "works" $ do
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
     Tuple div _ <- runBuilderInDiv $ do
       dyn <- radioGroup
         { options: ["foo", "bar"]

@@ -4,12 +4,13 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
 import Data.Tuple (Tuple(..))
+import Effect (Effect)
+import Effect.Ref (new)
 import Foreign (unsafeToForeign)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Widgets.Input (checkboxView, getCheckboxChecked, getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter, textInputValueOnChange)
 import Specular.FRP (holdDyn, never, newEvent, weaken)
 import Specular.FRP.Base (subscribeDyn_, subscribeEvent_)
-import Specular.Internal.Effect (Effect, newRef)
 import Test.Spec (Spec, describe, it, pending')
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (dispatchEvent, dispatchTrivialEvent, querySelector, runBuilderInDiv)
@@ -37,7 +38,7 @@ spec = describe "Input widgets" $ do
 
     it "return value changes when setValue fires" $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: event, attributes: pure mempty }
 
@@ -52,7 +53,7 @@ spec = describe "Input widgets" $ do
     describe "textInputValueOnChange" do
       it "return value changes when setValue fires" do
         {event,fire} <- liftEffect newEvent
-        log <- liftEffect $ newRef []
+        log <- liftEffect $ new []
         {node,widget} <- makeTextInput
           { initialValue: "initial", setValue: event, attributes: pure mempty }
 
@@ -66,7 +67,7 @@ spec = describe "Input widgets" $ do
 
     pending' "textInputValueEventOnEnter" $ do
       -- FIXME: unable to simulate the keypress event correctly
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: never, attributes: pure mempty }
       void $ liftEffect $ runCleanupT $ do
