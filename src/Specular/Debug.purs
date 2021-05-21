@@ -7,7 +7,7 @@ module Specular.Debug
 
 import Prelude
 
-import Debug.Trace (class DebugWarning, trace)
+import Debug (class DebugWarning, trace)
 import Specular.FRP (Dynamic, Event)
 import Specular.FRP.Base (traceDynIO, traceEventIO)
 

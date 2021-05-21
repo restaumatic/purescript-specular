@@ -14,7 +14,7 @@ import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Specular.Internal.Effect (newRef)
 import Test.Spec (Spec, describe, describeOnly, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
-import Debug.Trace
+import Debug
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do

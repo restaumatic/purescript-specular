@@ -14,7 +14,7 @@ import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Show.Generic (genericShow)
 import Data.Maybe (Maybe(Just, Nothing))
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (Aff, delay, error, killFiber, launchAff, launchAff_)

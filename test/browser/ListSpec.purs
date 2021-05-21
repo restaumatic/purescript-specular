@@ -18,7 +18,7 @@ import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, liftEffect, shouldHaveValue, yieldAff)
 import Test.Utils.Dom (runBuilderInDiv)
-import Debug.Trace
+import Debug
 
 spec :: Spec Unit
 spec = do

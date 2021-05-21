@@ -5,7 +5,7 @@ import Prelude
 import Data.Function.Uncurried (Fn2)
 import Effect.Uncurried (EffectFn2, EffectFn3)
 
-foreign import kind Mutability
+data Mutability
 foreign import data Mutable :: Mutability
 foreign import data Immutable :: Mutability
 
