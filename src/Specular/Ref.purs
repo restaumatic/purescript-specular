@@ -13,7 +13,7 @@ module Specular.Ref
   , wrapViewWidget
   , Lens
   , Prism
-  -- 
+  --
   -- Deprecated, use `new` instead
   , newRef
   -- Deprecated, use `newWithEvent` instead
@@ -54,14 +54,14 @@ instance invariantRef :: Invariant Ref where
 -- | Create a new Ref with an initial value.
 new :: forall m a. MonadEffect m => a -> m (Ref a)
 new initial = do
-  {dynamic, modify} <- newDynamic initial
-  pure $ Ref dynamic modify
+  {dynamic, modify: modify_} <- newDynamic initial
+  pure $ Ref dynamic modify_
 
 newWithEvent :: forall m a. MonadFRP m => a -> Event (a -> a) -> m (Ref a)
 newWithEvent initial extraUpdate = do
-  {dynamic, modify} <- newDynamic initial
-  subscribeEvent_ modify extraUpdate
-  pure $ Ref dynamic modify
+  {dynamic, modify: modify_} <- newDynamic initial
+  subscribeEvent_ modify_ extraUpdate
+  pure $ Ref dynamic modify_
 
 
 -- | The current value of the Ref, as a Dynamic.
@@ -76,12 +76,12 @@ modify (Ref _ update) = update
 
 -- | Overwrite value of this Ref.
 write :: forall a. Ref a -> a -> Effect Unit
-write r = (\new _old -> new) >>> modify r
+write r = (\new_ _old -> new_) >>> modify r
 
 
 -- | Read the current value of a Ref
 read :: forall m a. MonadEffect m => Ref a -> m a
-read (Ref value update) = readDynamic value
+read (Ref value_ _update) = readDynamic value_
 
 -- | Create a Ref with a value
 const  :: forall a. a -> Ref a
@@ -92,27 +92,27 @@ type Lens s a = { get :: s -> a, set :: s -> a -> s }
 type Prism s a = { preview :: s -> Maybe a, review :: a -> s }
 
 focusRef :: forall s a. Dynamic (Lens s a) -> Ref s -> Ref a
-focusRef lensD (Ref value update) =
+focusRef lensD (Ref value_ update) =
   Ref
-    (lift2 _.get lensD value)
+    (lift2 _.get lensD value_)
     (\x -> do
       f <- readDynamic (lensD <#> \lens modify_a s -> lens.set s (modify_a (lens.get s)))
       update (f x)
     )
 
 pureFocusRef :: forall s a. Lens s a -> Ref s -> Ref a
-pureFocusRef lens (Ref value update) =
+pureFocusRef lens (Ref value_ update) =
   Ref
-    (map lens.get value)
+    (map lens.get value_)
     (
       (\modify_a s ->
         lens.set s (modify_a (lens.get s)))
       >>> update)
 
 previewRef :: forall s a. Prism s a -> Ref s -> Ref (Maybe a)
-previewRef prism (Ref value update) =
+previewRef prism (Ref value_ update) =
   Ref
-    (map prism.preview value)
+    (map prism.preview value_)
     (
       (\modify_a s ->
           case (modify_a <<< prism.preview) s of
@@ -128,8 +128,8 @@ wrapViewWidget
    . MonadWidget m
   => (WeakDynamic a -> m (Event a))
   -> Ref a -> m Unit
-wrapViewWidget widget r@(Ref value update) = do
-  updateE <- widget (weaken value)
+wrapViewWidget widget r@(Ref value_ _update) = do
+  updateE <- widget (weaken value_)
   subscribeEvent_ (set r) updateE
 
 

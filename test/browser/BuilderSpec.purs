@@ -15,17 +15,17 @@ import Specular.FRP (Dynamic, Event, WeakDynamic, dynamic_, never, subscribeEven
 import Specular.FRP as FRP
 import Specular.FRP.Replaceable (dynamic, weakDynamic)
 import Specular.FRP.WeakDynamic (switchWeakDyn)
-import Specular.Internal.Effect (modifyRef, newRef)
+import Effect.Ref (modify_, new)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck)
-import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv, runBuilderInDiv')
+import Test.Utils.Dom (T3(..), dispatchTrivialEvent, querySelector, runBuilderInDiv')
 import Unsafe.Coerce (unsafeCoerce)
 
 spec :: Spec Unit
 spec = describe "Builder" do
   it "builds static DOM" $ withLeakCheck do
-    T3 node result unsub <- runBuilderInDiv' do
+    T3 node _result unsub <- runBuilderInDiv' do
        elAttr "div" ("class" := "content") do
          text "foo"
          elDynAttr "span" (pure mempty) $ text "bar"
@@ -41,7 +41,7 @@ spec = describe "Builder" do
 
   it "updates attributes" $ withLeakCheck do
     Tuple dyn updateDyn <- liftEffect $ newDynamic $ "k1" := "v1" <> "k2" := "v2"
-    T3 node result unsub <- runBuilderInDiv' do
+    T3 node _result unsub <- runBuilderInDiv' do
        elDynAttr "div" (weaken dyn) $ pure unit
 
     liftEffect (innerHTML node) `shouldReturn`
@@ -58,7 +58,7 @@ spec = describe "Builder" do
   describe "dynamic_" do
     it "simple" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' $ dynamic_ dyn
+      T3 node _result unsub <- runBuilderInDiv' $ dynamic_ dyn
 
       liftEffect (innerHTML node) `shouldReturn`
         """foo"""
@@ -73,7 +73,7 @@ spec = describe "Builder" do
 
     it "surrounded by other elements" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
          elDynAttr "span" (pure mempty) $ pure unit
          dynamic_ dyn
          elDynAttr "span" (pure mempty) $ pure unit
@@ -91,7 +91,7 @@ spec = describe "Builder" do
 
     it "two subscriptions to the same Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
          dynamic_ dyn
          dynamic_ dyn
 
@@ -108,7 +108,7 @@ spec = describe "Builder" do
 
     it "nested, same Dynamic" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
          dynamic_ $ dyn <#> \d -> do
            d
            dynamic_ dyn
@@ -127,7 +127,7 @@ spec = describe "Builder" do
     it "nested, different Dynamics" $ withLeakCheck do
       Tuple dyn1 updateDyn1 <- liftEffect $ newDynamic $ text "foo1"
       Tuple dyn2 updateDyn2 <- liftEffect $ newDynamic $ text "foo2"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
          dynamic_ $ map (\x -> x *> dynamic_ dyn2) dyn1
 
       liftEffect (innerHTML node) `shouldReturn`
@@ -148,7 +148,7 @@ spec = describe "Builder" do
 
     it "with rawHtml" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ rawHtml "<p>raw</p>"
-      T3 node result unsub <- runBuilderInDiv' do
+      T3 node _result unsub <- runBuilderInDiv' do
         el "br" $ pure unit
         dynamic_ dyn
         el "br" $ pure unit
@@ -228,12 +228,12 @@ spec = describe "Builder" do
 
     it "does not rerender contents when not necessary" $ withLeakCheck do
       Tuple dynMb updateDyn  <- liftEffect $ newDynamic $ Nothing
-      count <- liftEffect $ newRef 0
+      count <- liftEffect $ new 0
 
       T3 node _ unsub <- runBuilderInDiv' do
         elDynAttr "span" (pure mempty) $ pure unit
         whenJustD dynMb $ \dyn -> do
-          liftEffect $ modifyRef count (_ + 1)
+          liftEffect $ modify_ (_ + 1) count
           dynText dyn
         elDynAttr "span" (pure mempty) $ pure unit
 
@@ -308,12 +308,12 @@ spec = describe "Builder" do
 
       it "does not rerender contents when not necessary" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic false
-        count <- liftEffect $ newRef 0
+        count <- liftEffect $ new 0
 
         T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           whenD dynMb do
-            liftEffect $ modifyRef count (_ + 1)
+            liftEffect $ modify_ (_ + 1) count
             text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
 
@@ -388,12 +388,12 @@ spec = describe "Builder" do
 
       it "does not rerender contents when not necessary" $ withLeakCheck do
         Tuple dynMb updateDyn  <- liftEffect $ newDynamic true
-        count <- liftEffect $ newRef 0
+        count <- liftEffect $ new 0
 
         T3 node _ unsub <- runBuilderInDiv' do
           elDynAttr "span" (pure mempty) $ pure unit
           unlessD dynMb do
-            liftEffect $ modifyRef count (_ + 1)
+            liftEffect $ modify_ (_ + 1) count
             text "hello"
           elDynAttr "span" (pure mempty) $ pure unit
 
@@ -413,12 +413,12 @@ spec = describe "Builder" do
 
   describe "domEventWithSample" do
     it "dispatches DOM events and handles unsubscribe" $ withLeakCheck do
-      T3 node {button,event} unsub1 <- runBuilderInDiv' do
+      T3 _node {button,event} unsub1 <- runBuilderInDiv' do
         Tuple button _ <- elDynAttr' "button" (pure mempty) (text "foo")
         event <- domEventWithSample (\_ -> pure unit) "click" button
         pure {button,event}
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect $ dispatchTrivialEvent button "click"
@@ -445,7 +445,7 @@ spec = describe "Builder" do
         event :: Event Unit
         event = switch result
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect (innerHTML node) `shouldReturn` ""
@@ -478,7 +478,7 @@ spec = describe "Builder" do
         event :: Event Unit
         event = switchWeakDyn result
 
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (append log) event
 
       liftEffect (innerHTML node) `shouldReturn` ""

@@ -1,4 +1,4 @@
-# Specular [![CircleCI](https://circleci.com/gh/restaumatic/purescript-specular/tree/master.svg?style=svg)](https://circleci.com/gh/restaumatic/purescript-specular/tree/master)
+# Specular [![GithubActions](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)](https://github.com/restaumatic/purescript-specular)
 
 Specular is a library for building Web-based UIs in PureScript, based on
 Functional Reactive Programming (FRP).
@@ -97,7 +97,7 @@ We can think of a `Ref` as of `Effect.Ref`, but with additional functions:
 - `Ref.value :: Ref a -> Dynamic a` to observe the value
 - `Ref.modify :: Ref a -> (a -> a) -> Effect Unit` to modify the value using a function
 
-As a shortcut we have `Ref.write :: Ref a -> a -> Effect Unit` to replace the value completely, 
+As a shortcut we have `Ref.write :: Ref a -> a -> Effect Unit` to replace the value completely,
 and a `Ref.read :: forall a. => Ref a -> Effect a` to read the current value of a `Ref`.
 
 Creating a Ref:
@@ -315,7 +315,7 @@ bindChecked :: Ref Boolean -> Prop
 
 ```
 
-Example: 
+Example:
 
 ```purescript
 
@@ -390,7 +390,7 @@ Initialize a repository and install purescript
 Add `node_modules/.bin` to path:
 - `export PATH="./node_modules/.bin:$PATH"`
 
-Initialize `spago`: 
+Initialize `spago`:
 
 - `spago init`
 
@@ -436,7 +436,7 @@ Install specular:
 - `spago install specular`
 - `spago build`
 
-Replace the content of `src/Main.purs` with the counter example, and run: 
+Replace the content of `src/Main.purs` with the counter example, and run:
 - `spago bundle-app`
 
 Create and open `index.html` file.
@@ -451,7 +451,7 @@ Create and open `index.html` file.
 
 The ugly global is required for now (possibly a browserify artifact).
 
-If everything worked correctly, there should be a Spec(ta)ular counter!  :) 
+If everything worked correctly, there should be a Spec(ta)ular counter!  :)
 
 ## Why not just use Reflex and GHCJS?
 

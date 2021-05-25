@@ -7,7 +7,7 @@ import Data.Either (Either(..))
 import Data.Tuple (Tuple(..))
 import Specular.FRP (holdDyn, newEvent, subscribeWeakDyn_, uniqWeakDynBy, weaken)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn)
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, withLeakCheck)
 
@@ -16,7 +16,7 @@ spec = describe "WeakDynamic" $ do
 
   describe "pure" $ do
     it "has a value immediately" $ do
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       _ <- liftEffect $ runCleanupT $
         subscribeWeakDyn_ (\x -> append log x) $
           pure 0
@@ -26,7 +26,7 @@ spec = describe "WeakDynamic" $ do
   describe "subscribeWeakDyn" $ do
     it "updates the resulting Dynamic" $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn _ <- liftEffect $ runCleanupT $ map weaken $ holdDyn 1 event
 
       Tuple derivedDyn _ <- liftEffect $ runCleanupT $ subscribeWeakDyn (\x ->
@@ -44,7 +44,7 @@ spec = describe "WeakDynamic" $ do
   describe "uniqWeakDynBy" $ do
     it "updates value only when it changes" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple wdyn unsub1 <- liftEffect $ runCleanupT do
          dyn <- holdDyn 0 event
          uniqWeakDynBy eq (weaken dyn)

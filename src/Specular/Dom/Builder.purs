@@ -14,7 +14,7 @@ import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
-import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot, appendSlot, replaceSlot, destroySlot)
+import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
@@ -22,11 +22,11 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
-import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (class MonadDomBuilder)
-import Specular.Dom.Browser (appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, moveAllBetweenInclusive, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
+import Specular.Dom.Browser (Node, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
-import Specular.Internal.Effect (DelayedEffects, emptyDelayed, modifyRef, newRef, pushDelayed, readRef, sequenceEffects, unsafeFreezeDelayed, writeRef)
+import Effect.Ref (modify_, new, read, write)
+import Specular.Internal.Effect (DelayedEffects, emptyDelayed, pushDelayed, sequenceEffects, unsafeFreezeDelayed)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
 import Specular.Profiling as Profiling
@@ -100,7 +100,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
     liftEffect $ appendChild placeholderBefore env.parent
     liftEffect $ appendChild placeholderAfter env.parent
 
-    cleanupRef <- liftEffect $ newRef (mempty :: Effect Unit)
+    cleanupRef <- liftEffect $ new (mempty :: Effect Unit)
 
     let
       replace :: forall a. Builder env a -> Effect a
@@ -111,7 +111,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
         fragment <- createDocumentFragment
         Tuple result cleanup <- Profiling.measure "slot init" do
           runBuilderWithUserEnv env.userEnv fragment inner
-        join $ readRef cleanupRef
+        join $ read cleanupRef
 
         m_parent <- parentNode placeholderAfter
 
@@ -119,14 +119,16 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
           Just parent -> do
             insertBefore fragment placeholderAfter parent
 
-            writeRef cleanupRef do
+            write (
               Profiling.measure "slot cleanup" do
                 cleanup
-                writeRef cleanupRef mempty -- TODO: explain this
+                write mempty cleanupRef -- TODO: explain this
+              )
+              cleanupRef
 
           Nothing ->
             -- we've been removed from the DOM
-            writeRef cleanupRef cleanup
+            write cleanup cleanupRef
 
         pure result
 
@@ -135,13 +137,13 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
         removeAllBetween placeholderBefore placeholderAfter
         removeNode placeholderBefore
         removeNode placeholderAfter
-        join $ readRef cleanupRef
+        join $ read cleanupRef
 
       append :: Effect (Slot (Builder env))
       append = do
         fragment <- createDocumentFragment
         Tuple slot cleanup <- runBuilderWithUserEnv env.userEnv fragment newSlot
-        modifyRef cleanupRef (_ *> cleanup) -- FIXME: memory leak if the inner slot is destroyed
+        modify_ (_ *> cleanup) cleanupRef -- FIXME: memory leak if the inner slot is destroyed
 
         m_parent <- parentNode placeholderAfter
 
@@ -153,7 +155,7 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
         pure slot
 
-    onCleanup $ join $ readRef cleanupRef
+    onCleanup $ join $ read cleanupRef
 
     pure $ Slot replace destroy append
 
@@ -170,18 +172,18 @@ instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
       pure node
     subscribeWeakDyn_ (setText node) dstr
 
-  rawHtml html = mkBuilder \env -> 
+  rawHtml html = mkBuilder \env ->
     appendRawHtml html env.parent
 
   elDynAttrNS' namespace tagName dynAttrs inner = do
     env <- getEnv
     node <- liftEffect $ createElementNS namespace tagName
 
-    attrsRef <- liftEffect $ newRef mempty
+    attrsRef <- liftEffect $ new mempty
     let
       resetAttributes newAttrs = do
-        oldAttrs <- readRef attrsRef
-        writeRef attrsRef newAttrs
+        oldAttrs <- read attrsRef
+        write newAttrs attrsRef
         let
           changed = SM.filterWithKey (\k v -> SM.lookup k oldAttrs /= Just v) newAttrs
           removed = A.filter (\k -> not (k `SM.member` newAttrs)) $ SM.keys oldAttrs

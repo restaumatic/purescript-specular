@@ -17,6 +17,7 @@ import Specular.Dom.Widgets.Input (BooleanInputType(Radio), booleanInputView)
 import Specular.FRP (Dynamic, Event, WeakDynamic, fixFRP, holdDyn, leftmost)
 import Specular.FRP.Base (filterMapEvent)
 
+type RadioGroupConfig :: forall k. (k -> Type) -> Type -> Type
 type RadioGroupConfig m a =
   { options :: Array a
       -- ^ Possible selections

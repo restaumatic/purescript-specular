@@ -4,8 +4,7 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (class MonadCleanup, runCleanupT)
 import Effect.Class (class MonadEffect)
-import Specular.Internal.Effect (newRef)
-import Data.Monoid (mempty)
+import Effect.Ref (new)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Builder.Class (el, text)
@@ -52,7 +51,7 @@ spec = describe "RegistrationForm" $ do
     let showFormResult {login,password} = "login: " <> login <> ", password: " <> password
 
     Tuple node event <- runBuilderInDiv mainWidget
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
     _ <- liftEffect $ runCleanupT $ subscribeEvent_ (append log <<< showFormResult) event
 
 

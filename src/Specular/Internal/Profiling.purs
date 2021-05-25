@@ -2,7 +2,7 @@ module Specular.Internal.Profiling where
 
 import Prelude
 
-import Effect.Uncurried
+import Effect.Uncurried (EffectFn1)
 
 foreign import enabled :: Boolean
 

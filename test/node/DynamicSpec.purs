@@ -1,9 +1,8 @@
 module DynamicSpec where
 
 import Prelude hiding (append)
-import Test.Spec
+import Test.Spec (Spec, describe, it)
 
-import Data.Traversable (traverse, for_)
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
@@ -11,10 +10,9 @@ import Data.Tuple (Tuple(..))
 import Effect.Console (log) as Console
 import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, readDynamic, Dynamic)
 import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
-import Specular.Internal.Effect (newRef)
-import Test.Spec (Spec, describe, describeOnly, it)
+import Effect.Ref (new)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
-import Debug.Trace
+-- | import Debug (traceM)
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -22,7 +20,7 @@ spec = describe "Dynamic" $ do
   describe "holdDyn" $ do
     it "updates value when someone is subscribed to changes" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
 
       unsub <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -40,7 +38,7 @@ spec = describe "Dynamic" $ do
 
     it "updates value when no one is subscribed" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
 
       liftEffect $ fire 2
@@ -56,7 +54,7 @@ spec = describe "Dynamic" $ do
   describe "newDynamic" $ do
     it "updates value when someone is subscribed to changes" $ withLeakCheck $ do
       {dynamic: dyn, read, set} <- liftEffect $ newDynamic 0
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       unsub <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
       log `shouldHaveValue` [0]
@@ -72,7 +70,7 @@ spec = describe "Dynamic" $ do
 
     it "updates value when no one is subscribed" $ withLeakCheck $ do
       {dynamic: dyn, read, set} <- liftEffect $ newDynamic 0
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       liftEffect $ set 2
 
@@ -87,7 +85,7 @@ spec = describe "Dynamic" $ do
   describe "holdUniqDynBy" $ do
     it "updates value only when it changes" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdUniqDynBy eq 0 event
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -108,7 +106,7 @@ spec = describe "Dynamic" $ do
   describe "foldDyn" $ do
     it "updates value correctly" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDyn add 0 event
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -125,7 +123,7 @@ spec = describe "Dynamic" $ do
 
     it "doesn't double-update in the presence of binds" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDyn add 0 event
 
       unsub2 <- liftEffect $ execCleanupT do
@@ -147,7 +145,7 @@ spec = describe "Dynamic" $ do
   describe "foldDynMaybe" $ do
     it "triggers only when function returns Just" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ foldDynMaybe (\x y -> (_ + y) <$> x) 1 event
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
@@ -170,7 +168,7 @@ spec = describe "Dynamic" $ do
     it "works with different root Dynamics" $ withLeakCheck $ do
       ev1 <- liftEffect newEvent
       ev2 <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple rootDyn1 unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 ev1.event
       Tuple rootDyn2 unsub2 <- liftEffect $ runCleanupT $ holdDyn 10 ev2.event
 
@@ -191,7 +189,7 @@ spec = describe "Dynamic" $ do
 
     it "has no glitches when used with the same root Dynamic" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple rootDyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
 
       let dyn = Tuple <$> rootDyn <*> (map (_ + 10) rootDyn)
@@ -209,7 +207,7 @@ spec = describe "Dynamic" $ do
     it "works" $ withLeakCheck $ do
       ev1 <- liftEffect newEvent
       ev2 <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple rootDynInner unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 ev1.event
       Tuple rootDynOuter unsub2 <- liftEffect $ runCleanupT $ holdDyn rootDynInner ev2.event
 
@@ -278,7 +276,7 @@ spec = describe "Dynamic" $ do
       liftEffect unsub1
 
     it "should not mess up event delivery order" $ withLeakCheck do
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       rootDynOuter <- liftEffect $ newDynamic { set: \_ -> pure unit, modify: \_ -> pure unit, read: pure 0, dynamic: pure 0 }
 
       let
@@ -286,32 +284,32 @@ spec = describe "Dynamic" $ do
         dyn = rootDynOuter.dynamic >>= _.dynamic
       unsub3 <- liftEffect $ execCleanupT do
         flip subscribeDyn_ dyn \x -> do
-          traceM $ "receiver 1: " <> show x
+          append log $ Right $ "receiver 1: " <> show x
         flip subscribeDyn_ rootDynOuter.dynamic \x -> do
           value <- x.read
           when (value > 0) do
-            traceM "set begin"
+            append log $ Right "set begin"
             x.set (value + 1)
-            traceM "set end"
+            append log $ Right "set end"
         flip subscribeDyn_ dyn \x -> do
-          traceM $ "receiver 2: " <> show x
-          append log x
+          -- | traceM $ "receiver 2: " <> show x
+          append log $ Left x
 
       liftEffect do
         inner <- newDynamic 1
         rootDynOuter.set inner
 
-      log `shouldHaveValue` [0, 1, 2]
+      log `shouldHaveValue` [(Right "receiver 1: 0"),(Left 0),(Right "set begin"),(Right "receiver 1: 1"),(Left 1),(Right "receiver 1: 2"),(Left 2),(Right "set end")]
 
       -- clean up
       liftEffect unsub3
 
   describe "subscribeDyn_" $ do
     it "simple case - no changes" $ withLeakCheck $ do
-      log <- liftEffect $ newRef ([] :: Array (Either Int Int))
-      {dynamic: dyn, set: fire} <- newDynamic 1
+      log <- liftEffect $ new ([] :: Array (Either Int Int))
+      {dynamic: dyn, set: _fire} <- newDynamic 1
 
-      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn_ (\x ->
+      Tuple _derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn_ (\x ->
         do
           append log (Left x)
         ) dyn
@@ -323,10 +321,10 @@ spec = describe "Dynamic" $ do
 
   describe "subscribeDyn" $ do
     it "simple case - no changes" $ withLeakCheck $ do
-      log <- liftEffect $ newRef ([] :: Array (Either Int Int))
-      {dynamic: dyn, set: fire} <- newDynamic 1
+      log <- liftEffect $ new ([] :: Array (Either Int Int))
+      {dynamic: dyn, set: _fire} <- newDynamic 1
 
-      Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
+      Tuple _derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
         do
           append log (Left x)
           pure (2 * x)
@@ -339,7 +337,7 @@ spec = describe "Dynamic" $ do
 
     it "updates the resulting Dynamic" $ withLeakCheck $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 1 event
 
       Tuple derivedDyn unsub2 <- liftEffect $ runCleanupT $ subscribeDyn (\x ->
@@ -365,7 +363,7 @@ spec = describe "Dynamic" $ do
       let fire' x = liftEffect do
             Console.log $ "fire " <> show x
             fire x
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn Nothing event >>= latestJust
 
       unsub2 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
