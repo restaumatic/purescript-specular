@@ -502,6 +502,7 @@ If you think there are more, please open an issue. They should be listed.
 
 ## Contact
 
-If you discover bugs, want new features, or have questions, please post an issue using the GitHub issue tracker.
+If you discover bugs, want new features, or have questions, please post an
+issue using the GitHub issue tracker, or use [GitHub Discussions](https://github.com/restaumatic/purescript-specular/discussions).
 
-You can also contact `@mbieleck` on [FP Chat](https://fpchat-invite.herokuapp.com/), if you want to chat about Specular.
+You can also use the [Gitter chat](https://gitter.im/purescript-specular/community).
