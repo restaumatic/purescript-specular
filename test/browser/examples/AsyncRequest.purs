@@ -19,7 +19,7 @@ import Specular.FRP (Dynamic, current, pull, readBehavior, weakDynamic_)
 import Specular.FRP.Async (RequestState(Loaded, Loading, NotRequested), asyncRequestMaybe)
 import Specular.FRP.Fix (fixFRP)
 import Specular.FRP.WeakDynamic (WeakDynamic)
-import Specular.Internal.Effect (newRef, readRef, writeRef)
+import Effect.Ref (new, read, write)
 import Test.Spec (Spec, describe, it)
 import Test.Utils (shouldReturn)
 import Test.Utils.Dom (runBuilderInDiv)
@@ -52,9 +52,9 @@ spec = describe "AsyncRequest" $ do
     it "always displays the latest request" $ do
       firstRequest <- AVar.empty
       secondRequest <- AVar.empty
-      currentRequestVar <- liftEffect $ newRef firstRequest
+      currentRequestVar <- liftEffect $ new firstRequest
       let backend = { toUpper: \_ -> do
-                        var <- liftEffect $ readRef currentRequestVar
+                        var <- liftEffect $ read currentRequestVar
                         AVar.take var
                     }
       Tuple query setQuery <- liftEffect $ newDynamic ""
@@ -62,7 +62,7 @@ spec = describe "AsyncRequest" $ do
       Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
 
       liftEffect $ setQuery "foo"
-      liftEffect $ writeRef currentRequestVar secondRequest
+      liftEffect $ write secondRequest currentRequestVar
       liftEffect $ setQuery "bar"
 
       AVar.put "FOO" firstRequest

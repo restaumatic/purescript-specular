@@ -4,12 +4,13 @@ import Prelude hiding (append)
 
 import Control.Monad.Cleanup (runCleanupT)
 import Data.Tuple (Tuple(..))
+import Effect (Effect)
+import Effect.Ref (new)
 import Foreign (unsafeToForeign)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Widgets.Input (checkboxView, getCheckboxChecked, getTextInputValue, setTextInputValue, textInput, textInputValue, textInputValueEventOnEnter, textInputValueOnChange)
 import Specular.FRP (holdDyn, never, newEvent, weaken)
 import Specular.FRP.Base (subscribeDyn_, subscribeEvent_)
-import Specular.Internal.Effect (Effect, newRef)
 import Test.Spec (Spec, describe, it, pending')
 import Test.Utils (append, liftEffect, shouldHaveValue, shouldReturn)
 import Test.Utils.Dom (dispatchEvent, dispatchTrivialEvent, querySelector, runBuilderInDiv)
@@ -37,7 +38,7 @@ spec = describe "Input widgets" $ do
 
     it "return value changes when setValue fires" $ do
       {event,fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: event, attributes: pure mempty }
 
@@ -52,7 +53,7 @@ spec = describe "Input widgets" $ do
     describe "textInputValueOnChange" do
       it "return value changes when setValue fires" do
         {event,fire} <- liftEffect newEvent
-        log <- liftEffect $ newRef []
+        log <- liftEffect $ new []
         {node,widget} <- makeTextInput
           { initialValue: "initial", setValue: event, attributes: pure mempty }
 
@@ -66,7 +67,7 @@ spec = describe "Input widgets" $ do
 
     pending' "textInputValueEventOnEnter" $ do
       -- FIXME: unable to simulate the keypress event correctly
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
       {node,widget} <- makeTextInput
         { initialValue: "initial", setValue: never, attributes: pure mempty }
       void $ liftEffect $ runCleanupT $ do
@@ -88,15 +89,15 @@ spec = describe "Input widgets" $ do
           node <- liftEffect $ querySelector "input" div
           pure {node,event}
     it "sets initial value (false)" do
-      {node, event} <- makeCheckbox (pure false)
+      {node, event: _event} <- makeCheckbox (pure false)
       liftEffect (getCheckboxChecked node) `shouldReturn` false
     it "sets initial value (true)" do
-      {node, event} <- makeCheckbox (pure true)
+      {node, event: _event} <- makeCheckbox (pure true)
       liftEffect (getCheckboxChecked node) `shouldReturn` true
     it "handle external update when not touched by the user" $ do
       {event: changeValueEvt, fire: changeValue} <- liftEffect newEvent
       Tuple valueDyn _ <- runCleanupT $ holdDyn false changeValueEvt
-      {node, event} <- makeCheckbox (weaken valueDyn)
+      {node, event: _event} <- makeCheckbox (weaken valueDyn)
       liftEffect (getCheckboxChecked node) `shouldReturn` false
       liftEffect $ changeValue true
       liftEffect (getCheckboxChecked node) `shouldReturn` true
@@ -105,7 +106,7 @@ spec = describe "Input widgets" $ do
     it "handle external update after touched by the user" $ do
       {event: changeValueEvt, fire: changeValue} <- liftEffect newEvent
       Tuple valueDyn _ <- runCleanupT $ holdDyn false changeValueEvt
-      {node, event} <- makeCheckbox (weaken valueDyn)
+      {node, event: _event} <- makeCheckbox (weaken valueDyn)
       liftEffect (getCheckboxChecked node) `shouldReturn` false
       liftEffect $ triggerNodeClicked node
       liftEffect (getCheckboxChecked node) `shouldReturn` true

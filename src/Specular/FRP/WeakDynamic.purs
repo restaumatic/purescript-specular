@@ -1,5 +1,5 @@
 module Specular.FRP.WeakDynamic (
-    WeakDynamic 
+    WeakDynamic
   , unWeakDynamic
   , changedW
   , weaken
@@ -91,7 +91,7 @@ attachWeakDynWith f wdyn event =
 
 tagWeakDyn :: forall a. WeakDynamic a -> Event Unit -> Event a
 tagWeakDyn wdyn event =
-  filterMapEvent identity $ attachDynWith (\a b -> a) (unWeakDynamic wdyn) event
+  filterMapEvent identity $ attachDynWith (\a _b -> a) (unWeakDynamic wdyn) event
 
 -- | Make a WeakDynamic that only changes value when the input WeakDynamic changes
 -- | value, and the new value is not equal to the previous value with respect to

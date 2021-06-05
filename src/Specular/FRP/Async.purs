@@ -14,14 +14,13 @@ import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Show.Generic (genericShow)
 import Data.Maybe (Maybe(Just, Nothing))
-import Data.Time.Duration (Milliseconds(..))
-import Effect.Aff (Aff, delay, error, killFiber, launchAff, launchAff_)
+import Effect.Aff (Aff, error, killFiber, launchAff, launchAff_)
 import Effect.Class (class MonadEffect, liftEffect)
 import Specular.FRP (class MonadFRP, Dynamic, Event, changed, current, holdDyn, leftmost, newEvent, pull, subscribeDyn_)
 import Specular.FRP.Base (readBehavior, subscribeEvent_)
-import Specular.Internal.Effect (newRef, writeRef, readRef)
+import Effect.Ref (new, write, read)
 
 -- | Start an asynchronous Aff computation. It will be cancelled on cleanup.
 startAff :: forall m. MonadFRP m => Aff Unit -> m Unit
@@ -59,19 +58,19 @@ asyncRequestMaybe :: forall m a
   -> m (Dynamic (RequestState a))
 asyncRequestMaybe dquery = do
   loadStateChanged <- newEvent
-  cancelCurrentRef <- liftEffect $ newRef (pure unit)
+  cancelCurrentRef <- liftEffect $ new (pure unit)
 
   let
     update m_query = do
-      cancelCurrent <- readRef cancelCurrentRef
+      cancelCurrent <- read cancelCurrentRef
       cancelCurrent
 
       case m_query of
         Nothing ->
-          writeRef cancelCurrentRef (pure unit)
+          write (pure unit) cancelCurrentRef
         Just query -> do
           fiber <- launchAff $ runAndUpdateResult query
-          writeRef cancelCurrentRef $ launchAff_ $ killFiber (error "Cancelled") fiber
+          write (launchAff_ $ killFiber (error "Cancelled") fiber) cancelCurrentRef
 
     runAndUpdateResult query = do
       value <- query
@@ -90,7 +89,7 @@ asyncRequestMaybe dquery = do
       ]
 
   -- Note: we have to subscribe after we start listening to `loadStateChanged`,
-  -- else we could miss the result of an initial synchronous action 
+  -- else we could miss the result of an initial synchronous action
   subscribeDyn_ update dquery
 
   pure dyn

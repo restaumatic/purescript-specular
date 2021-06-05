@@ -4,7 +4,7 @@ import Prelude
 
 import Effect.Ref (Ref)
 import Effect.Unsafe (unsafePerformEffect)
-import Effect.Uncurried (EffectFn1, EffectFn4, runEffectFn1, runEffectFn4)
+import Effect.Uncurried (runEffectFn1)
 import Specular.Internal.Incremental.Ref as Ref
 
 -- * Globals

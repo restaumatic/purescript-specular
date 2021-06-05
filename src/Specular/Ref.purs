@@ -1,133 +1,173 @@
 module Specular.Ref
   ( Ref(..)
-  , newRef
   , new
-  , newRefWithEvent
-  , refValue
+  , newWithEvent
+  , const
   , value
-  , refUpdate
   , modify
-  , refUpdateConst
-  , set
+  , read
+  , write
   , focusRef
   , pureFocusRef
   , previewRef
-  , updateRef
-  , readRef
-
-  , constRef
-
   , wrapViewWidget
-
   , Lens
   , Prism
+  --
+  -- Deprecated, use `new` instead
+  , newRef
+  -- Deprecated, use `newWithEvent` instead
+  , newRefWithEvent
+  -- Deprecated, use `const` instead
+  , constRef
+  -- Deprecated, use `read` instead
+  , readRef
+  -- Deprecated, use `write` instead
+  , updateRef
+  -- Deprecated, use `write` instead
+  , set
+  -- Deprecated, use `write` instead
+  , refUpdateConst
+  -- Deprecated, use `value` instead
+  , refValue
+  -- Deprecated, use `modify` instead
+  , refUpdate
   ) where
 
-import Prelude
+import Prelude hiding (const)
+import Prelude as Prelude
 
 import Control.Apply (lift2)
-import Data.Functor.Contravariant (cmap, (>$<))
 import Data.Functor.Invariant (class Invariant)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
-import Specular.Callback (Callback, attachEvent, contramapCallbackDyn, mkCallback, nullCallback, triggerCallback)
 import Specular.Dom.Widget (class MonadWidget)
-import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, current, newDynamic, pull, readBehavior, subscribeEvent_, weaken)
+import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, newDynamic, readDynamic, subscribeEvent_, weaken)
 
-
-data Ref a = Ref (Dynamic a) (Callback (a -> a))
+data Ref a = Ref (Dynamic a) ((a -> a) -> Effect Unit)
 
 instance invariantRef :: Invariant Ref where
-  imap f g (Ref v update) = Ref (f <$> v) (cmap (\h -> g <<< h <<< f) update)
+  imap f g (Ref v update) = Ref (f <$> v) ((\h -> g <<< h <<< f) >>> update)
 
--- | Old name for `new`.
-newRef :: forall m a. MonadEffect m => a -> m (Ref a)
-newRef = new
 
 -- | Create a new Ref with an initial value.
 new :: forall m a. MonadEffect m => a -> m (Ref a)
 new initial = do
-  {dynamic, modify} <- newDynamic initial
-  pure $ Ref dynamic (mkCallback modify)
+  {dynamic, modify: modify_} <- newDynamic initial
+  pure $ Ref dynamic modify_
 
-newRefWithEvent :: forall m a. MonadFRP m => a -> Event (a -> a) -> m (Ref a)
-newRefWithEvent initial extraUpdate = do
-  {dynamic, modify} <- newDynamic initial
-  subscribeEvent_ modify extraUpdate
-  pure $ Ref dynamic (mkCallback modify)
+newWithEvent :: forall m a. MonadFRP m => a -> Event (a -> a) -> m (Ref a)
+newWithEvent initial extraUpdate = do
+  {dynamic, modify: modify_} <- newDynamic initial
+  subscribeEvent_ modify_ extraUpdate
+  pure $ Ref dynamic modify_
 
--- | Old name for `value`
-refValue :: forall a. Ref a -> Dynamic a
-refValue = value
 
 -- | The current value of the Ref, as a Dynamic.
 value :: forall a. Ref a -> Dynamic a
 value (Ref v _) = v
 
--- | Old name for `modify`.
-refUpdate :: forall a. Ref a -> Callback (a -> a)
-refUpdate = modify
 
--- | A Callback to modify value of this Ref using a function.
-modify :: forall a. Ref a -> Callback (a -> a)
+-- | Modify value of this Ref using a function.
+modify :: forall a. Ref a -> (a -> a) -> Effect Unit
 modify (Ref _ update) = update
 
--- | Old name for `set`.
-refUpdateConst :: forall a. Ref a -> Callback a
-refUpdateConst = set
 
--- | A Callback to overwrite value of this Ref.
-set :: forall a. Ref a -> Callback a
-set = cmap (\new _old -> new) <<< refUpdate
+-- | Overwrite value of this Ref.
+write :: forall a. Ref a -> a -> Effect Unit
+write r = (\new_ _old -> new_) >>> modify r
+
+
+-- | Read the current value of a Ref
+read :: forall m a. MonadEffect m => Ref a -> m a
+read (Ref value_ _update) = readDynamic value_
+
+-- | Create a Ref with a value
+const  :: forall a. a -> Ref a
+const x = Ref (pure x) (Prelude.const (pure unit))
+
 
 type Lens s a = { get :: s -> a, set :: s -> a -> s }
 type Prism s a = { preview :: s -> Maybe a, review :: a -> s }
 
 focusRef :: forall s a. Dynamic (Lens s a) -> Ref s -> Ref a
-focusRef lensD (Ref value update) =
+focusRef lensD (Ref value_ update) =
   Ref
-    (lift2 _.get lensD value)
-    (contramapCallbackDyn
-      (lensD <#> \lens modify_a s ->
-        lens.set s (modify_a (lens.get s)))
-      update)
+    (lift2 _.get lensD value_)
+    (\x -> do
+      f <- readDynamic (lensD <#> \lens modify_a s -> lens.set s (modify_a (lens.get s)))
+      update (f x)
+    )
 
 pureFocusRef :: forall s a. Lens s a -> Ref s -> Ref a
-pureFocusRef lens (Ref value update) =
+pureFocusRef lens (Ref value_ update) =
   Ref
-    (map lens.get value)
-    (cmap
+    (map lens.get value_)
+    (
       (\modify_a s ->
         lens.set s (modify_a (lens.get s)))
-      update)
+      >>> update)
 
 previewRef :: forall s a. Prism s a -> Ref s -> Ref (Maybe a)
-previewRef prism (Ref value update) =
+previewRef prism (Ref value_ update) =
   Ref
-    (map prism.preview value)
-    (cmap
+    (map prism.preview value_)
+    (
       (\modify_a s ->
           case (modify_a <<< prism.preview) s of
             (Just a) -> prism.review a
             _ -> s
-      ) update)
+      ) >>> update)
 
 
-updateRef :: forall a. Ref a -> a -> Effect Unit
-updateRef (Ref _ update) = triggerCallback update <<< const
 
-readRef :: forall m a. MonadEffect m => Ref a -> m a
-readRef (Ref value update) = pull $ readBehavior $ current value
 
 wrapViewWidget
   :: forall m a
    . MonadWidget m
   => (WeakDynamic a -> m (Event a))
   -> Ref a -> m Unit
-wrapViewWidget widget (Ref value update) = do
-  updateE <- widget (weaken value)
-  attachEvent updateE $ const >$< update
+wrapViewWidget widget r@(Ref value_ _update) = do
+  updateE <- widget (weaken value_)
+  subscribeEvent_ (set r) updateE
 
+
+
+-- | Old name for `new`.
+newRef :: forall m a. MonadEffect m => a -> m (Ref a)
+newRef = new
+
+-- | Old name for `newWithEvent`
+newRefWithEvent :: forall m a. MonadFRP m => a -> Event (a -> a) -> m (Ref a)
+newRefWithEvent = newWithEvent
+
+-- | Old name for `value`
+refValue :: forall a. Ref a -> Dynamic a
+refValue = value
+
+-- | Old name for `modify`.
+refUpdate :: forall a. Ref a -> (a -> a) -> Effect Unit
+refUpdate = modify
+
+-- | Old name for `write`
+set :: forall a. Ref a -> a -> Effect Unit
+set = write
+
+-- Old name for `write`
+updateRef :: forall a. Ref a -> a -> Effect Unit
+updateRef = write
+
+-- | Old name for `write`.
+refUpdateConst :: forall a. Ref a -> a -> Effect Unit
+refUpdateConst = write
+
+
+-- | Old name for `read`
+readRef :: forall m a. MonadEffect m => Ref a -> m a
+readRef = read
+
+
+-- | Old name for `const`
 constRef :: forall a. a -> Ref a
-constRef x = Ref (pure x) nullCallback
+constRef = const
