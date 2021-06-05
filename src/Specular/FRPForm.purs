@@ -23,7 +23,6 @@ import Data.Newtype
 import Data.Foldable
 import Specular.FRP
 import Specular.Ref hiding (const)
--- import Specular.Callback
 import Data.Functor.Contravariant
 import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Element (dynText, el, text)
@@ -133,8 +132,8 @@ newField = do
   ref <- new (Tuple mempty mempty)
   pure {inputValueRef: ref }
 
-writeField :: forall a . Field a -> Effect (Tuple a Touch)
-writeField input = (\a -> const a) >$< modify input.inputValueRef
+writeField :: forall a . Field a -> Tuple a Touch -> Effect Unit
+writeField input t = modify input.inputValueRef (\_ -> t)
 
 readField :: forall a . Field a -> Input a
 readField input = MaybeT $ WriterT $ do
@@ -146,8 +145,11 @@ readField input = MaybeT $ WriterT $ do
 stringFieldWidget :: Field String -> Widget Unit
 stringFieldWidget field = do
   Tuple element _ <- elAttr' "input" mempty (pure unit)
-  domChanged <- domEventWithSample (\_ -> getTextInputValue element) "input" element
-  attachEvent domChanged ((\str -> Tuple str Touched) >$< writeField field)
+  domChanged <- domEventWithSample (\_ -> do
+    str <- getTextInputValue element
+    writeField field (Tuple str Touched)
+    ) "input" element
+  -- on domChanged (\str -> writeField field (Tuple str Touched))
   subscribeEvent_ (setTextInputValue element) (changed (fieldDyn field))
     where
     fieldDyn :: forall a . Field a -> Dynamic a
@@ -155,21 +157,21 @@ stringFieldWidget field = do
 
 
 -- this doens't work for now
-selectFieldWidget ::
-  forall a . Eq a => Show a => BoundedEnum a => Input (Array a)
-  -> Field (Last a)
-  -> Widget Unit
-selectFieldWidget options field = do
-  withDynamic_ (inputDynamic options) \dyn -> do
-    let options = case dyn of
-          (Tuple Nothing _) -> []
-          (Tuple (Just options) _) -> options
-    let toOption value = el "option" [attr "value" (show (fromEnum value))] $ text $ show value
-    (Tuple selectEl _) <- el' "select" $ traverse_ toOption options
-    domChanged <- domEventWithSample (\_ -> getTextInputValue selectEl) "change" selectEl
-    attachEvent domChanged ((\str -> Tuple (Last (Just (unsafePartial (fromJust (toEnum (fromJust (fromString str))))))) Touched) >$< writeField field)
-    pure unit
+-- selectFieldWidget ::
+--   forall a . Eq a => Show a => BoundedEnum a => Input (Array a)
+--   -> Field (Last a)
+--   -> Widget Unit
+-- selectFieldWidget options field = do
+--   withDynamic_ (inputDynamic options) \dyn -> do
+--     let options = case dyn of
+--           (Tuple Nothing _) -> []
+--           (Tuple (Just options) _) -> options
+--     let toOption value = el "option" [attr "value" (show (fromEnum value))] $ text $ show value
+--     (Tuple selectEl _) <- el' "select" $ traverse_ toOption options
+--     domChanged <- domEventWithSample (\_ -> getTextInputValue selectEl) "change" selectEl
+--     on domChanged ((\str -> Tuple (Last (Just (unsafePartial (fromJust (toEnum (fromJust (fromString str))))))) Touched) >$< writeField field)
+--     pure unit
 
 -- Form is a Widget that provides input and "callback" to modify input fields
 
-type Form i o = Widget (Tuple (Input i) (Effect o))
+type Form i o = Widget (Tuple (Input i) (o -> Effect Unit))

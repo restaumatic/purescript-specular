@@ -25,8 +25,7 @@ import Data.Maybe.Last
 import Data.Newtype
 import Data.Foldable
 import Specular.FRP
-import Specular.Ref
--- import Specular.Callback
+import Specular.Ref hiding (const)
 import Data.Functor.Contravariant
 import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Element (dynText, el, text)
@@ -90,7 +89,7 @@ mkPersonForm = do
       (Name originalName) <- name
       repeatedName <- readField repeatedNameField
       pure $ if originalName.nameToString == repeatedName
-        then Right originalName
+        then Right (Name originalName)
         else Left "Name mismatch"
     person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> repeatedName
 
@@ -120,15 +119,15 @@ mkPersonForm = do
         el "h2" [] $ text "Review"
         el "p" [] $ text $ "Age: " <> showAge person.personAge
         el "p" [] $ text $ "Name: " <> showName person.personName
-    pure (Tuple person $ mkCallback $ \(Tuple name age) -> do
-      triggerCallback (writeField ageField) (Tuple age mempty)
-      triggerCallback (writeField nameField) (Tuple name mempty))
+    pure (Tuple person $ \(Tuple name age) -> do
+      writeField ageField (Tuple age mempty)
+      writeField nameField (Tuple name mempty))
 
 main :: Effect Unit
 main = do
   personForm <- mkPersonForm
   runMainWidgetInBody do
     (Tuple person populatePerson) <- el "div" [attr "style" "padding: 10px;"] personForm
-    el "button" [onClick_ ((const (Tuple "Eryk" "38")) >$< populatePerson)] $ text "Populate"
+    el "button" [onClick_ (populatePerson (Tuple "Eryk" "38"))] $ text "Populate"
     whenInputJust person $ \p -> el "button" [] $ text "Submit"
   pure unit
