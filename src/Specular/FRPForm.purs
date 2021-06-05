@@ -120,11 +120,10 @@ fieldInput input = ExceptT $ WriterT $ do
 stringFieldWidget :: Field String -> Widget Unit
 stringFieldWidget field = do
   Tuple element _ <- elAttr' "input" mempty (pure unit)
-  domChanged <- domEventWithSample (\_ -> do
+  domEventWithSample (\_ -> do
     str <- getTextInputValue element
     writeField field (Tuple str Touched)
     ) "input" element
-  -- on domChanged (\str -> writeField field (Tuple str Touched))
   subscribeEvent_ (setTextInputValue element) (changed (fieldDyn field))
     where
     fieldDyn :: forall a . Field a -> Dynamic a
