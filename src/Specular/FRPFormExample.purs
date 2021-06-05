@@ -26,7 +26,7 @@ import Data.Newtype
 import Data.Foldable
 import Specular.FRP
 import Specular.Ref
-import Specular.Callback
+-- import Specular.Callback
 import Data.Functor.Contravariant
 import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Element (dynText, el, text)
@@ -95,7 +95,7 @@ mkPersonForm = do
     person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> repeatedName
 
   pure do
-    el "h1" [] $ text "Person Form"
+    el "h1" [] $ text "Person Form!"
     whenInputIntactNothing person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
     el "div" [] do
       text "Age"

@@ -22,8 +22,8 @@ import Data.Maybe.Last
 import Data.Newtype
 import Data.Foldable
 import Specular.FRP
-import Specular.Ref
-import Specular.Callback
+import Specular.Ref hiding (const)
+-- import Specular.Callback
 import Data.Functor.Contravariant
 import Specular.Dom.Builder.Class (domEventWithSample)
 import Specular.Dom.Element (dynText, el, text)
@@ -133,7 +133,7 @@ newField = do
   ref <- new (Tuple mempty mempty)
   pure {inputValueRef: ref }
 
-writeField :: forall a . Field a -> Callback (Tuple a Touch)
+writeField :: forall a . Field a -> Effect (Tuple a Touch)
 writeField input = (\a -> const a) >$< modify input.inputValueRef
 
 readField :: forall a . Field a -> Input a
@@ -172,4 +172,4 @@ selectFieldWidget options field = do
 
 -- Form is a Widget that provides input and "callback" to modify input fields
 
-type Form i o = Widget (Tuple (Input i) (Callback o))
+type Form i o = Widget (Tuple (Input i) (Effect o))
