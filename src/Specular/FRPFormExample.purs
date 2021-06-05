@@ -1,5 +1,5 @@
 module Specular.FRPFormExample where
--- FRP Form POC example, to run: pulp --psc-package build && parcel build frpform/index.js
+-- FRP Form POC example, to run: spago build && parcel build frpform/index.js
 
 import Prelude
 
@@ -70,14 +70,14 @@ showName (Name n) = n.nameToString
 
 mkPersonForm :: Effect (Form Person (Tuple String String))
 mkPersonForm = do
-  ageField <- newField
-  nameField <- newField
-  repeatedNameField <- newField
+  ageField <- field
+  nameField <- field
+  repeatedNameField <- field
 
   let
-    Tuple ageError age = eitherOf $ (mkInt >=> mkAge) <$> readField ageField
-    Tuple nameError name = eitherOf $ do
-      v <- readField nameField
+    age = eitherOf $ (mkInt >=> mkAge) <$> fieldInput ageField
+    name = eitherOf $ do
+      v <- fieldInput nameField
       if null v
         then pure $ Left "must not be empty"
         else do
@@ -85,36 +85,36 @@ mkPersonForm = do
         if a.ageToInt  < 10 && length v > 10
           then pure $ Left "Too long name for such a young child"
           else pure $ Right $ Name { nameToString: v }
-    Tuple repeatedNameError repeatedName = eitherOf $ do
+    repeatedName = eitherOf $ do
       (Name originalName) <- name
-      repeatedName <- readField repeatedNameField
+      repeatedName <- fieldInput repeatedNameField
       pure $ if originalName.nameToString == repeatedName
         then Right (Name originalName)
         else Left "Name mismatch"
     person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> repeatedName
 
   pure do
-    el "h1" [] $ text "Person Form!"
-    whenInputIntactNothing person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
+    el "h1" [] $ text "Person Form"
+    whenInputIntact person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
     el "div" [] do
       text "Age"
       el "div" [] do
         stringFieldWidget ageField
-        whenInputIntactNothing age $ el "span" [attr "style" "color: green;"] $ text "mandatory"
-        whenInputTouchedJust ageError $ el "span" [attr "style" "color: red;"] <<< text
+        whenInputIntact age $ el "span" [attr "style" "color: green;"] $ text "mandatory"
+        whenInputTouchedIncorrect age $ el "span" [attr "style" "color: red;"] <<< text
     el "div" [] do
       text "Name"
       el "div" [] do
         stringFieldWidget nameField
-        whenInputIntactNothing name $ el "span" [attr "style" "color: green;"] $ text "mandatory"
-        whenInputTouchedJust nameError $ el "span" [attr "style" "color: red;"] <<< text
+        whenInputIntact name $ el "span" [attr "style" "color: green;"] $ text "mandatory"
+        whenInputTouchedIncorrect name $ el "span" [attr "style" "color: red;"] <<< text
     el "div" [] do
       text "Repeat Name"
       el "div" [] do
         stringFieldWidget repeatedNameField
-        whenInputTouchedJust repeatedNameError $ el "span" [attr "style" "color: red;"] <<< text
-        whenInputIntactNothing repeatedName $ el "span" [attr "style" "color: green;"] $ text "mandatory"
-    whenInputJust person $ \(Person person) -> do
+        whenInputIntact repeatedName $ el "span" [attr "style" "color: green;"] $ text "mandatory"
+        whenInputTouchedIncorrect repeatedName $ el "span" [attr "style" "color: red;"] <<< text
+    whenInputCorrect person $ \(Person person) -> do
       el "div" [] do
         el "h2" [] $ text "Review"
         el "p" [] $ text $ "Age: " <> showAge person.personAge
@@ -129,5 +129,5 @@ main = do
   runMainWidgetInBody do
     (Tuple person populatePerson) <- el "div" [attr "style" "padding: 10px;"] personForm
     el "button" [onClick_ (populatePerson (Tuple "Eryk" "38"))] $ text "Populate"
-    whenInputJust person $ \p -> el "button" [] $ text "Submit"
+    whenInputCorrect person $ \p -> el "button" [] $ text "Submit"
   pure unit

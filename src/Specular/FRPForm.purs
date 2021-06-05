@@ -12,6 +12,7 @@ import Data.Semigroup
 import Data.Monoid
 import Control.Monad.Maybe.Trans
 import Control.Monad.Writer.Trans
+import Control.Monad.Except.Trans
 import Data.Tuple
 import Data.Either
 import Specular.Dom.Element (dynText, el, text)
@@ -40,9 +41,11 @@ import Specular.Dom.Node.Class ((:=))
 
 -- Input as monad transformer stack on top of Dynamic
 
-type Input a = MaybeT (WriterT Touch Dynamic) a
+type Error = String
 
--- MaybeT - introduces possible unavailability of form value due to validation failure
+type Input a = ExceptT Error (WriterT Touch Dynamic) a
+
+-- ExceptT - introduces possible validation failure
 -- WriterT Touch - introduces out-of-band form data, form meta-data like intact/touched property
 -- also played around with ReaderT but didn't find any useful application of it
 
@@ -61,63 +64,35 @@ instance monoidTouch :: Monoid Touch where
   mempty = Intact
 
 -- unwraping Dynamic of a Input, then you can handle Dynamic as usual
-inputDynamic :: forall a . Input a -> Dynamic (Tuple (Maybe a) Touch)
-inputDynamic form = runWriterT (runMaybeT form)
+inputDynamic :: forall a . Input a -> Dynamic (Tuple (Either Error a) Touch)
+inputDynamic form = runWriterT (runExceptT form)
 
 -- or you can use shortcut functions like:
-whenInputIntactNothing :: forall a m . MonadReplace m => MonadFRP m => Input a -> m Unit -> m Unit
-whenInputIntactNothing form action = withDynamic_ (inputDynamic form) case _ of
-  Tuple Nothing Intact -> action
+whenInputCorrect :: forall a m . MonadReplace m => MonadFRP m => Input a -> (a -> m Unit) -> m Unit
+whenInputCorrect form action = withDynamic_ (inputDynamic form) case _ of
+  Tuple (Right a) _ -> action a
   _ -> pure unit
 
-whenInputTouchedJust :: forall a m . MonadReplace m => MonadFRP m => Input a -> (a -> m Unit) -> m Unit
-whenInputTouchedJust form action = withDynamic_ (inputDynamic form) case _ of
-  Tuple (Just a) Touched -> action a
+whenInputIntact :: forall a m . MonadReplace m => MonadFRP m => Input a -> (m Unit) -> m Unit
+whenInputIntact form action = withDynamic_ (inputDynamic form) case _ of
+  Tuple _ Intact -> action
   _ -> pure unit
 
-whenInputJust :: forall a m . MonadReplace m => MonadFRP m => Input a -> (a -> m Unit) -> m Unit
-whenInputJust form action = withDynamic_ (inputDynamic form) case _ of
-  Tuple (Just a) _ -> action a
+whenInputTouchedIncorrect :: forall a m . MonadReplace m => MonadFRP m => Input a -> (Error -> m Unit) -> m Unit
+whenInputTouchedIncorrect form action = withDynamic_ (inputDynamic form) case _ of
+  Tuple (Left error) Touched -> action error
   _ -> pure unit
 
 -- with functions in below one can manipulate Inputs
--- these are the things one cannot to with plain Dynamic
-justOf :: forall a . Input (Maybe a) -> Input a
-justOf form = MaybeT $ WriterT $ do
-  mmaw <-  runWriterT (runMaybeT form )
+-- these are the things one cannot do with plain Dynamic
+eitherOf :: forall a e . Input (Either Error a) -> Input a
+eitherOf i = ExceptT $ WriterT $ do
+  mmaw <-  runWriterT (runExceptT i)
   pure $ case mmaw of
-    Tuple (Just (Just a)) w -> Tuple (Just a) w
-    Tuple _ w -> Tuple Nothing w
+    Tuple (Right (Right a)) w -> Tuple (Right a) w
+    Tuple (Right (Left error)) w -> Tuple (Left error) w
+    Tuple (Left error) w -> Tuple (Left "!") w
 
-lastOf :: forall a . Input (Last a) -> Input a
-lastOf form = MaybeT $ WriterT $ do
-  mmaw <-  runWriterT (runMaybeT form )
-  pure $ case mmaw of
-    Tuple (Just (Last (Just a))) w -> Tuple (Just a) w
-    Tuple _ w -> Tuple Nothing w
-
-nothingOf :: forall a . Input (Maybe a) -> Input Unit
-nothingOf form = MaybeT $ WriterT $ do
-  mmaw <-  runWriterT (runMaybeT form)
-  pure $ case mmaw of
-    Tuple (Just (Just _)) w -> Tuple Nothing w
-    Tuple _ w -> Tuple (Just unit) w
-
-leftOf :: forall e a. Input (Either e a) -> Input e
-leftOf f = justOf $ leftToMaybe <$> f
-  where
-    leftToMaybe = either Just (const Nothing)
-
-rightOf :: forall e a . Input (Either e a) -> Input a
-rightOf f = justOf $ rightToMaybe <$> f
-  where
-    rightToMaybe = either (const Nothing) Just
-
-eitherOf :: forall a e . Input (Either e a) -> Tuple (Input e) (Input a)
-eitherOf i = Tuple (leftOf i) (rightOf i)
-
-selection :: forall a . Eq a => Input a -> Input (Array a) -> Input (Maybe a)
-selection selected options = selected >>= \a -> (find (_ `eq` a)) <$> options
 
 -- but how can we create an Input?
 
@@ -127,18 +102,18 @@ type Field a =
   { inputValueRef :: Ref (Tuple a Touch)
   }
 
-newField :: forall a . Monoid a => Effect (Field a)
-newField = do
+field :: forall a . Monoid a => Effect (Field a)
+field = do
   ref <- new (Tuple mempty mempty)
   pure {inputValueRef: ref }
 
 writeField :: forall a . Field a -> Tuple a Touch -> Effect Unit
 writeField input t = modify input.inputValueRef (\_ -> t)
 
-readField :: forall a . Field a -> Input a
-readField input = MaybeT $ WriterT $ do
+fieldInput :: forall a . Field a -> Input a
+fieldInput input = ExceptT $ WriterT $ do
   Tuple a w <- value input.inputValueRef
-  pure (Tuple (Just a) w)
+  pure (Tuple (pure a) w)
 
 -- then we can wrap Fields with Widgets
 
@@ -154,23 +129,6 @@ stringFieldWidget field = do
     where
     fieldDyn :: forall a . Field a -> Dynamic a
     fieldDyn field = (\(Tuple a b) -> a) <$> value field.inputValueRef
-
-
--- this doens't work for now
--- selectFieldWidget ::
---   forall a . Eq a => Show a => BoundedEnum a => Input (Array a)
---   -> Field (Last a)
---   -> Widget Unit
--- selectFieldWidget options field = do
---   withDynamic_ (inputDynamic options) \dyn -> do
---     let options = case dyn of
---           (Tuple Nothing _) -> []
---           (Tuple (Just options) _) -> options
---     let toOption value = el "option" [attr "value" (show (fromEnum value))] $ text $ show value
---     (Tuple selectEl _) <- el' "select" $ traverse_ toOption options
---     domChanged <- domEventWithSample (\_ -> getTextInputValue selectEl) "change" selectEl
---     on domChanged ((\str -> Tuple (Last (Just (unsafePartial (fromJust (toEnum (fromJust (fromString str))))))) Touched) >$< writeField field)
---     pure unit
 
 -- Form is a Widget that provides input and "callback" to modify input fields
 
