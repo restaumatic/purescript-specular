@@ -15,6 +15,8 @@ import Data.Semigroup
 import Data.Monoid
 import Control.Monad.Maybe.Trans
 import Control.Monad.Writer.Trans
+import Control.Monad.Error.Class
+import Control.Monad.Except.Trans
 import Data.Tuple
 import Data.Either
 import Specular.Dom.Element (dynText, el, text)
@@ -36,7 +38,9 @@ import Specular.Dom.Element
 import Data.Foldable (traverse_)
 import Data.Enum
 import Data.Int
-import Specular.Dom.Builder.Class (el', elAttr')
+import Specular.Dom.Builder.Class (el', elAttr', elDynAttr')
+import Specular.Dom.Node.Class ((:=))
+import Specular.Dom.Browser
 
 
 mkInt :: String -> Either String Int
@@ -44,29 +48,20 @@ mkInt s = case Int.fromString s of
   Nothing -> Left "Not an Int"
   (Just i) -> Right i
 
-newtype Age = Age { ageToInt :: Int }
-
-showAge (Age age) = show age.ageToInt
-
-mkAge :: Int -> Either String Age
+mkAge :: Int -> Either String Int
 mkAge i
-  | i > 0 = Right $ Age { ageToInt: i }
+  | i > 0 = Right i
   | otherwise = Left "must be positive"
 
-newtype Name = Name { nameToString :: String }
-
-mkName :: String -> Either String Name
+mkName :: String -> Either String String
 mkName s
   | null s = Left "must be non empty"
-  | otherwise = Right $ Name { nameToString: s }
+  | otherwise = Right s
 
 data Person = Person {
-  personAge :: Age,
-  personName :: Name
+  personAge :: Int,
+  personName :: String
 }
-
-showName (Name n) = n.nameToString
-
 
 mkPersonForm :: Effect (Form Person (Tuple String String))
 mkPersonForm = do
@@ -75,59 +70,63 @@ mkPersonForm = do
   repeatedNameField <- field
 
   let
-    age = eitherOf $ (mkInt >=> mkAge) <$> fieldInput ageField
-    name = eitherOf $ do
-      v <- fieldInput nameField
-      if null v
-        then pure $ Left "must not be empty"
-        else do
-        (Age a) <- age
-        if a.ageToInt  < 10 && length v > 10
-          then pure $ Left "Too long name for such a young child"
-          else pure $ Right $ Name { nameToString: v }
-    repeatedName = eitherOf $ do
-      (Name originalName) <- name
-      repeatedName <- fieldInput repeatedNameField
-      pure $ if originalName.nameToString == repeatedName
-        then Right (Name originalName)
-        else Left "Name mismatch"
-    person = (\a n -> Person { personAge: a, personName: n}) <$> age <*> repeatedName
+    ageInput = eitherOf' $ do
+      age <- lift $ fieldInput ageField
+      when (null age) $ throwError "must not be empty"
+      except $ (mkInt >=> mkAge) age
+    color :: forall a . Input a -> Dynamic Attrs
+    color input = inputDynamic input <#> (\x -> case x of
+      Tuple (Just (Right _)) _ -> "style" := "border: 1px solid green;"
+      Tuple (Just (Left _)) Touched -> "style" := "border: 1px solid red;"
+      _ -> "style" := "border: 1px solid black;")
+    nameInput = eitherOf' $ do
+      name <- lift $ fieldInput nameField
+      when (null name) $ throwError "must not be empty"
+      age <- lift $ ageInput
+      when (age < 10 && length name > 10) $ throwError "Too long nameInput for such a young child"
+      pure name
+    repeatedName = eitherOf' $ do
+      name <- lift $ nameInput
+      repeatedName <- lift $ fieldInput repeatedNameField
+      when (name /= repeatedName) $ throwError "Name mismatch"
+      pure repeatedName
+    personInput = (\a n -> Person { personAge: a, personName: n}) <$> ageInput <*> repeatedName
 
   pure do
     el "h1" [] $ text "Person Form"
-    whenInputIntact person $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
+    whenInputIntact personInput $ el "span" [attr "style" "color: green;"] $ text "Please fill in below"
     el "div" [] do
       text "Age"
       el "div" [] do
-        stringFieldWidget ageField
-        whenInputIntact age $ el "span" [attr "style" "color: green;"] $ text "mandatory"
-        whenInputTouchedIncorrect age $ el "span" [attr "style" "color: red;"] <<< text
+        stringFieldWidget ageField $ elDynAttr' "input" (weaken (color ageInput)) (pure unit)
+        whenInputIntact ageInput $ el "span" [attr "style" "color: green;"] $ text "mandatory"
+        whenInputTouchedIncorrect ageInput $ el "span" [attr "style" "color: red;"] <<< text
     el "div" [] do
       text "Name"
       el "div" [] do
-        stringFieldWidget nameField
-        whenInputIntact name $ el "span" [attr "style" "color: green;"] $ text "mandatory"
-        whenInputTouchedIncorrect name $ el "span" [attr "style" "color: red;"] <<< text
+        stringFieldWidget nameField $ elDynAttr' "input" (weaken (color nameInput)) (pure unit)
+        whenInputIntact nameInput $ el "span" [attr "style" "color: green;"] $ text "mandatory"
+        whenInputTouchedIncorrect nameInput $ el "span" [attr "style" "color: red;"] <<< text
     el "div" [] do
       text "Repeat Name"
       el "div" [] do
-        stringFieldWidget repeatedNameField
+        stringFieldWidget repeatedNameField $ elDynAttr' "input" (weaken (color repeatedName)) (pure unit)
         whenInputIntact repeatedName $ el "span" [attr "style" "color: green;"] $ text "mandatory"
         whenInputTouchedIncorrect repeatedName $ el "span" [attr "style" "color: red;"] <<< text
-    whenInputCorrect person $ \(Person person) -> do
+    whenInputCorrect personInput $ \(Person personInput) -> do
       el "div" [] do
         el "h2" [] $ text "Review"
-        el "p" [] $ text $ "Age: " <> showAge person.personAge
-        el "p" [] $ text $ "Name: " <> showName person.personName
-    pure (Tuple person $ \(Tuple name age) -> do
-      writeField ageField (Tuple age mempty)
-      writeField nameField (Tuple name mempty))
+        el "p" [] $ text $ "Age: " <> show personInput.personAge
+        el "p" [] $ text $ "Name: " <> show personInput.personName
+    pure (Tuple personInput $ \(Tuple nameInput ageInput) -> do
+      writeField ageField (Tuple ageInput mempty)
+      writeField nameField (Tuple nameInput mempty))
 
 main :: Effect Unit
 main = do
   personForm <- mkPersonForm
   runMainWidgetInBody do
-    (Tuple person populatePerson) <- el "div" [attr "style" "padding: 10px;"] personForm
+    (Tuple personInput populatePerson) <- el "div" [attr "style" "padding: 10px;"] personForm
     el "button" [onClick_ (populatePerson (Tuple "Eryk" "38"))] $ text "Populate"
-    whenInputCorrect person $ \p -> el "button" [] $ text "Submit"
+    whenInputCorrect personInput $ \p -> el "button" [] $ text "Submit"
   pure unit

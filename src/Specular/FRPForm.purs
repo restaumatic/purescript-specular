@@ -37,6 +37,8 @@ import Data.Int
 import Specular.Dom.Builder.Class (el', elAttr')
 import Partial.Unsafe (unsafePartial)
 import Specular.Dom.Node.Class ((:=))
+import Specular.Dom.Browser
+import Specular.Dom.Builder.Class
 
 
 -- Input as monad transformer stack on top of Dynamic
@@ -95,7 +97,7 @@ whenInputReady form action = withDynamic_ (inputDynamic form) case _ of
 
 -- with functions in below one can manipulate Inputs
 -- these are the things one cannot do with plain Dynamic
-eitherOf :: forall a e . Input (Either Error a) -> Input a
+eitherOf :: forall a . Input (Either Error a) -> Input a
 eitherOf i = ExceptT $ MaybeT $ WriterT $ do
   mmaw <- runWriterT $ runMaybeT $ runExceptT i
   pure $ case mmaw of
@@ -104,6 +106,16 @@ eitherOf i = ExceptT $ MaybeT $ WriterT $ do
     Tuple (Just (Right (Left error))) w -> Tuple (Just (Left error)) w
     Tuple (Just (Right (Right a))) w -> Tuple (Just (Right a)) w
 
+eitherOf' :: forall a . ExceptT Error (ExceptT Error (MaybeT (WriterT Touch Dynamic))) a -> Input a
+eitherOf' i = ExceptT $ MaybeT $ WriterT $ do
+  emmaw <- runWriterT $ runMaybeT $ runExceptT $ runExceptT i
+  pure $ case emmaw of
+    -- Left error -> Tuple (Just (Left error)) mempty
+    -- _ -> Tuple Nothing mempty
+    Tuple Nothing w -> Tuple Nothing w
+    Tuple (Just (Left error)) w -> Tuple Nothing w
+    Tuple (Just (Right (Left error))) w -> Tuple (Just (Left error)) w
+    Tuple (Just (Right (Right a))) w -> Tuple (Just (Right a)) w
 
 -- but how can we create an Input?
 
@@ -128,9 +140,9 @@ fieldInput input = ExceptT $ MaybeT $ WriterT $ do
 
 -- then we can wrap Fields with Widgets
 
-stringFieldWidget :: Field String -> Widget Unit
-stringFieldWidget field = do
-  Tuple element _ <- elAttr' "input" mempty (pure unit)
+stringFieldWidget :: forall m a . MonadDomBuilder m => MonadFRP m => Field String -> m (Tuple Node a) -> m Unit
+stringFieldWidget field m = do
+  Tuple element _ <- m -- elAttr' "input" mempty (pure unit)
   _ <- domEventWithSample (\_ -> do
     str <- getTextInputValue element
     writeField field (Tuple str Touched)
