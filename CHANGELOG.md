@@ -4,7 +4,7 @@
 - 2021-04-28 **(breaking change)** Unwrapped `Callback a` into `a -> Effect Unit` to make working with callbacks more intuitive (not having to
   use contravariance all over the place). A simple upgrade path is to copy the old Specular.Callback module into your
   own project and remove the newtype wrapper.
-
+- `classesD` and `class_` now support multiple space-separated classes, making them work more like the `class` HTML attribute.
 
 ## 0.8.3
 

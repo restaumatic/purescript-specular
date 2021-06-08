@@ -5,7 +5,7 @@ exports._stopPropagation = function(event) {
 
 // _addClass :: EffectFn2 Node ClassName Unit
 exports._addClass = function(node, cls) {
-  node.classList.add(cls);
+  node.classList.add(...cls.split(' '));
 };
 
 // _removeClass :: EffectFn2 Node ClassName Unit
@@ -19,10 +19,11 @@ exports._initClasses = function(node) {
   return function(classes) {
     var newClassSet = {};
     for(var i = 0; i < classes.length; i++) {
-      var class_ = classes[i];
-      newClassSet[class_] = true;
-      if(!currentClassSet[class_]) {
-        node.classList.add(class_);
+      for(const class_ of classes[i].split(' ')) {
+        newClassSet[class_] = true;
+        if(!currentClassSet[class_]) {
+          node.classList.add(class_);
+        }
       }
     }
     var oldClasses = Object.keys(currentClassSet);
