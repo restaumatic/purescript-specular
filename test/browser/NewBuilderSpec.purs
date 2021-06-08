@@ -5,9 +5,9 @@ import Prelude hiding (append)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dynText, el, el_, rawHtml, text)
-import Specular.Dom.Node.Class ((:=))
-import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody)
+import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dynText, el, el_, rawHtml, text, class_)
+import Specular.Dom.Node.Class ((:=), createElement)
+import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody, runWidgetInNode)
 import Specular.FRP (newDynamic)
 import Test.Spec (Spec, after_, describe, it, describeOnly)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
@@ -89,6 +89,17 @@ spec =
         liftEffect $ set_d1 ["foo", "baz"]
         liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar", "baz"]
 
+      it "allows space-separated classes" do
+        {dynamic: d, set} <- newDynamic ["foo bar"]
+        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classesD d] emptyWidget
+        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
+        liftEffect $ set ["bar"]
+        liftEffect (getElementClasses "#test") `shouldReturn` ["bar"]
+        liftEffect $ set ["bar  baz  "]
+        liftEffect (getElementClasses "#test") `shouldReturn` ["bar", "baz"]
+        liftEffect $ set []
+        liftEffect (getElementClasses "#test") `shouldReturn` []
+
     it "classWhenD" do
       {dynamic: d, set} <- newDynamic true
       liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classWhenD d "foo"] emptyWidget
@@ -115,6 +126,11 @@ spec =
 
       -- clean up
       liftEffect unsub
+
+    describe "class_" do
+      it "allows space-separated classes" do
+        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), class_ "foo bar  baz  "] emptyWidget
+        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar", "baz"]
 
 foreign import clearDocument :: Effect Unit
 foreign import getElementClasses :: String -> Effect (Array ClassName)
