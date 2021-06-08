@@ -1,10 +1,22 @@
 ## Next release
 
+## 0.12.0
+
+### Features
+- PureScript 0.14.1 support (#80, by @srghma)
+- `classesD` and `class_` now support multiple space-separated classes, making them work more like the `class` HTML attribute.
+- `Specular.Ref` refactored to make the API look more like `Effect.Ref`. (#78, #79, by @kozak)
+
+### Internal changes
+- CI moved to GitHub actions (#80, by @srghma)
+- Use `spago` instead of `pulp` (#80, by @srghma)
+- Use `npm` instead of `yarn`
+
 ## 0.11.0
+
 - 2021-04-28 **(breaking change)** Unwrapped `Callback a` into `a -> Effect Unit` to make working with callbacks more intuitive (not having to
   use contravariance all over the place). A simple upgrade path is to copy the old Specular.Callback module into your
   own project and remove the newtype wrapper.
-- `classesD` and `class_` now support multiple space-separated classes, making them work more like the `class` HTML attribute.
 
 ## 0.8.3
 
