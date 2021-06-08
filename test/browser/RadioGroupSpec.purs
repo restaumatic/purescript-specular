@@ -2,8 +2,7 @@ module RadioGroupSpec where
 
 import Prelude hiding (append)
 
-import Specular.Internal.Effect (newRef)
-import Data.Monoid (mempty)
+import Effect.Ref (new)
 import Data.Tuple (Tuple(..))
 import Specular.Dom.Widgets.RadioGroup (radioGroup)
 import Specular.FRP.Base (subscribeDyn_)
@@ -14,16 +13,16 @@ import Test.Utils.Dom (dispatchTrivialEvent, querySelector, runBuilderInDiv)
 spec :: Spec Unit
 spec = describe "radioGroup" $ do
   pending' "works" $ do
-    log <- liftEffect $ newRef []
+    log <- liftEffect $ new []
     Tuple div _ <- runBuilderInDiv $ do
-      dyn <- radioGroup 
+      dyn <- radioGroup
         { options: ["foo", "bar"]
         , initialValueIndex: 0
         , render: \_ _ input -> input (pure mempty)
         }
       subscribeDyn_ (append log) dyn
 
-    inputFoo <- liftEffect $ querySelector "input:nth-child(1)" div
+    _inputFoo <- liftEffect $ querySelector "input:nth-child(1)" div
     inputBar <- liftEffect $ querySelector "input:nth-child(2)" div
 
     log `shouldHaveValue` ["foo"]

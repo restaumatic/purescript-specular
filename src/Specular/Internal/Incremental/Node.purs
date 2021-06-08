@@ -7,7 +7,7 @@ import Prelude
 
 import Effect (Effect)
 import Specular.Internal.Incremental.Ref as Ref
-import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn6, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn6)
+import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn6, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn6)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum)
 import Specular.Internal.Incremental.MutableArray (MutableArray)

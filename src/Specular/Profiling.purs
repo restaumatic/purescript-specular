@@ -5,9 +5,9 @@ module Specular.Profiling
 
 import Prelude
 
-import Effect
-import Effect.Class
-import Effect.Uncurried
+import Effect (Effect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Uncurried (runEffectFn1)
 import Specular.Internal.Profiling as Internal
 import Specular.Internal.Profiling (enabled, Mark) as X
 

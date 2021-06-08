@@ -56,23 +56,22 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
-import Data.Array as Array
 import Data.Function.Uncurried (mkFn2)
 import Data.HeytingAlgebra (ff, implies, tt)
 import Data.Maybe (Maybe(..), maybe)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
-import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental as I
 import Specular.Internal.Incremental.Node (Node)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional as Optional
-import Partial.Unsafe (unsafeCrashWith)
 import Specular.Internal.Queue (Queue)
 import Specular.Internal.Queue as Queue
 import Specular.Internal.Profiling as Profiling
-import Unsafe.Coerce (unsafeCoerce)
+import Effect.Unsafe (unsafePerformEffect)
+-- | import Partial.Unsafe (unsafeCrashWith)
+-- | import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------------------
 
@@ -284,8 +283,8 @@ foldDyn f initial (Event event) = do
   subscribeNode (\_ -> pure unit) n
   pure (Dynamic n)
 
-effectCrash :: forall a. String -> a
-effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: forall a. Unit -> a)
+-- | effectCrash :: forall a. String -> a
+-- | effectCrash msg = unsafeCoerce (\_ -> unsafeCrashWith msg)
 
 -- | Construct a new root Dynamic that can be changed from `Effect`-land.
 newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :: Effect a, set :: a -> Effect Unit, modify :: (a -> a) -> Effect Unit }
@@ -339,9 +338,9 @@ uniqDynBy eq dyn@(Dynamic node) = do
   initialValue <- liftEffect do
     runEffectFn2 I.addObserver node handler
     runEffectFn1 Node.valueExc node
-  uniqDyn <- holdUniqDynBy eq initialValue (changed dyn)
+  uniqDyn_ <- holdUniqDynBy eq initialValue (changed dyn)
   liftEffect $ runEffectFn2 I.removeObserver node handler
-  pure uniqDyn
+  pure uniqDyn_
 
 uniqDyn :: forall m a. MonadFRP m => Eq a => Dynamic a -> m (Dynamic a)
 uniqDyn = uniqDynBy (==)
@@ -357,7 +356,7 @@ switch (Dynamic lhs) = Event $ unsafePerformEffect do
 
 instance bindDynamic :: Bind Dynamic where
   bind (Dynamic lhs) f = Dynamic $ unsafePerformEffect do
-    n <- runEffectFn2 I.bind_ lhs (\x -> let Dynamic d = f x in d)
+    n <- runEffectFn2 I.bind_ lhs (\x -> let Dynamic dyn = f x in dyn)
     runEffectFn2 Node.annotate n "bindDynamic"
     pure n
 
@@ -369,7 +368,7 @@ subscribeDyn_
   => (a -> Effect Unit)
   -> Dynamic a
   -> m Unit
-subscribeDyn_ handler dyn@(Dynamic node) = do
+subscribeDyn_ handler _dyn@(Dynamic node) = do
   subscribeNode handler node
   liftEffect do
     currentValue <- runEffectFn1 Node.valueExc node
@@ -381,7 +380,7 @@ subscribeDyn ::
   => (a -> Effect b)
   -> Dynamic a
   -> m (Dynamic b)
-subscribeDyn handler dyn@(Dynamic node) = do
+subscribeDyn handler _dyn@(Dynamic node) = do
   evt <- liftEffect do
     evt <- I.newEvent
     runEffectFn2 Node.annotate (I.readEvent evt) "subscribeDyn"
@@ -441,12 +440,12 @@ traceNode handler input = unsafePerformEffect do
   pure n
 
 annotated :: forall a. String -> Dynamic a -> Dynamic a
-annotated name d@(Dynamic n) = unsafePerformEffect do
+annotated name dyn@(Dynamic n) = unsafePerformEffect do
   runEffectFn2 Node.annotate n name
-  pure d
+  pure dyn
 
 annotate :: forall m a. MonadEffect m => Dynamic a -> String -> m Unit
-annotate d@(Dynamic n) name = liftEffect $ runEffectFn2 Node.annotate n name
+annotate _dyn@(Dynamic n) name = liftEffect $ runEffectFn2 Node.annotate n name
 
 --- Lifted instances
 

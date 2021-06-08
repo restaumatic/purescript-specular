@@ -1,3 +1,7 @@
+if (typeof global === "undefined") { global = window; };
+
+// global.SPECULAR_PROFILING_ENABLED = true;
+
 const enabled = !!global.SPECULAR_PROFILING_ENABLED;
 
 const frameNameToIndex = {};

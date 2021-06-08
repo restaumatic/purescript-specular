@@ -16,7 +16,7 @@ data T3 a b c = T3 a b c
 runBuilderInDiv :: forall a. Widget a -> Aff (Tuple Node a)
 runBuilderInDiv widget = liftEffect do
   parent <- createElement "div"
-  Tuple result unsub <- runWidgetInNode parent widget
+  Tuple result _unsub <- runWidgetInNode parent widget
   pure (Tuple parent result)
 
 runBuilderInDiv' :: forall a. Widget a -> Aff (T3 Node a (Effect Unit))

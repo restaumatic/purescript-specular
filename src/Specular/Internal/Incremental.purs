@@ -5,7 +5,6 @@ import Prelude
 import Data.Function.Uncurried (Fn2, runFn2)
 import Effect (Effect)
 import Effect.Console as Console
-import Effect.Ref (Ref)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Effect (foreachUntil)
@@ -38,7 +37,7 @@ newtype Var a = Var (Node a)
 
 newVar :: forall a. EffectFn1 a (Var a)
 newVar = mkEffectFn1 \val -> do
-  node <- runEffectFn1 Node.create 
+  node <- runEffectFn1 Node.create
     { compute: mkEffectFn1 \node -> do
         value <- runEffectFn1 Node.valueExc node
         pure (Optional.some value)
@@ -62,7 +61,7 @@ newtype Event a = Event (Node a)
 
 newEvent :: forall a. Effect (Event a)
 newEvent = do
-  node <- runEffectFn1 Node.create 
+  node <- runEffectFn1 Node.create
     { compute: mkEffectFn1 \node -> do
         runEffectFn1 Node.get_value node
     , dependencies: pure []
@@ -112,17 +111,17 @@ removeDependent = mkEffectFn2 \node dependent -> do
 
 handleRefcountChange :: forall a. EffectFn2 (Node a) Int Unit
 handleRefcountChange = mkEffectFn2 \node oldRefcount -> do
-  newRefcount <- runEffectFn1 Node.refcount node
-  if oldRefcount == 0 && newRefcount > 0 then
+  newcount <- runEffectFn1 Node.refcount node
+  if oldRefcount == 0 && newcount > 0 then
     runEffectFn1 connect node
-  else if oldRefcount > 0 && newRefcount == 0 then
+  else if oldRefcount > 0 && newcount == 0 then
     runEffectFn1 disconnect node
   else
     pure unit
 
   -- Update globalTotalRefcount
   oldTotalRefcount <- runEffectFn1 Ref.read globalTotalRefcount
-  runEffectFn2 Ref.write globalTotalRefcount (oldTotalRefcount - oldRefcount + newRefcount)
+  runEffectFn2 Ref.write globalTotalRefcount (oldTotalRefcount - oldRefcount + newcount)
 
 -- Preconditions:
 -- - node does not have value computed
@@ -173,10 +172,10 @@ stabilize :: Effect Unit
 stabilize = do
   mark <- runEffectFn1 Profiling.begin "stabilize"
 
-  oldStabilizationNum <- runEffectFn1 Ref.read globalLastStabilizationNum 
+  oldStabilizationNum <- runEffectFn1 Ref.read globalLastStabilizationNum
   let currentStabilizationNum = oldStabilizationNum + 1
   runEffectFn2 Ref.write globalLastStabilizationNum currentStabilizationNum
-  runEffectFn2 Ref.write globalCurrentStabilizationNum currentStabilizationNum 
+  runEffectFn2 Ref.write globalCurrentStabilizationNum currentStabilizationNum
 
   runEffectFn2 PQ.drain globalRecomputeQueue recomputeNode
 
@@ -217,12 +216,12 @@ recomputeNode = mkEffectFn1 \node -> do
     then do
       let newValue = Optional.fromSome newValue_opt
       runEffectFn2 Node.set_value node (Optional.some newValue)
-      currentStabilizationNum <- runEffectFn1 Ref.read globalCurrentStabilizationNum 
+      currentStabilizationNum <- runEffectFn1 Ref.read globalCurrentStabilizationNum
       runEffectFn2 Node.set_changedAt node currentStabilizationNum
-      
+
       dependents <- runEffectFn1 Node.get_dependents node
       runEffectFn2 MutableArray.iterate dependents $ mkEffectFn1 \dependent -> do
-        added <- runEffectFn2 PQ.add globalRecomputeQueue dependent
+        _added <- runEffectFn2 PQ.add globalRecomputeQueue dependent
 --        if added then do
 --          dependentName <- runEffectFn1 Node.name dependent
 --          trace $ "stabilize: node " <> show dependentName <> " added to recompute queue"
@@ -246,7 +245,7 @@ recomputeNode = mkEffectFn1 \node -> do
 
 constant :: forall a. EffectFn1 a (Node a)
 constant = mkEffectFn1 \value -> do
-  runEffectFn1 Node.create 
+  runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> pure (Optional.some value)
     , dependencies: pure []
     }
@@ -254,7 +253,7 @@ constant = mkEffectFn1 \value -> do
 map :: forall a b. EffectFn2 (a -> b) (Node a) (Node b)
 map = mkEffectFn2 \fn a -> do
   let deps = [toSomeNode a]
-  runEffectFn1 Node.create 
+  runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         value_a <- runEffectFn1 Node.valueExc a
         pure (Optional.some (fn value_a))
@@ -264,7 +263,7 @@ map = mkEffectFn2 \fn a -> do
 mapOptional :: forall a b. EffectFn2 (a -> Optional b) (Node a) (Node b)
 mapOptional = mkEffectFn2 \fn a -> do
   let deps = [toSomeNode a]
-  runEffectFn1 Node.create 
+  runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         value_a <- runEffectFn1 Node.get_value a
         pure (if Optional.isSome value_a
@@ -276,7 +275,7 @@ mapOptional = mkEffectFn2 \fn a -> do
 map2 :: forall a b c. EffectFn3 (Fn2 a b c) (Node a) (Node b) (Node c)
 map2 = mkEffectFn3 \fn a b -> do
   let deps = [toSomeNode a, toSomeNode b]
-  runEffectFn1 Node.create 
+  runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         value_a <- runEffectFn1 Node.valueExc a
         value_b <- runEffectFn1 Node.valueExc b
@@ -300,7 +299,7 @@ bind_ = mkEffectFn2 \lhs fn -> do
 switch :: forall a b. EffectFn3 Boolean (Node a) (a -> Node b) (Node b)
 switch = mkEffectFn3 \alwaysFire lhs fn -> do
   main_node_ref <- runEffectFn1 Ref.new Optional.none
-  rhs_node <- runEffectFn1 Node.create 
+  rhs_node <- runEffectFn1 Node.create
     { compute: mkEffectFn1 \node -> do
 
         value_lhs <- runEffectFn1 Node.valueExc lhs
@@ -325,7 +324,7 @@ switch = mkEffectFn3 \alwaysFire lhs fn -> do
         pure [toSomeNode lhs]
     }
   runEffectFn2 Node.annotate rhs_node "switch data"
-  main <- runEffectFn1 Node.create 
+  main <- runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         rhs <- runEffectFn1 Node.valueExc rhs_node
         isFiring <- runEffectFn1 Node.isChangingInCurrentStabilization rhs
@@ -347,7 +346,7 @@ switch = mkEffectFn3 \alwaysFire lhs fn -> do
 fold :: forall a b. EffectFn3 (Fn2 a b (Optional b)) b (Node a) (Node b)
 fold = mkEffectFn3 \fn initial a -> do
   let deps = [toSomeNode a]
-  runEffectFn1 Node.create 
+  runEffectFn1 Node.create
     { compute: mkEffectFn1 \node -> do
         state_opt <- runEffectFn1 Node.get_value node
         let state = if Optional.isSome state_opt then Optional.fromSome state_opt else initial
@@ -368,8 +367,8 @@ fold = mkEffectFn3 \fn initial a -> do
 
 sample :: forall a b c. EffectFn3 (Fn2 a b (Optional c)) (Node a) (Node b) (Node c)
 sample = mkEffectFn3 \fn signal clock -> do
-  runEffectFn1 Node.create 
-    { compute: mkEffectFn1 \node -> do
+  runEffectFn1 Node.create
+    { compute: mkEffectFn1 \_node -> do
         hasInput <- runEffectFn1 Node.isChangingInCurrentStabilization clock
 
         result <-
@@ -386,8 +385,8 @@ sample = mkEffectFn3 \fn signal clock -> do
 
 leftmost :: forall a. EffectFn1 (Array (Node a)) (Node a)
 leftmost = mkEffectFn1 \inputs -> do
-  runEffectFn1 Node.create 
-    { compute: mkEffectFn1 \node -> do
+  runEffectFn1 Node.create
+    { compute: mkEffectFn1 \_node -> do
         runEffectFn2 foreachUntil inputs $ mkEffectFn1 \input -> do
           isFiring <- runEffectFn1 Node.isChangingInCurrentStabilization input
           if isFiring then
@@ -399,8 +398,8 @@ leftmost = mkEffectFn1 \inputs -> do
 
 traceChanges :: forall a. EffectFn2 (EffectFn1 a Unit) (Node a) (Node a)
 traceChanges = mkEffectFn2 \fn input -> do
-  runEffectFn1 Node.create 
-    { compute: mkEffectFn1 \node -> do
+  runEffectFn1 Node.create
+    { compute: mkEffectFn1 \_node -> do
         value_opt <- runEffectFn1 Node.get_value input
         isFiring <- runEffectFn1 Node.isChangingInCurrentStabilization input
         if isFiring then runEffectFn1 fn (Optional.fromSome value_opt) else pure unit

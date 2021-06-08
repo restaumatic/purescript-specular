@@ -7,4 +7,6 @@
 /.psc*
 /.purs*
 /.psa*
+/yarn-error.log
 package-lock.json
+.spago/

@@ -6,7 +6,7 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Tuple (Tuple(..))
 import Specular.FRP (holdDyn, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.Base (traceDynIO, traceEventIO)
-import Specular.Internal.Effect (newRef)
+import Effect.Ref (new)
 import Test.Spec (Spec, describe, it)
 import Test.Utils (append, liftEffect, shouldHaveValue, withLeakCheck)
 
@@ -16,7 +16,7 @@ spec = describe "Trace" $ do
   describe "event" $ do
     it "some tracing" $ withLeakCheck do
       {event, fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       let event' = traceEventIO (append log <<< show) event
 
@@ -33,7 +33,7 @@ spec = describe "Trace" $ do
   describe "dynamic" $ do
     it "some tracing" $ withLeakCheck do
       {event, fire} <- liftEffect newEvent
-      log <- liftEffect $ newRef []
+      log <- liftEffect $ new []
 
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
       let dyn' = traceDynIO (append log <<< show) dyn

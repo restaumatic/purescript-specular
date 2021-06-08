@@ -9,7 +9,7 @@ import Effect.Aff (Aff, Milliseconds(..), delay)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Data.Array (snoc)
-import Specular.Internal.Effect (Ref, modifyRef, newRef, readRef, writeRef)
+import Effect.Ref (Ref, modify_, new, read, write)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Type.Prelude (Proxy)
 import Effect.Uncurried (runEffectFn1)
@@ -17,13 +17,13 @@ import Specular.Internal.Incremental.Global (globalTotalRefcount)
 import Specular.Internal.Incremental.Ref as Ref
 
 append :: forall a. Ref (Array a) -> a -> Effect Unit
-append ref value = modifyRef ref (\a -> snoc a value)
+append ref value = modify_ (\a -> snoc a value) ref
 
 clear :: forall a. Ref (Array a) -> Aff Unit
-clear ref = liftEffect $ writeRef ref []
+clear ref = liftEffect $ write [] ref
 
 shouldHaveValue :: forall a. Eq a => Show a => Ref a -> a -> Aff Unit
-shouldHaveValue ref expected = liftEffect (readRef ref) `shouldReturn` expected
+shouldHaveValue ref expected = liftEffect (read ref) `shouldReturn` expected
 
 shouldReturn :: forall t. Show t => Eq t => Aff t -> t -> Aff Unit
 shouldReturn action expected = do
@@ -37,7 +37,7 @@ newtype SpyIO a = SpyIO
 
 newSpyIO :: forall a. Aff (SpyIO a)
 newSpyIO = do
-  log <- liftEffect $ newRef []
+  log <- liftEffect $ new []
   pure $ SpyIO { fn: append log , values: log }
 
 trigger :: forall a b. SpyIO a -> a -> b -> Effect b
@@ -46,6 +46,7 @@ trigger (SpyIO spy) x y = spy.fn x *> pure y
 assertValues :: forall a. Eq a => Show a => SpyIO a -> Array a -> Aff Unit
 assertValues (SpyIO spy) = shouldHaveValue spy.values
 
+class ShouldHaveInferredType :: forall k. Type -> k -> Constraint
 class ShouldHaveInferredType actual expected where
   -- | Assert that the given value has inferred type @expected@.
   -- | If the assertion turns out to be false, the call will not compile.

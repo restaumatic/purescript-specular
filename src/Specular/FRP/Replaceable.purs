@@ -2,9 +2,8 @@ module Specular.FRP.Replaceable where
 
 import Prelude
 
-import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot, replaceSlot)
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
-import Partial.Unsafe (unsafeCrashWith)
+import Control.Monad.Replace (class MonadReplace, newSlot, replaceSlot)
+import Data.Maybe (Maybe(..), isJust)
 import Specular.FRP.Base (class MonadFRP, Dynamic, changed, filterJustEvent, newDynamic, readDynamic, subscribeDyn, subscribeDyn_, subscribeEvent_, uniqDyn, uniqDynBy)
 import Specular.FRP.WeakDynamic (WeakDynamic, subscribeWeakDyn, subscribeWeakDyn_)
 

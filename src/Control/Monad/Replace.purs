@@ -14,10 +14,10 @@ data Slot m = Slot
 replaceSlot :: forall m a. Slot m -> m a -> Effect a
 replaceSlot (Slot replace _ _) = replace
 
-destroySlot :: forall m a. Slot m -> Effect Unit
+destroySlot :: forall m . Slot m -> Effect Unit
 destroySlot (Slot _ destroy _) = destroy
 
-appendSlot :: forall m a. Slot m -> Effect (Slot m)
+appendSlot :: forall m . Slot m -> Effect (Slot m)
 appendSlot (Slot _ _ append) = append
 
 class (Monad m, MonadCleanup m) <= MonadReplace m where
