@@ -3,9 +3,15 @@ exports._stopPropagation = function(event) {
   event.stopPropagation();
 };
 
+const spacesRE = /\s+/;
+
+function splitClasses(classes) {
+  return classes.split(spacesRE).filter(x => x !== '');
+}
+
 // _addClass :: EffectFn2 Node ClassName Unit
 exports._addClass = function(node, cls) {
-  node.classList.add(...cls.split(' '));
+  node.classList.add(...splitClasses(cls));
 };
 
 // _initClasses :: EffectFn1 Node (EffectFn1 (Array ClassName) Unit)
@@ -14,7 +20,7 @@ exports._initClasses = function(node) {
   return function(classes) {
     var newClassSet = {};
     for(var i = 0; i < classes.length; i++) {
-      for(const class_ of classes[i].split(' ')) {
+      for(const class_ of splitClasses(classes[i])) {
         newClassSet[class_] = true;
         if(!currentClassSet[class_]) {
           node.classList.add(class_);

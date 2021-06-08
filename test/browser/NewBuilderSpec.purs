@@ -93,7 +93,7 @@ spec =
         liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
         liftEffect $ set ["bar"]
         liftEffect (getElementClasses "#test") `shouldReturn` ["bar"]
-        liftEffect $ set ["bar baz"]
+        liftEffect $ set ["bar  baz  "]
         liftEffect (getElementClasses "#test") `shouldReturn` ["bar", "baz"]
         liftEffect $ set []
         liftEffect (getElementClasses "#test") `shouldReturn` []
@@ -127,8 +127,8 @@ spec =
 
     describe "class_" do
       it "allows space-separated classes" do
-        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), class_ "foo bar"] emptyWidget
-        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
+        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), class_ "foo bar  baz  "] emptyWidget
+        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar", "baz"]
 
 foreign import clearDocument :: Effect Unit
 foreign import getElementClasses :: String -> Effect (Array ClassName)
