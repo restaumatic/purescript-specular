@@ -296,7 +296,6 @@ classes clss = Prop $ mkEffectFn2 \node _ ->
     runEffectFn2 _addClass node cls
 
 foreign import _addClass :: EffectFn2 Node ClassName Unit
-foreign import _removeClass :: EffectFn2 Node ClassName Unit
 
 -- | Attach a dynamically-changing array of CSS classes to the element.
 -- |

@@ -8,11 +8,6 @@ exports._addClass = function(node, cls) {
   node.classList.add(...cls.split(' '));
 };
 
-// _removeClass :: EffectFn2 Node ClassName Unit
-exports._removeClass = function(node, cls) {
-  node.classList.remove(cls);
-};
-
 // _initClasses :: EffectFn1 Node (EffectFn1 (Array ClassName) Unit)
 exports._initClasses = function(node) {
   var currentClassSet = {};
