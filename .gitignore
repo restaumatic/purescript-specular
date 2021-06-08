@@ -1,12 +1,9 @@
 /node_modules/
 /bower_components/
-/.pulp-cache/
 /output/
 /generated-docs/
 /.psc-package/
 /.psc*
 /.purs*
 /.psa*
-/yarn-error.log
-package-lock.json
 .spago/

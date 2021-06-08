@@ -17,7 +17,7 @@ jobs:
       - name: Cache NPM dependencies
         uses: actions/cache@v2
         with:
-          key: ${{ runner.os }}-lerna-${{ hashFiles('**/package.json', '**/yarn.lock') }}
+          key: ${{ runner.os }}-lerna-${{ hashFiles('**/package-lock.json') }}
           path: |
             node_modules
             */*/node_modules
@@ -40,7 +40,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          yarn install --ignore-optional
+          npm install
           spago install
           # spago install --config bench-spago.dhall
 
@@ -48,7 +48,7 @@ jobs:
         run: spago build --no-install --purs-args '--censor-lib --strict'
 
       - name: Run tests
-        run: spago test
+        run: npm run node-test
 
       - name: Run browser tests
-        run: yarn browser-test
+        run: npm run browser-test

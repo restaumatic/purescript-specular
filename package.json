@@ -7,7 +7,7 @@
     "postinstall": "spago install",
     "node-test": "spago test",
     "browser-test": "spago bundle-app --main BrowserMain --to output/BrowserMain.js && karma start karma.conf.js",
-    "test": "purs --version && spago --version && yarn run node-test && yarn run browser-test",
+    "test": "purs --version && spago --version && npm run node-test && npm run browser-test",
     "build-demo": "spago bundle-app --main DemoMain --to output/DemoMain.js",
     "open-demo": "xdg-open ./test/demo.html",
     "build-bench": "spago bundle-app --main BenchMain --to output/BenchMain.js",
@@ -19,7 +19,6 @@
   "devDependencies": {
     "benchmark": "^2.1.4",
     "bower": "^1.8.12",
-    "pulp": "^15.0.0",
     "puppeteer": "^9.1.1"
   },
   "dependencies": {
