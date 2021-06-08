@@ -35,13 +35,13 @@ module Specular.Ref
   ) where
 
 import Prelude hiding (const)
-import Prelude as Prelude
 
 import Control.Apply (lift2)
 import Data.Functor.Invariant (class Invariant)
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
-import Effect.Class (class MonadEffect)
+import Effect.Class (class MonadEffect, liftEffect)
+import Prelude as Prelude
 import Specular.Dom.Widget (class MonadWidget)
 import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, newDynamic, readDynamic, subscribeEvent_, weaken)
 
@@ -70,13 +70,13 @@ value (Ref v _) = v
 
 
 -- | Modify value of this Ref using a function.
-modify :: forall a. Ref a -> (a -> a) -> Effect Unit
-modify (Ref _ update) = update
+modify :: forall a m. MonadEffect m => Ref a -> (a -> a) -> m Unit
+modify (Ref _ update) = liftEffect <<< update
 
 
 -- | Overwrite value of this Ref.
-write :: forall a. Ref a -> a -> Effect Unit
-write r = (\new _old -> new) >>> modify r
+write :: forall a m. MonadEffect m => Ref a -> a -> m Unit
+write r = (\new_ _old -> new_) >>> modify r
 
 
 -- | Read the current value of a Ref
@@ -86,6 +86,8 @@ read (Ref value update) = readDynamic value
 -- | Create a Ref with a value
 const  :: forall a. a -> Ref a
 const x = Ref (pure x) (Prelude.const (pure unit))
+
+
 
 
 type Lens s a = { get :: s -> a, set :: s -> a -> s }
@@ -147,19 +149,19 @@ refValue :: forall a. Ref a -> Dynamic a
 refValue = value
 
 -- | Old name for `modify`.
-refUpdate :: forall a. Ref a -> (a -> a) -> Effect Unit
+refUpdate :: forall a m. MonadEffect m => Ref a -> (a -> a) -> m Unit
 refUpdate = modify
 
 -- | Old name for `write`
-set :: forall a. Ref a -> a -> Effect Unit
+set :: forall a m. MonadEffect m => Ref a -> a -> m Unit
 set = write
 
 -- Old name for `write`
-updateRef :: forall a. Ref a -> a -> Effect Unit
+updateRef :: forall a m. MonadEffect m => Ref a -> a -> m Unit
 updateRef = write
 
 -- | Old name for `write`.
-refUpdateConst :: forall a. Ref a -> a -> Effect Unit
+refUpdateConst :: forall a m. MonadEffect m => Ref a -> a -> m Unit
 refUpdateConst = write
 
 
