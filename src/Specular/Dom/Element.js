@@ -3,14 +3,15 @@ exports._stopPropagation = function(event) {
   event.stopPropagation();
 };
 
+const spacesRE = /\s+/;
+
+function splitClasses(classes) {
+  return classes.split(spacesRE).filter(x => x !== '');
+}
+
 // _addClass :: EffectFn2 Node ClassName Unit
 exports._addClass = function(node, cls) {
-  node.classList.add(cls);
-};
-
-// _removeClass :: EffectFn2 Node ClassName Unit
-exports._removeClass = function(node, cls) {
-  node.classList.remove(cls);
+  node.classList.add(...splitClasses(cls));
 };
 
 // _initClasses :: EffectFn1 Node (EffectFn1 (Array ClassName) Unit)
@@ -19,10 +20,11 @@ exports._initClasses = function(node) {
   return function(classes) {
     var newClassSet = {};
     for(var i = 0; i < classes.length; i++) {
-      var class_ = classes[i];
-      newClassSet[class_] = true;
-      if(!currentClassSet[class_]) {
-        node.classList.add(class_);
+      for(const class_ of splitClasses(classes[i])) {
+        newClassSet[class_] = true;
+        if(!currentClassSet[class_]) {
+          node.classList.add(class_);
+        }
       }
     }
     var oldClasses = Object.keys(currentClassSet);
