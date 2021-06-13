@@ -45,17 +45,17 @@ import Specular.Dom.Builder.Class
 
 type Error = String
 
--- type Input a = ExceptT Error (WriterT Touch Dynamic) a
--- Dynamic (Tuple Touch (Either Error a))
-
-type Input a = ExceptT Error (MaybeT (WriterT Touch Dynamic)) a
--- Dynamic (Tuple Touch (Maybe (Either Error a)))
-
+type Input m a = ExceptT Error (MaybeT (WriterT Touch m)) a
 -- ExceptT - introduces possible validation failure
+-- MaybeT - introduces possible indetermination failure (e.g. we can't tell yet if valid)
 -- WriterT Touch - introduces out-of-band form data, form meta-data like intact/touched property
 -- also played around with ReaderT but didn't find any useful application of it
 
--- the intact/touched propery of the form: whether it has been touched by a user input or remains intact
+-- Input m a holds values of type: m (Tuple (Maybe (Either Error a)) Touch)
+runInput :: forall a m . Monad m => Input m a -> m (Tuple (Maybe (Either Error a)) Touch)
+runInput = runWriterT <<< runMaybeT <<< runExceptT
+
+-- the intact/touched property of an input: whether it has been touched by a user or remains intact
 -- handled by WriterT tranformer, must be a Monoid
 data Touch = Intact | Touched | Touching
 
@@ -69,53 +69,47 @@ instance touchSemigroup :: Semigroup Touch where
 instance monoidTouch :: Monoid Touch where
   mempty = Intact
 
--- unwraping Dynamic of a Input, then you can handle Dynamic as usual
-inputDynamic :: forall a . Input a -> Dynamic (Tuple (Maybe (Either Error a)) Touch)
-inputDynamic form = runWriterT $ runMaybeT $ runExceptT form
+valid :: forall a m . Monad m => a -> Input m a
+valid = pure
+
+invalid :: forall a m . Monad m => Error -> Input m a
+invalid = throwError
+
+validate :: forall a m . Monad m => Either Error a -> Input m a
+validate = except
+
+validOrUndetermined :: forall a m. Monad m => Input m a -> Input m a
+validOrUndetermined i = ExceptT $ MaybeT $ WriterT $ do
+  value <- runInput i
+  pure $ case value of
+    Tuple Nothing w -> Tuple Nothing w
+    Tuple (Just (Left error)) w -> Tuple Nothing w
+    Tuple (Just (Right a)) w -> Tuple (Just (Right a)) w
 
 -- or you can use shortcut functions like:
-whenInputCorrect :: forall a m . MonadReplace m => MonadFRP m => Input a -> (a -> m Unit) -> m Unit
-whenInputCorrect form action = withDynamic_ (inputDynamic form) case _ of
+whenInputValid :: forall a m . MonadReplace m => MonadFRP m => Input Dynamic a -> (a -> m Unit) -> m Unit
+whenInputValid form action = withDynamic_ (runInput form) case _ of
   Tuple (Just (Right a)) _ -> action a
   _ -> pure unit
 
-whenInputIntact :: forall a m . MonadReplace m => MonadFRP m => Input a -> (m Unit) -> m Unit
-whenInputIntact form action = withDynamic_ (inputDynamic form) case _ of
+whenInputIntact :: forall a m . MonadReplace m => MonadFRP m => Input Dynamic a -> (m Unit) -> m Unit
+whenInputIntact form action = withDynamic_ (runInput form) case _ of
   Tuple _ Intact -> action
   _ -> pure unit
 
-whenInputTouchedIncorrect :: forall a m . MonadReplace m => MonadFRP m => Input a -> (Error -> m Unit) -> m Unit
-whenInputTouchedIncorrect form action = withDynamic_ (inputDynamic form) case _ of
+whenInputTouchedInvalid :: forall a m . MonadReplace m => MonadFRP m => Input Dynamic a -> (Error -> m Unit) -> m Unit
+whenInputTouchedInvalid form action = withDynamic_ (runInput form) case _ of
   Tuple (Just (Left error)) Touched -> action error
   _ -> pure unit
 
-whenInputReady :: forall a m . MonadReplace m => MonadFRP m => Input a -> m Unit -> m Unit
-whenInputReady form action = withDynamic_ (inputDynamic form) case _ of
+whenInputReady :: forall a m . MonadReplace m => MonadFRP m => Input Dynamic a -> m Unit -> m Unit
+whenInputReady form action = withDynamic_ (runInput form) case _ of
   Tuple (Just _) _ -> action
   _ -> pure unit
 
 
 -- with functions in below one can manipulate Inputs
 -- these are the things one cannot do with plain Dynamic
-eitherOf :: forall a . Input (Either Error a) -> Input a
-eitherOf i = ExceptT $ MaybeT $ WriterT $ do
-  mmaw <- runWriterT $ runMaybeT $ runExceptT i
-  pure $ case mmaw of
-    Tuple Nothing w -> Tuple Nothing w
-    Tuple (Just (Left error)) w -> Tuple Nothing w
-    Tuple (Just (Right (Left error))) w -> Tuple (Just (Left error)) w
-    Tuple (Just (Right (Right a))) w -> Tuple (Just (Right a)) w
-
-eitherOf' :: forall a . ExceptT Error (ExceptT Error (MaybeT (WriterT Touch Dynamic))) a -> Input a
-eitherOf' i = ExceptT $ MaybeT $ WriterT $ do
-  emmaw <- runWriterT $ runMaybeT $ runExceptT $ runExceptT i
-  pure $ case emmaw of
-    -- Left error -> Tuple (Just (Left error)) mempty
-    -- _ -> Tuple Nothing mempty
-    Tuple Nothing w -> Tuple Nothing w
-    Tuple (Just (Left error)) w -> Tuple Nothing w
-    Tuple (Just (Right (Left error))) w -> Tuple (Just (Left error)) w
-    Tuple (Just (Right (Right a))) w -> Tuple (Just (Right a)) w
 
 -- but how can we create an Input?
 
@@ -133,7 +127,7 @@ field = do
 writeField :: forall a . Field a -> Tuple a Touch -> Effect Unit
 writeField input t = modify input.inputValueRef (\_ -> t)
 
-fieldInput :: forall a . Field a -> Input a
+fieldInput :: forall a . Field a -> Input Dynamic a
 fieldInput input = ExceptT $ MaybeT $ WriterT $ do
   Tuple a w <- value input.inputValueRef
   pure (Tuple (pure (pure a)) w)
@@ -154,4 +148,4 @@ stringFieldWidget field m = do
 
 -- Form is a Widget that provides input and "callback" to modify input fields
 
-type Form i o = Widget (Tuple (Input i) (o -> Effect Unit))
+type Form m i o = Widget (Tuple (Input m i) (o -> Effect Unit))
