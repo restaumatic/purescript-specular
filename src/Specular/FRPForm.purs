@@ -69,22 +69,12 @@ instance touchSemigroup :: Semigroup Touch where
 instance monoidTouch :: Monoid Touch where
   mempty = Intact
 
-valid :: forall a m . Monad m => a -> Input m a
-valid = pure
-
-invalid :: forall a m . Monad m => Error -> Input m a
-invalid = throwError
-
-validate :: forall a m . Monad m => Either Error a -> Input m a
-validate = except
-
 validOrUndetermined :: forall a m. Monad m => Input m a -> Input m a
 validOrUndetermined i = ExceptT $ MaybeT $ WriterT $ do
   value <- runInput i
   pure $ case value of
-    Tuple Nothing w -> Tuple Nothing w
     Tuple (Just (Left error)) w -> Tuple Nothing w
-    Tuple (Just (Right a)) w -> Tuple (Just (Right a)) w
+    t -> t
 
 -- or you can use shortcut functions like:
 whenInputValid :: forall a m . MonadReplace m => MonadFRP m => Input Dynamic a -> (a -> m Unit) -> m Unit

@@ -27,6 +27,7 @@
     "karma-chrome-launcher": "^3.1.0",
     "karma-mocha": "^2.0.1",
     "karma-spec-reporter": "^0.0.32",
-    "mocha": "^8.4.0"
+    "mocha": "^8.4.0",
+    "purs": "^0.3.0"
   }
 }

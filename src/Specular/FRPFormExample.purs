@@ -57,11 +57,11 @@ mkPersonForm = do
   let
     age = do
       text <- fieldInput ageField
-      when (null text) $ invalid "must not be empty"
-      int <- validate $ case Int.fromString text of
+      when (null text) $ throwError "must not be empty"
+      int <- except $ case Int.fromString text of
         Nothing -> Left "Not an Int"
         Just i -> Right i
-      positiveInt <- validate $ case int of
+      positiveInt <- except $ case int of
         i | i > 0 -> Right i
         otherwise -> Left "must be positive"
       pure positiveInt
@@ -72,15 +72,15 @@ mkPersonForm = do
       _ -> "style" := "border: 1px solid black;")
     name = do
       text <- fieldInput nameField
-      when (null text) $ invalid "must not be empty"
+      when (null text) $ throwError "must not be empty"
       validAge <- validOrUndetermined age
-      when (validAge < 10 && length text > 10) $ invalid "Too long name for such a young child"
-      valid text
+      when (validAge < 10 && length text > 10) $ throwError "Too long name for such a young child"
+      pure text
     repeatedName = do
       validName <- validOrUndetermined name
       text <- fieldInput repeatedNameField
-      when (validName /= text) $ invalid "Name mismatch"
-      valid text
+      when (validName /= text) $ throwError "Name mismatch"
+      pure text
     personInput = (\a n -> Person { personAge: a, personName: n}) <$> age <*> repeatedName
 
   pure do
