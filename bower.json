@@ -37,7 +37,7 @@
         "purescript-record": "^v3.0.0",
         "purescript-refs": "^v5.0.0",
         "purescript-spec": "^v5.0.0",
-        "purescript-spec-mocha": "https://github.com/purescript-spec/purescript-spec-mocha.git#master",
+        "purescript-spec-mocha": "^v4.0.0",
         "purescript-strings": "^v5.0.0",
         "purescript-transformers": "^v5.0.0",
         "purescript-tuples": "^v6.0.0",

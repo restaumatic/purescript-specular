@@ -12,5 +12,5 @@ in  upstream
       , repo =
           "https://github.com/purescript-spec/purescript-spec-mocha.git"
       , version =
-          "master"
+          "v4.0.0"
       }
