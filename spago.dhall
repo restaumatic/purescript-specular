@@ -1,4 +1,4 @@
-{ name = "purescript-specular"
+{ name = "specular"
 , dependencies =
   [ "aff"
   , "arrays"
