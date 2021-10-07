@@ -384,7 +384,7 @@ We will use spago in this example, because spago allows us to override package s
 Initialize a repository and install purescript
 
 - `npm init`
-- `npm install --save-dev purescript@0.13.8`
+- `npm install --save-dev purescript@0.14.3`
 - `npm install --save-dev spago`
 
 Add `node_modules/.bin` to path:
@@ -404,32 +404,25 @@ by appending `with specular` to your `in upstream` block in `packages.dhall` fil
 ```dhall
 -- Something like this will exist in your packages.dhall
 let upstream =
-  https://github.com/purescript/package-sets/releases/download/psc-0.13.8-20210226/packages.dhall sha256:7e973070e323137f27e12af93bc2c2f600d53ce4ae73bb51f34eb7d7ce0a43ea
+      https://github.com/purescript/package-sets/releases/download/psc-0.14.3-20210716/packages.dhall sha256:1f9af624ddfd5352455b7ac6df714f950d499e7e3c6504f62ff467eebd11042c
+
 in  upstream
-  -- Add specular:
   with specular =
-  { dependencies =
-    [ "prelude"
+    { dependencies =
+      [ "prelude"
       , "aff"
-        , "typelevel-prelude"
-        , "record"
-        , "unsafe-reference"
-        , "random"
-        , "generics-rep"
-        , "debug"
-        , "foreign-object"
-        , "contravariant"
-        , "avar"
-    ]
-    ,
-    repo
-      =
-      "https://github.com/restaumatic/purescript-specular.git"
-      ,
-    version
-      =
-      "master"
-  }
+      , "typelevel-prelude"
+      , "record"
+      , "unsafe-reference"
+      , "random"
+      , "debug"
+      , "foreign-object"
+      , "contravariant"
+      , "avar"
+      ]
+    , repo = "https://github.com/restaumatic/purescript-specular.git"
+    , version = "master"
+    }
 ```
 
 Install specular:
