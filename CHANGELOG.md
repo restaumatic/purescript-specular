@@ -1,5 +1,7 @@
 ## Next release
 
+- Fixed compatibility with latest `purs bundle`
+
 ## 0.12.0
 
 ### Features
