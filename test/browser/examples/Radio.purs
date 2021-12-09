@@ -10,13 +10,13 @@ import Specular.FRP (weaken)
 
 mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = do
-  dyn <- radioGroup 
-    { options: ["foo", "bar", "baz"]
+  dyn <- radioGroup
+    { options: [ "foo", "bar", "baz" ]
     , initialValueIndex: 0
     , render: \name value input ->
         el "div" $
           input (pure mempty)
-          <* elAttr "label" ("for" := name) (text value)
+            <* elAttr "label" ("for" := name) (text value)
     }
   el "br" (pure unit)
 

@@ -1,6 +1,6 @@
-module Specular.Dom.Widgets.Button (
-    buttonOnClick  
-) where
+module Specular.Dom.Widgets.Button
+  ( buttonOnClick
+  ) where
 
 import Prelude
 

@@ -1,5 +1,5 @@
-exports.triggerNodeClicked = function(node) {
-  return function() {
-    return node.click()
+exports.triggerNodeClicked = function (node) {
+  return function () {
+    return node.click();
   };
 };

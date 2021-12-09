@@ -1,8 +1,8 @@
-module Specular.FRP.Base (
-    Event
+module Specular.FRP.Base
+  ( Event
   , never
   , leftmost
---  , mergeEvents
+  --  , mergeEvents
 
   , filterEvent
   , filterMapEvent
@@ -50,7 +50,7 @@ module Specular.FRP.Base (
   , annotated
 
   , map2
-) where
+  ) where
 
 import Prelude
 
@@ -70,6 +70,7 @@ import Specular.Internal.Queue (Queue)
 import Specular.Internal.Queue as Queue
 import Specular.Internal.Profiling as Profiling
 import Effect.Unsafe (unsafePerformEffect)
+
 -- | import Partial.Unsafe (unsafeCrashWith)
 -- | import Unsafe.Coerce (unsafeCoerce)
 
@@ -175,8 +176,9 @@ _subscribeEvent = mkEffectFn2 \handler (Event node) ->
 
 _subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (Node a) Unsubscribe
 _subscribeNode = mkEffectFn2 \handler node -> do
-  let h = mkEffectFn1 \value -> do
-            runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
+  let
+    h = mkEffectFn1 \value -> do
+      runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
   runEffectFn2 I.addObserver node h
   pure (runEffectFn2 I.removeObserver node h)
 
@@ -267,7 +269,6 @@ instance applicativeDynamic :: Applicative Dynamic where
     n <- runEffectFn1 I.constant x
     runEffectFn2 Node.annotate n "pure"
     pure n
-
 
 -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
 -- | and every time `e` fires, its value will update by applying `f` to the
@@ -374,8 +375,8 @@ subscribeDyn_ handler _dyn@(Dynamic node) = do
     currentValue <- runEffectFn1 Node.valueExc node
     liftEffect $ handler currentValue
 
-subscribeDyn ::
-     forall m a b
+subscribeDyn
+  :: forall m a b
    . MonadFRP m
   => (a -> Effect b)
   -> Dynamic a
@@ -386,10 +387,13 @@ subscribeDyn handler _dyn@(Dynamic node) = do
     runEffectFn2 Node.annotate (I.readEvent evt) "subscribeDyn"
     pure evt
 
-  subscribeNode (\x -> do
-                   value <- handler x
-                   runEffectFn2 I.triggerEvent evt value
-                   stabilize) node
+  subscribeNode
+    ( \x -> do
+        value <- handler x
+        runEffectFn2 I.triggerEvent evt value
+        stabilize
+    )
+    node
 
   liftEffect do
     currentValue <- runEffectFn1 Node.valueExc node
@@ -423,15 +427,14 @@ readDynamic (Dynamic n) = liftEffect do
 
 -- | A "type class alias" for the constraints required by most FRP primitives.
 class (MonadEffect m, MonadCleanup m) <= MonadFRP m
-instance monadFRP :: (MonadEffect m, MonadCleanup m) => MonadFRP m
 
+instance monadFRP :: (MonadEffect m, MonadCleanup m) => MonadFRP m
 
 traceEventIO :: forall a. (a -> Effect Unit) -> Event a -> Event a
 traceEventIO handler (Event n) = Event (traceNode handler n)
 
 traceDynIO :: forall a. (a -> Effect Unit) -> Dynamic a -> Dynamic a
 traceDynIO handler (Dynamic n) = Dynamic (traceNode handler n)
-
 
 traceNode :: forall a. (a -> Effect Unit) -> Node a -> Node a
 traceNode handler input = unsafePerformEffect do

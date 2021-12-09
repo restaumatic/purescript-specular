@@ -24,4 +24,4 @@ isSome opt = not (opt `unsafeRefEq` none)
 fromSome :: forall a. Optional a -> a
 fromSome opt@(Optional v)
   | isSome opt = v
-  | otherwise  = unsafeCrashWith "Optional.fromSome: none"
+  | otherwise = unsafeCrashWith "Optional.fromSome: none"

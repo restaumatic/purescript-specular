@@ -95,7 +95,7 @@ removeObserver = mkEffectFn2 \node observer -> do
 
 addDependent :: forall a. EffectFn2 (Node a) SomeNode Unit
 addDependent = mkEffectFn2 \node dependent -> do
---  trace $ "addDependent " <> show (Node.name' node) <> " -> " <> show (Node.name' dependent)
+  --  trace $ "addDependent " <> show (Node.name' node) <> " -> " <> show (Node.name' dependent)
 
   oldRefcount <- runEffectFn1 Node.refcount node
   dependents <- runEffectFn1 Node.get_dependents node
@@ -153,7 +153,6 @@ connect = mkEffectFn1 \node -> do
 
   runEffectFn1 Profiling.end mark
 
-
 disconnect :: forall a. EffectFn1 (Node a) Unit
 disconnect = mkEffectFn1 \node -> do
   mark <- runEffectFn1 Profiling.begin ("disconnect " <> Node.name node)
@@ -190,7 +189,7 @@ recomputeNode = mkEffectFn1 \node -> do
   if adjustedHeight > height then do
     mark <- runEffectFn1 Profiling.begin ("bump height " <> Node.name node)
 
---    trace $ "stabilize: node " <> show name <> ": height bump " <> show height <> " -> " <> show adjustedHeight
+    --    trace $ "stabilize: node " <> show name <> ": height bump " <> show height <> " -> " <> show adjustedHeight
 
     dependents <- runEffectFn1 Node.get_dependents node
     runEffectFn2 MutableArray.iterate dependents $ mkEffectFn1 \dependent -> do
@@ -205,14 +204,14 @@ recomputeNode = mkEffectFn1 \node -> do
 
   else do
     mark <- runEffectFn1 Profiling.begin ("compute " <> Node.name node)
---    trace $ "stabilize: node " <> show name <> ": compute at height " <> show height
+    --    trace $ "stabilize: node " <> show name <> ": compute at height " <> show height
 
     source <- runEffectFn1 Node.get_source node
     -- oldValue_opt <- runEffectFn1 Node.get_value node
     newValue_opt <- runEffectFn1 source.compute node
 
     if Optional.isSome newValue_opt
-      -- && shouldNotCutOff oldValue_opt newValue
+    -- && shouldNotCutOff oldValue_opt newValue
     then do
       let newValue = Optional.fromSome newValue_opt
       runEffectFn2 Node.set_value node (Optional.some newValue)
@@ -222,12 +221,12 @@ recomputeNode = mkEffectFn1 \node -> do
       dependents <- runEffectFn1 Node.get_dependents node
       runEffectFn2 MutableArray.iterate dependents $ mkEffectFn1 \dependent -> do
         _added <- runEffectFn2 PQ.add globalRecomputeQueue dependent
---        if added then do
---          dependentName <- runEffectFn1 Node.name dependent
---          trace $ "stabilize: node " <> show dependentName <> " added to recompute queue"
---        else do
---          dependentName <- runEffectFn1 Node.name dependent
---          trace $ "stabilize: node " <> show dependentName <> " already in recompute queue"
+        --        if added then do
+        --          dependentName <- runEffectFn1 Node.name dependent
+        --          trace $ "stabilize: node " <> show dependentName <> " added to recompute queue"
+        --        else do
+        --          dependentName <- runEffectFn1 Node.name dependent
+        --          trace $ "stabilize: node " <> show dependentName <> " already in recompute queue"
         pure unit
 
       observers <- runEffectFn1 Node.get_observers node
@@ -236,7 +235,7 @@ recomputeNode = mkEffectFn1 \node -> do
         -- (like in Specular - a FIFO queue)
         runEffectFn1 observer newValue
     else do
---      trace $ "stabilize: node " <> show name <> " cut off"
+      --      trace $ "stabilize: node " <> show name <> " cut off"
       pure unit
 
     runEffectFn1 Profiling.end mark
@@ -252,7 +251,7 @@ constant = mkEffectFn1 \value -> do
 
 map :: forall a b. EffectFn2 (a -> b) (Node a) (Node b)
 map = mkEffectFn2 \fn a -> do
-  let deps = [toSomeNode a]
+  let deps = [ toSomeNode a ]
   runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         value_a <- runEffectFn1 Node.valueExc a
@@ -262,19 +261,20 @@ map = mkEffectFn2 \fn a -> do
 
 mapOptional :: forall a b. EffectFn2 (a -> Optional b) (Node a) (Node b)
 mapOptional = mkEffectFn2 \fn a -> do
-  let deps = [toSomeNode a]
+  let deps = [ toSomeNode a ]
   runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         value_a <- runEffectFn1 Node.get_value a
-        pure (if Optional.isSome value_a
-              then fn (Optional.fromSome value_a)
-              else Optional.none)
+        pure
+          ( if Optional.isSome value_a then fn (Optional.fromSome value_a)
+            else Optional.none
+          )
     , dependencies: pure deps
     }
 
 map2 :: forall a b c. EffectFn3 (Fn2 a b c) (Node a) (Node b) (Node c)
 map2 = mkEffectFn3 \fn a b -> do
-  let deps = [toSomeNode a, toSomeNode b]
+  let deps = [ toSomeNode a, toSomeNode b ]
   runEffectFn1 Node.create
     { compute: mkEffectFn1 \_ -> do
         value_a <- runEffectFn1 Node.valueExc a
@@ -321,7 +321,7 @@ switch = mkEffectFn3 \alwaysFire lhs fn -> do
 
         pure (Optional.some rhs)
     , dependencies: do
-        pure [toSomeNode lhs]
+        pure [ toSomeNode lhs ]
     }
   runEffectFn2 Node.annotate rhs_node "switch data"
   main <- runEffectFn1 Node.create
@@ -335,17 +335,17 @@ switch = mkEffectFn3 \alwaysFire lhs fn -> do
     , dependencies: do
         rhs_opt <- runEffectFn1 Node.get_value rhs_node
         if Optional.isSome rhs_opt then
-          pure [toSomeNode rhs_node, toSomeNode (Optional.fromSome rhs_opt)]
+          pure [ toSomeNode rhs_node, toSomeNode (Optional.fromSome rhs_opt) ]
         else
           -- if we don't know the rhs yet, `compute` in rhs proxy will add it
-          pure [toSomeNode rhs_node]
+          pure [ toSomeNode rhs_node ]
     }
   runEffectFn2 Ref.write main_node_ref (Optional.some main)
   pure main
 
 fold :: forall a b. EffectFn3 (Fn2 a b (Optional b)) b (Node a) (Node b)
 fold = mkEffectFn3 \fn initial a -> do
-  let deps = [toSomeNode a]
+  let deps = [ toSomeNode a ]
   runEffectFn1 Node.create
     { compute: mkEffectFn1 \node -> do
         state_opt <- runEffectFn1 Node.get_value node
@@ -360,7 +360,7 @@ fold = mkEffectFn3 \fn initial a -> do
           else
             pure (Optional.some state)
 
---        trace $ "fold: " <> (unsafeCoerce result :: String) <> ", " <> (unsafeCoerce result).constructor.name
+        --        trace $ "fold: " <> (unsafeCoerce result :: String) <> ", " <> (unsafeCoerce result).constructor.name
         pure result
     , dependencies: pure deps
     }
@@ -380,7 +380,7 @@ sample = mkEffectFn3 \fn signal clock -> do
             pure Optional.none
 
         pure result
-    , dependencies: pure [toSomeNode signal, toSomeNode clock]
+    , dependencies: pure [ toSomeNode signal, toSomeNode clock ]
     }
 
 leftmost :: forall a. EffectFn1 (Array (Node a)) (Node a)
@@ -404,7 +404,7 @@ traceChanges = mkEffectFn2 \fn input -> do
         isFiring <- runEffectFn1 Node.isChangingInCurrentStabilization input
         if isFiring then runEffectFn1 fn (Optional.fromSome value_opt) else pure unit
         pure value_opt
-    , dependencies: pure [toSomeNode input]
+    , dependencies: pure [ toSomeNode input ]
     }
 
 -- * Adjust height

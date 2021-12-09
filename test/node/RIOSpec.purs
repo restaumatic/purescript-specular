@@ -26,7 +26,7 @@ spec = describe "RIO" $ do
   it "liftEffect" $ do
     spy <- newSpyIO
     liftEffect (trigger spy "effect" "value") `shouldReturn` "value"
-    assertValues spy ["effect"]
+    assertValues spy [ "effect" ]
 
   describe "apply" $ do
     it "pure" $ do
@@ -36,7 +36,7 @@ spec = describe "RIO" $ do
       spy <- newSpyIO
       (liftEffect (trigger spy "f" (add 1)) <*> liftEffect (trigger spy "x" 2))
         `shouldReturn` 3
-      assertValues spy ["f", "x"]
+      assertValues spy [ "f", "x" ]
 
   describe "bind" $ do
     it "pure" $ do
@@ -44,10 +44,12 @@ spec = describe "RIO" $ do
 
     it "effects" $ do
       spy <- newSpyIO
-      (do x <- liftEffect (trigger spy "first" "x")
-          liftEffect (trigger spy "second" (x <> "y")))
+      ( do
+          x <- liftEffect (trigger spy "first" "x")
+          liftEffect (trigger spy "second" (x <> "y"))
+      )
         `shouldReturn` "xy"
-      assertValues spy ["first", "second"]
+      assertValues spy [ "first", "second" ]
 
   it "local" $ do
     local (add 1) ask `shouldReturn` (testEnv + 1)

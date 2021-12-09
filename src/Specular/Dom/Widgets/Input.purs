@@ -1,5 +1,5 @@
-module Specular.Dom.Widgets.Input (
-    textInputOnChange
+module Specular.Dom.Widgets.Input
+  ( textInputOnChange
   , textInputOnInput
   , textareaOnChange
 
@@ -20,7 +20,7 @@ module Specular.Dom.Widgets.Input (
   , setTextInputValue
   , getCheckboxChecked
   , setCheckboxChecked
-) where
+  ) where
 
 import Prelude
 
@@ -51,7 +51,9 @@ textareaOnChange initial attrs = do
   changed <- domEventWithSample (\_ -> getTextInputValue node) "change" node
   holdDyn initial changed
 
-checkbox :: forall m. MonadWidget m
+checkbox
+  :: forall m
+   . MonadWidget m
   => Boolean -- ^ initial value
   -> Attrs
   -> m (Dynamic Boolean)
@@ -61,7 +63,9 @@ checkbox initial attrs = do
   changed <- domEventWithSample (\_ -> getCheckboxChecked node) "change" node
   holdDyn initial changed
 
-checkboxView :: forall m. MonadWidget m
+checkboxView
+  :: forall m
+   . MonadWidget m
   => WeakDynamic Boolean
   -> WeakDynamic Attrs
   -> m (Event Boolean)
@@ -73,9 +77,11 @@ booleanInputTypeToAttributeValue :: BooleanInputType -> String
 booleanInputTypeToAttributeValue =
   case _ of
     Checkbox -> "checkbox"
-    Radio    -> "radio"
+    Radio -> "radio"
 
-booleanInputView :: forall m. MonadWidget m
+booleanInputView
+  :: forall m
+   . MonadWidget m
   => BooleanInputType
   -> WeakDynamic Boolean
   -> WeakDynamic Attrs
@@ -102,7 +108,9 @@ newtype TextInput = TextInput
   , setValue :: Event String
   }
 
-textInput :: forall m. MonadWidget m
+textInput
+  :: forall m
+   . MonadWidget m
   => TextInputConfig
   -> m TextInput
 textInput config = do
@@ -114,20 +122,24 @@ textInput config = do
   pure $ TextInput { element, value, setValue: config.setValue }
 
 textInputValue :: TextInput -> Dynamic String
-textInputValue (TextInput {value}) = value
+textInputValue (TextInput { value }) = value
 
-textInputValueOnChange :: forall m. MonadFRP m
+textInputValueOnChange
+  :: forall m
+   . MonadFRP m
   => TextInput
   -> m (Dynamic String)
-textInputValueOnChange (TextInput {element, setValue}) = do
+textInputValueOnChange (TextInput { element, setValue }) = do
   initial <- liftEffect $ getTextInputValue element
   changed <- domEventWithSample (\_ -> getTextInputValue element) "change" element
-  holdDyn initial (leftmost [setValue, changed])
+  holdDyn initial (leftmost [ setValue, changed ])
 
-textInputValueEventOnEnter :: forall m. MonadFRP m
+textInputValueEventOnEnter
+  :: forall m
+   . MonadFRP m
   => TextInput
   -> m (Event String)
-textInputValueEventOnEnter (TextInput {element,value}) = do
+textInputValueEventOnEnter (TextInput { element, value }) = do
   keypress <- domEventWithSample unsafeEventKey "keypress" element
   let enter = void $ filterEvent (_ == "Enter") keypress
   pure $ tagDyn value enter

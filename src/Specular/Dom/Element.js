@@ -1,39 +1,39 @@
 // _stopPropagation :: EffectFn1 DOM.Event Unit
-exports._stopPropagation = function(event) {
+exports._stopPropagation = function (event) {
   event.stopPropagation();
 };
 
 const spacesRE = /\s+/;
 
 function splitClasses(classes) {
-  return classes.split(spacesRE).filter(x => x !== '');
+  return classes.split(spacesRE).filter((x) => x !== "");
 }
 
 // _addClass :: EffectFn2 Node ClassName Unit
-exports._addClass = function(node, cls) {
+exports._addClass = function (node, cls) {
   node.classList.add(...splitClasses(cls));
 };
 
 // _initClasses :: EffectFn1 Node (EffectFn1 (Array ClassName) Unit)
-exports._initClasses = function(node) {
+exports._initClasses = function (node) {
   var currentClassSet = {};
-  return function(classes) {
+  return function (classes) {
     var newClassSet = {};
-    for(var i = 0; i < classes.length; i++) {
-      for(const class_ of splitClasses(classes[i])) {
+    for (var i = 0; i < classes.length; i++) {
+      for (const class_ of splitClasses(classes[i])) {
         newClassSet[class_] = true;
-        if(!currentClassSet[class_]) {
+        if (!currentClassSet[class_]) {
           node.classList.add(class_);
         }
       }
     }
     var oldClasses = Object.keys(currentClassSet);
-    for(var i = 0; i < oldClasses.length; i++) {
+    for (var i = 0; i < oldClasses.length; i++) {
       var class_ = oldClasses[i];
-      if(!newClassSet[class_]) {
+      if (!newClassSet[class_]) {
         node.classList.remove(class_);
       }
     }
     currentClassSet = newClassSet;
-  }
+  };
 };

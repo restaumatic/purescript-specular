@@ -20,25 +20,27 @@ import Specular.FRP.Base (filterMapEvent)
 type RadioGroupConfig :: forall k. (k -> Type) -> Type -> Type
 type RadioGroupConfig m a =
   { options :: Array a
-      -- ^ Possible selections
+  -- ^ Possible selections
   , initialValueIndex :: Int
-      -- ^ Index of initial value in `options`.
-      -- Must be in bounds, else `radioGroup` will crash
+  -- ^ Index of initial value in `options`.
+  -- Must be in bounds, else `radioGroup` will crash
   , render :: forall b. String -> a -> (WeakDynamic Attrs -> m b) -> m b
-      -- ^ Render an option. Takes the radio input ID, the value and the radio input.
-      -- Must return the return value of the radio, as evidenced by the type.
-      --
-      -- The radio input ID is intended to be passed to the `for` attribute of
-      -- `<label>`. If you do that, click events on label cause the radio to be selected.
+  -- ^ Render an option. Takes the radio input ID, the value and the radio input.
+  -- Must return the return value of the radio, as evidenced by the type.
+  --
+  -- The radio input ID is intended to be passed to the `for` attribute of
+  -- `<label>`. If you do that, click events on label cause the radio to be selected.
   }
 
-radioGroup :: forall m a. MonadWidget m
+radioGroup
+  :: forall m a
+   . MonadWidget m
   => RadioGroupConfig m a
   -> m (Dynamic a)
 radioGroup config = fixFRP $ \selectedIndex -> do
   let randomIdentifier = liftEffect $ map (\n -> "radio" <> show n) random
   name <- randomIdentifier
-    -- ^ FIXME: document this sorcery
+  -- ^ FIXME: document this sorcery
 
   (changeEvents :: Array (Event (Tuple Int a))) <-
     forWithIndex config.options $ \index option -> do
@@ -49,9 +51,14 @@ radioGroup config = fixFRP $ \selectedIndex -> do
           let
             attrs = map (\x -> "name" := name <> "id" := id <> x) extraAttrs
           in
-          map (filterMapEvent (\b -> if b then Just (Tuple index option)
-                                          else Nothing)) $
-          booleanInputView Radio isSelected attrs
+            map
+              ( filterMapEvent
+                  ( \b ->
+                      if b then Just (Tuple index option)
+                      else Nothing
+                  )
+              ) $
+              booleanInputView Radio isSelected attrs
       config.render id option radio
 
   let

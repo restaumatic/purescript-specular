@@ -13,7 +13,7 @@ spec :: Spec Unit
 spec = describe "Event" $ do
 
   it "pushes values to subscribers, honors unsubscribe" $ withLeakCheck $ do
-    {event,fire} <- liftEffect newEvent
+    { event, fire } <- liftEffect newEvent
     log <- liftEffect $ new []
     unsub1 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "1:" <> x) event
     unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "2:" <> x) event
@@ -21,12 +21,12 @@ spec = describe "Event" $ do
     liftEffect unsub1
     liftEffect $ fire "B"
 
-    log `shouldHaveValue` ["1:A", "2:A", "2:B"]
+    log `shouldHaveValue` [ "1:A", "2:A", "2:B" ]
 
     -- clean up
     liftEffect unsub2
 
-{-
+  {-
   describe "mergeEvents" $ do
     it "different root events" $ withLeakCheck $ do
       root1 <- liftEffect newEvent
@@ -81,7 +81,7 @@ spec = describe "Event" $ do
     liftEffect $ root.fire ("1" <> _)
     liftEffect $ b.set "B"
     liftEffect $ root.fire ("2" <> _)
-    log `shouldHaveValue` ["1A", "2B"]
+    log `shouldHaveValue` [ "1A", "2B" ]
 
     -- clean up
     liftEffect unsub
@@ -97,7 +97,7 @@ spec = describe "Event" $ do
     liftEffect $ root.fire 10
     liftEffect $ root.fire 3
     liftEffect $ root.fire 4
-    log `shouldHaveValue` [2, 6, 8]
+    log `shouldHaveValue` [ 2, 6, 8 ]
 
     -- clean up
     liftEffect unsub
@@ -113,11 +113,11 @@ spec = describe "Event" $ do
 
       clear log
       liftEffect $ root1.fire "left"
-      log `shouldHaveValue` ["left"]
+      log `shouldHaveValue` [ "left" ]
 
       clear log
       liftEffect $ root1.fire "right"
-      log `shouldHaveValue` ["right"]
+      log `shouldHaveValue` [ "right" ]
 
       -- clean up
       liftEffect unsub
@@ -140,12 +140,14 @@ spec = describe "Event" $ do
     root <- liftEffect newEvent
     log <- liftEffect $ new []
 
-    unsub <- liftEffect $ execCleanupT $ subscribeEvent_ (\_ -> do
-        unsub2 <- execCleanupT $ do
-           dyn <- holdDyn 0 root.event
-           subscribeDyn_ (append log) dyn
-        unsub2
-      ) root.event
+    unsub <- liftEffect $ execCleanupT $ subscribeEvent_
+      ( \_ -> do
+          unsub2 <- execCleanupT $ do
+            dyn <- holdDyn 0 root.event
+            subscribeDyn_ (append log) dyn
+          unsub2
+      )
+      root.event
 
     liftEffect $ root.fire 1
     log `shouldHaveValue` [ 0 ]
@@ -154,7 +156,7 @@ spec = describe "Event" $ do
     liftEffect unsub
 
   it "events are delivered in order of firing" $ withLeakCheck $ do
-    {event,fire} <- liftEffect newEvent
+    { event, fire } <- liftEffect newEvent
     log <- liftEffect $ new []
 
     unsub1 <- liftEffect $ execCleanupT $ flip subscribeEvent_ event \x ->
@@ -165,7 +167,7 @@ spec = describe "Event" $ do
 
     liftEffect $ fire "first"
 
-    log `shouldHaveValue` ["first", "second"]
+    log `shouldHaveValue` [ "first", "second" ]
 
     -- clean up
     liftEffect unsub1

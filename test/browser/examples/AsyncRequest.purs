@@ -31,7 +31,7 @@ spec = describe "AsyncRequest" $ do
 
     liftEffect (innerHTML node) `shouldReturn`
       ( """<div><label>Input: </label><input></div>""" <>
-        """<div></div>"""
+          """<div></div>"""
       )
 
   describe "logic" $ do
@@ -40,7 +40,7 @@ spec = describe "AsyncRequest" $ do
       let backend = { toUpper: \_ -> AVar.take avar }
       Tuple query setQuery <- liftEffect $ newDynamic ""
 
-      Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
+      Tuple _ (Tuple { result } _) <- runBuilderInDiv $ control backend { query }
       liftEffect (pull $ readBehavior $ current result) `shouldReturn` NotRequested
 
       liftEffect $ setQuery "foo"
@@ -53,13 +53,15 @@ spec = describe "AsyncRequest" $ do
       firstRequest <- AVar.empty
       secondRequest <- AVar.empty
       currentRequestVar <- liftEffect $ new firstRequest
-      let backend = { toUpper: \_ -> do
-                        var <- liftEffect $ read currentRequestVar
-                        AVar.take var
-                    }
+      let
+        backend =
+          { toUpper: \_ -> do
+              var <- liftEffect $ read currentRequestVar
+              AVar.take var
+          }
       Tuple query setQuery <- liftEffect $ newDynamic ""
 
-      Tuple _ (Tuple {result} _) <- runBuilderInDiv $ control backend {query}
+      Tuple _ (Tuple { result } _) <- runBuilderInDiv $ control backend { query }
 
       liftEffect $ setQuery "foo"
       liftEffect $ write secondRequest currentRequestVar
@@ -71,18 +73,17 @@ spec = describe "AsyncRequest" $ do
       AVar.put "BAR" secondRequest
       liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loaded "BAR"
 
-
 instantBackend :: Backend
 instantBackend = { toUpper: pure <<< String.toUpper }
 
 slowBackend :: Backend
 slowBackend = { toUpper }
   where
-    toUpper s = do
-      Console.log $ "Request started:  " <> show s
-      delay (Milliseconds 1200.0)
-      Console.log $ "Request finished: " <> show s
-      pure (String.toUpper s)
+  toUpper s = do
+    Console.log $ "Request started:  " <> show s
+    delay (Milliseconds 1200.0)
+    Console.log $ "Request finished: " <> show s
+    pure (String.toUpper s)
 
 type Backend =
   { toUpper :: String -> Aff String
@@ -94,10 +95,12 @@ mainWidget = mainWidgetWith slowBackend
 mainWidgetWith :: forall m. MonadWidget m => Backend -> m Unit
 mainWidgetWith backend = fixFRP $ view >=> control backend
 
-view :: forall m. MonadWidget m
+view
+  :: forall m
+   . MonadWidget m
   => { result :: WeakDynamic (RequestState String) }
   -> m { query :: Dynamic String }
-view {result} = do
+view { result } = do
   query <- el "div" $ do
     el "label" $ text "Input: "
     textInputOnInput "" mempty
@@ -111,14 +114,17 @@ view {result} = do
 
   pure { query }
 
-control :: forall m. MonadWidget m
+control
+  :: forall m
+   . MonadWidget m
   => Backend
   -> { query :: Dynamic String }
-  -> m (Tuple
-    { result :: Dynamic (RequestState String) }
-    Unit
-    )
-control backend {query} = do
+  -> m
+       ( Tuple
+           { result :: Dynamic (RequestState String) }
+           Unit
+       )
+control backend { query } = do
   result <- asyncRequestMaybe $
     map (\s -> if s == "" then Nothing else Just (backend.toUpper s)) query
   pure $ Tuple { result } unit

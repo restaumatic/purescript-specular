@@ -50,50 +50,43 @@ type Observer a = EffectFn1 a Unit
 
 foreign import get_dependents :: forall a. EffectFn1 (Node a) (MutableArray SomeNode)
 
-
 foreign import get_observers :: forall a. EffectFn1 (Node a) (MutableArray (Observer a))
 
-
 foreign import get_source :: forall a. EffectFn1 (Node a) (Source a)
-
 
 foreign import get_adjustedHeight :: forall a. EffectFn1 (Node a) (Int)
 foreign import set_adjustedHeight :: forall a. EffectFn2 (Node a) (Int) Unit
 
-
 foreign import get_changedAt :: forall a. EffectFn1 (Node a) (Int)
 foreign import set_changedAt :: forall a. EffectFn2 (Node a) (Int) Unit
-
 
 foreign import get_height :: forall a. EffectFn1 (Node a) (Int)
 foreign import set_height :: forall a. EffectFn2 (Node a) (Int) Unit
 
-
 foreign import get_name :: forall a. EffectFn1 (Node a) (String)
 foreign import set_name :: forall a. EffectFn2 (Node a) (String) Unit
-
 
 foreign import get_value :: forall a. EffectFn1 (Node a) (Optional a)
 foreign import set_value :: forall a. EffectFn2 (Node a) (Optional a) Unit
 
 -- [[[end]]]
 
-foreign import _new ::
-  forall a.
-  EffectFn6
-    (Optional Any) -- Optional.none
-    (Source a)
-    (MutableArray SomeNode)
-    (MutableArray (Observer a))
-    (Optional a)
-    Int
-  (Node a)
+foreign import _new
+  :: forall a
+   . EffectFn6
+       (Optional Any) -- Optional.none
+       (Source a)
+       (MutableArray SomeNode)
+       (MutableArray (Observer a))
+       (Optional a)
+       Int
+       (Node a)
 
 -- * Node source
 
 type Source a =
   { compute :: EffectFn1 (Node a) (Optional a)
-    -- Compute the node value, if none is returned then we don't change value and don't propagate.
+  -- Compute the node value, if none is returned then we don't change value and don't propagate.
   , dependencies :: Effect (Array SomeNode)
   }
 
@@ -119,7 +112,7 @@ create = mkEffectFn1 \source -> do
     dependents
     observers
     Optional.none -- value
-    0             -- height
+    0 -- height
 
 -- * Utils
 

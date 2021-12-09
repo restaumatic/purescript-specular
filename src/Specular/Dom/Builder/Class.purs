@@ -37,10 +37,14 @@ class Monad m <= MonadDomBuilder m where
 elDynAttr' :: forall m a. MonadDomBuilder m => String -> WeakDynamic Attrs -> m a -> m (Tuple Node a)
 elDynAttr' = elDynAttrNS' Nothing
 
-elDynAttr :: forall m a. MonadDomBuilder m => String -> WeakDynamic Attrs -> m a
+elDynAttr
+  :: forall m a
+   . MonadDomBuilder m
+  => String
+  -> WeakDynamic Attrs
+  -> m a
   -> m a
 elDynAttr tagName dynAttrs inner = snd <$> elDynAttr' tagName dynAttrs inner
-
 
 elAttr' :: forall m a. MonadDomBuilder m => String -> Attrs -> m a -> m (Tuple Node a)
 elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
@@ -48,10 +52,8 @@ elAttr' tagName attrs inner = elDynAttr' tagName (pure attrs) inner
 elAttr_ :: forall m. MonadDomBuilder m => String -> Attrs -> m Unit
 elAttr_ tagName attrs = elAttr tagName attrs (pure unit)
 
-
 el' :: forall m a. MonadDomBuilder m => String -> m a -> m (Tuple Node a)
 el' tagName inner = elAttr' tagName mempty inner
-
 
 el :: forall m a. MonadDomBuilder m => String -> m a -> m a
 el tagName inner = elAttr tagName mempty inner
@@ -59,17 +61,14 @@ el tagName inner = elAttr tagName mempty inner
 el_ :: forall m. MonadDomBuilder m => String -> m Unit
 el_ tagName = el tagName (pure unit)
 
-
 dynRawHtml :: forall m. MonadDomBuilder m => MonadReplace m => MonadFRP m => WeakDynamic String -> m Unit
 dynRawHtml dynHtml = weakDynamic_ (rawHtml <$> dynHtml)
 
-
 domEventWithSample :: forall m a. MonadFRP m => (DOM.Event -> Effect a) -> EventType -> Node -> m (FRP.Event a)
 domEventWithSample sample eventType node = do
-  {event,fire} <- newEvent
+  { event, fire } <- newEvent
   onDomEvent eventType node (sample >=> fire)
   pure event
-
 
 domEvent :: forall m. MonadFRP m => EventType -> Node -> m (FRP.Event Unit)
 domEvent = domEventWithSample (\_ -> pure unit)
@@ -89,6 +88,10 @@ instance monadDomBuilderReaderT :: MonadDomBuilder m => MonadDomBuilder (ReaderT
     ReaderT $ \env -> elAttr tag attrs $ runReaderT body env
   liftBuilder b = lift (liftBuilder b)
   liftBuilderWithRun fn = ReaderT \e ->
-    liftBuilderWithRun (mkEffectFn2 \benv run ->
-      runEffectFn2 fn benv (mkEffectFn2 \benv' m ->
-        runEffectFn2 run benv' (runReaderT m e)))
+    liftBuilderWithRun
+      ( mkEffectFn2 \benv run ->
+          runEffectFn2 fn benv
+            ( mkEffectFn2 \benv' m ->
+                runEffectFn2 run benv' (runReaderT m e)
+            )
+      )

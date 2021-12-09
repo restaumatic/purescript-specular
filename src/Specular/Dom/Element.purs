@@ -73,8 +73,8 @@ newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
 instance semigroupProp :: Semigroup Prop where
   append (Prop x) (Prop y) = Prop $ mkEffectFn2 \node cleanups -> do
-                               runEffectFn2 x node cleanups
-                               runEffectFn2 y node cleanups
+    runEffectFn2 x node cleanups
+    runEffectFn2 y node cleanups
 
 instance monoidProp :: Monoid Prop where
   mempty = Prop $ mkEffectFn2 \_ _ -> pure unit
@@ -316,11 +316,11 @@ foreign import _initClasses :: EffectFn1 Node (EffectFn1 (Array ClassName) Unit)
 -- | - the `class` attribute must not be used,
 -- | - the provided class name must be distinct from class names used in other properties from this module.
 classWhenD :: Dynamic Boolean -> ClassName -> Prop
-classWhenD enabled cls = classesD (enabled <#> if _ then [cls] else [])
+classWhenD enabled cls = classesD (enabled <#> if _ then [ cls ] else [])
 
 -- | `classUnlessD cond` = `classWhenD (not cond)`
 classUnlessD :: Dynamic Boolean -> ClassName -> Prop
-classUnlessD enabled cls = classesD (enabled <#> if _ then [] else [cls])
+classUnlessD enabled cls = classesD (enabled <#> if _ then [] else [ cls ])
 
 classWhen :: Boolean -> ClassName -> Prop
 classWhen enabled cls = if enabled then class_ cls else mempty

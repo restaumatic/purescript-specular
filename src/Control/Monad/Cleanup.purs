@@ -13,7 +13,6 @@ class Monad m <= MonadCleanup m where
   -- | Add a cleanup action.
   onCleanup :: Effect Unit -> m Unit
 
-
 newtype CleanupT :: forall k. (k -> Type) -> k -> Type
 newtype CleanupT m a = CleanupT (ReaderT DelayedEffects m a)
 

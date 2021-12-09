@@ -35,11 +35,11 @@ instance monadAskRIO :: MonadAsk r (RIO r) where
 instance monadEffectRIO :: MonadEffect (RIO r) where
   liftEffect = unsafeCoerce
 
-foreign import pureImpl  :: forall r a.   a                                -> RIO r a
-foreign import mapImpl   :: forall r a b. (a -> b)       -> RIO r a        -> RIO r b
-foreign import applyImpl :: forall r a b. RIO r (a -> b) -> RIO r a        -> RIO r b
-foreign import bindImpl  :: forall r a b. RIO r a        -> (a -> RIO r b) -> RIO r b
-foreign import askImpl   :: forall r. RIO r r
+foreign import pureImpl :: forall r a. a -> RIO r a
+foreign import mapImpl :: forall r a b. (a -> b) -> RIO r a -> RIO r b
+foreign import applyImpl :: forall r a b. RIO r (a -> b) -> RIO r a -> RIO r b
+foreign import bindImpl :: forall r a b. RIO r a -> (a -> RIO r b) -> RIO r b
+foreign import askImpl :: forall r. RIO r r
 
 foreign import runRIO :: forall r a. r -> RIO r a -> Effect a
 foreign import rio :: forall r a. (r -> Effect a) -> RIO r a
