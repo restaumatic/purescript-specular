@@ -16,119 +16,119 @@ import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
 spec :: Spec Unit
 spec =
   after_ (liftEffect clearDocument) $
-  describe "New Builder (Specular.Dom.Element)" do
-    describe "runWidgetInNode" do
-      it "runWidgetInNode should remove DOM content on cleanup" do
-        parent <- liftEffect $ createElement "div"
-        Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
+    describe "New Builder (Specular.Dom.Element)" do
+      describe "runWidgetInNode" do
+        it "runWidgetInNode should remove DOM content on cleanup" do
+          parent <- liftEffect $ createElement "div"
+          Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
 
-        liftEffect remove1
-        liftEffect (innerHTML parent) `shouldReturn` ""
-        liftEffect (numChildNodes parent) `shouldReturn` 0
+          liftEffect remove1
+          liftEffect (innerHTML parent) `shouldReturn` ""
+          liftEffect (numChildNodes parent) `shouldReturn` 0
 
-      it "should remove DOM content from multiple instances" do
-        parent <- liftEffect $ createElement "div"
-        Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
-        Tuple _ remove2 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget2"
+        it "should remove DOM content from multiple instances" do
+          parent <- liftEffect $ createElement "div"
+          Tuple _ remove1 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget1"
+          Tuple _ remove2 <- liftEffect $ runWidgetInNode parent $ el_ "p" $ text "widget2"
 
-        liftEffect (innerHTML parent) `shouldReturn` """<p>widget1</p><p>widget2</p>"""
-        liftEffect remove1
-        liftEffect (innerHTML parent) `shouldReturn` """<p>widget2</p>"""
-        liftEffect remove2
-        liftEffect (innerHTML parent) `shouldReturn` ""
-        liftEffect (numChildNodes parent) `shouldReturn` 0
+          liftEffect (innerHTML parent) `shouldReturn` """<p>widget1</p><p>widget2</p>"""
+          liftEffect remove1
+          liftEffect (innerHTML parent) `shouldReturn` """<p>widget2</p>"""
+          liftEffect remove2
+          liftEffect (innerHTML parent) `shouldReturn` ""
+          liftEffect (numChildNodes parent) `shouldReturn` 0
 
-    it "builds static DOM" $ withLeakCheck do
-      Tuple node _result <- runBuilderInDiv do
-         el "div" [attrs ("class" := "content")] do
-           text "foo"
-           el "span" [] $ text "bar"
-           rawHtml """<p class="foo">Raw</p>"""
-           text "baz"
-         el_ "hr" emptyWidget
-         el_ "span" (text "foo")
+      it "builds static DOM" $ withLeakCheck do
+        Tuple node _result <- runBuilderInDiv do
+          el "div" [ attrs ("class" := "content") ] do
+            text "foo"
+            el "span" [] $ text "bar"
+            rawHtml """<p class="foo">Raw</p>"""
+            text "baz"
+          el_ "hr" emptyWidget
+          el_ "span" (text "foo")
 
-      liftEffect (innerHTML node) `shouldReturn`
-        """<div class="content">foo<span>bar</span><p class="foo">Raw</p>baz</div><hr><span>foo</span>"""
+        liftEffect (innerHTML node) `shouldReturn`
+          """<div class="content">foo<span>bar</span><p class="foo">Raw</p>baz</div><hr><span>foo</span>"""
 
-    it "updates attributes" $ withLeakCheck do
-      {dynamic,set} <- liftEffect $ newDynamic $ "k1" := "v1" <> "k2" := "v2"
-      T3 node _result unsub <- runBuilderInDiv' do
-         el "div" [attrsD dynamic] emptyWidget
+      it "updates attributes" $ withLeakCheck do
+        { dynamic, set } <- liftEffect $ newDynamic $ "k1" := "v1" <> "k2" := "v2"
+        T3 node _result unsub <- runBuilderInDiv' do
+          el "div" [ attrsD dynamic ] emptyWidget
 
-      liftEffect (innerHTML node) `shouldReturn`
-        """<div k2="v2" k1="v1"></div>"""
+        liftEffect (innerHTML node) `shouldReturn`
+          """<div k2="v2" k1="v1"></div>"""
 
-      liftEffect $ set $ "k1" := "v1.1" <> "k3" := "v3"
+        liftEffect $ set $ "k1" := "v1.1" <> "k3" := "v3"
 
-      liftEffect (innerHTML node) `shouldReturn`
-        """<div k1="v1.1" k3="v3"></div>"""
+        liftEffect (innerHTML node) `shouldReturn`
+          """<div k1="v1.1" k3="v3"></div>"""
 
-      -- clean up
-      liftEffect unsub
+        -- clean up
+        liftEffect unsub
 
-    describe "classesD" do
-      it "single instance" do
-        {dynamic: d, set} <- newDynamic ["foo", "bar"]
-        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classesD d] emptyWidget
-        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
-        liftEffect $ set ["bar", "baz"]
-        liftEffect (getElementClasses "#test") `shouldReturn` ["bar", "baz"]
-        liftEffect $ set ["bar", "baz"]
-        liftEffect (getElementClasses "#test") `shouldReturn` ["bar", "baz"]
-        liftEffect $ set []
+      describe "classesD" do
+        it "single instance" do
+          { dynamic: d, set } <- newDynamic [ "foo", "bar" ]
+          liftEffect $ runMainWidgetInBody $ el "div" [ attrs ("id" := "test"), classesD d ] emptyWidget
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "foo", "bar" ]
+          liftEffect $ set [ "bar", "baz" ]
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "bar", "baz" ]
+          liftEffect $ set [ "bar", "baz" ]
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "bar", "baz" ]
+          liftEffect $ set []
+          liftEffect (getElementClasses "#test") `shouldReturn` []
+
+        it "multiple instances" do
+          { dynamic: d1, set: set_d1 } <- newDynamic [ "foo" ]
+          { dynamic: d2, set: _set_d2 } <- newDynamic [ "bar" ]
+          liftEffect $ runMainWidgetInBody $ el "div" [ attrs ("id" := "test"), classesD d1, classesD d2 ] emptyWidget
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "foo", "bar" ]
+          liftEffect $ set_d1 [ "foo", "baz" ]
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "foo", "bar", "baz" ]
+
+        it "allows space-separated classes" do
+          { dynamic: d, set } <- newDynamic [ "foo bar" ]
+          liftEffect $ runMainWidgetInBody $ el "div" [ attrs ("id" := "test"), classesD d ] emptyWidget
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "foo", "bar" ]
+          liftEffect $ set [ "bar" ]
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "bar" ]
+          liftEffect $ set [ "bar  baz  " ]
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "bar", "baz" ]
+          liftEffect $ set []
+          liftEffect (getElementClasses "#test") `shouldReturn` []
+
+      it "classWhenD" do
+        { dynamic: d, set } <- newDynamic true
+        liftEffect $ runMainWidgetInBody $ el "div" [ attrs ("id" := "test"), classWhenD d "foo" ] emptyWidget
+        liftEffect (getElementClasses "#test") `shouldReturn` [ "foo" ]
+        liftEffect $ set false
         liftEffect (getElementClasses "#test") `shouldReturn` []
+        liftEffect $ set true
+        liftEffect (getElementClasses "#test") `shouldReturn` [ "foo" ]
+        liftEffect $ set true
+        liftEffect (getElementClasses "#test") `shouldReturn` [ "foo" ]
 
-      it "multiple instances" do
-        {dynamic: d1, set: set_d1} <- newDynamic ["foo"]
-        {dynamic: d2, set: _set_d2} <- newDynamic ["bar"]
-        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classesD d1, classesD d2] emptyWidget
-        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
-        liftEffect $ set_d1 ["foo", "baz"]
-        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar", "baz"]
+      it "dynText" $ withLeakCheck do
+        { dynamic, set } <- liftEffect $ newDynamic $ "foo"
+        T3 node _result unsub <- runBuilderInDiv' do
+          el "div" [] $ dynText dynamic
 
-      it "allows space-separated classes" do
-        {dynamic: d, set} <- newDynamic ["foo bar"]
-        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classesD d] emptyWidget
-        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar"]
-        liftEffect $ set ["bar"]
-        liftEffect (getElementClasses "#test") `shouldReturn` ["bar"]
-        liftEffect $ set ["bar  baz  "]
-        liftEffect (getElementClasses "#test") `shouldReturn` ["bar", "baz"]
-        liftEffect $ set []
-        liftEffect (getElementClasses "#test") `shouldReturn` []
+        liftEffect (innerHTML node) `shouldReturn`
+          """<div>foo</div>"""
 
-    it "classWhenD" do
-      {dynamic: d, set} <- newDynamic true
-      liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), classWhenD d "foo"] emptyWidget
-      liftEffect (getElementClasses "#test") `shouldReturn` ["foo"]
-      liftEffect $ set false
-      liftEffect (getElementClasses "#test") `shouldReturn` []
-      liftEffect $ set true
-      liftEffect (getElementClasses "#test") `shouldReturn` ["foo"]
-      liftEffect $ set true
-      liftEffect (getElementClasses "#test") `shouldReturn` ["foo"]
+        liftEffect $ set $ "bar"
 
-    it "dynText" $ withLeakCheck do
-      {dynamic,set} <- liftEffect $ newDynamic $ "foo"
-      T3 node _result unsub <- runBuilderInDiv' do
-         el "div" [] $ dynText dynamic
+        liftEffect (innerHTML node) `shouldReturn`
+          """<div>bar</div>"""
 
-      liftEffect (innerHTML node) `shouldReturn`
-        """<div>foo</div>"""
+        -- clean up
+        liftEffect unsub
 
-      liftEffect $ set $ "bar"
-
-      liftEffect (innerHTML node) `shouldReturn`
-        """<div>bar</div>"""
-
-      -- clean up
-      liftEffect unsub
-
-    describe "class_" do
-      it "allows space-separated classes" do
-        liftEffect $ runMainWidgetInBody $ el "div" [attrs ("id":="test"), class_ "foo bar  baz  "] emptyWidget
-        liftEffect (getElementClasses "#test") `shouldReturn` ["foo", "bar", "baz"]
+      describe "class_" do
+        it "allows space-separated classes" do
+          liftEffect $ runMainWidgetInBody $ el "div" [ attrs ("id" := "test"), class_ "foo bar  baz  " ] emptyWidget
+          liftEffect (getElementClasses "#test") `shouldReturn` [ "foo", "bar", "baz" ]
 
 foreign import clearDocument :: Effect Unit
 foreign import getElementClasses :: String -> Effect (Array ClassName)

@@ -24,16 +24,18 @@ import Specular.FRP.Base (filterMapEvent)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
 
 type SelectConfig a =
-  { options :: Array a              -- ^ Possible selections
-  , initialValueIndex :: Int        -- ^ Index of initial value in `options`.
-                                    -- Must be in bounds, else this function will crash
-  , display :: a -> String          -- ^ Human readable text to display for each option
+  { options :: Array a -- ^ Possible selections
+  , initialValueIndex :: Int -- ^ Index of initial value in `options`.
+  -- Must be in bounds, else this function will crash
+  , display :: a -> String -- ^ Human readable text to display for each option
   , attributes :: WeakDynamic Attrs -- ^ Additional attributes for `<select>`
   }
 
 -- | A <select> element with static list of options.
 -- | The returned Dynamic represents the currently selected value.
-selectInput :: forall m a. MonadWidget m
+selectInput
+  :: forall m a
+   . MonadWidget m
   => SelectConfig a
   -> m (Dynamic a)
 selectInput config = do
@@ -61,7 +63,7 @@ selectView
   => Eq a
   => SelectViewConfig a
   -> WeakDynamic a -- ^ selected option
-  -> m (Event a)   -- ^ event: user changed selection
+  -> m (Event a) -- ^ event: user changed selection
 selectView config valueD = do
   let toOption index value = elAttr "option" ("value" := show index) $ text $ config.display value
   Tuple element _ <- elDynAttr' "select" config.attributes $ traverseWithIndex_ toOption config.options

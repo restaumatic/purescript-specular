@@ -1,5 +1,5 @@
-module Specular.FRP.WeakDynamic (
-    WeakDynamic
+module Specular.FRP.WeakDynamic
+  ( WeakDynamic
   , unWeakDynamic
   , changedW
   , weaken
@@ -10,7 +10,7 @@ module Specular.FRP.WeakDynamic (
   , attachWeakDynWith
   , tagWeakDyn
   , uniqWeakDynBy
-) where
+  ) where
 
 import Prelude
 
@@ -62,8 +62,8 @@ switchWeakDyn (WeakDynamic (MaybeT mdyn)) = switch $ map (fromMaybe never) mdyn
 
 -- | Invoke the handler immediately if the WeakDynamic has a value currently,
 -- | and invoke it every time it changes, until cleanup.
-subscribeWeakDyn_ ::
-     forall m a
+subscribeWeakDyn_
+  :: forall m a
    . MonadFRP m
   => (a -> Effect Unit)
   -> WeakDynamic a
@@ -73,14 +73,14 @@ subscribeWeakDyn_ handler (WeakDynamic (MaybeT mdyn)) =
 
 -- | Invoke the handler immediately if the WeakDynamic has a value currently,
 -- | and invoke it every time it changes, until cleanup.
-subscribeWeakDyn ::
-     forall m a b
+subscribeWeakDyn
+  :: forall m a b
    . MonadFRP m
   => (a -> Effect b)
   -> WeakDynamic a
   -> m (WeakDynamic b)
 subscribeWeakDyn handler wdyn = do
-  {event,fire} <- newEvent
+  { event, fire } <- newEvent
   result <- holdWeakDyn event
   subscribeWeakDyn_ (handler >=> fire) wdyn
   pure result
@@ -103,7 +103,7 @@ uniqWeakDynBy eq wdyn = mkWeakDynamic <$> uniqDynBy (liftEqMaybe eq) (unWeakDyna
 liftEqMaybe :: forall a. (a -> a -> Boolean) -> Maybe a -> Maybe a -> Boolean
 liftEqMaybe eq =
   case _, _ of
-    Just x,  Just y  -> eq x y
+    Just x, Just y -> eq x y
     Nothing, Nothing -> true
-    _      , _       -> false
+    _, _ -> false
 

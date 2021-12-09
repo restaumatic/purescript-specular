@@ -51,7 +51,8 @@ fromLoaded _ = Nothing
 -- |   using Aff's (Aff's) cancellation mechanism. This ensures that the value of the resulting Dynamic
 -- |   will eventually be that of the most recent value of the input Dynamic,
 -- |   independent of the order of arrival of the responses.
-asyncRequestMaybe :: forall m a
+asyncRequestMaybe
+  :: forall m a
    . MonadEffect m
   => MonadFRP m
   => Dynamic (Maybe (Aff a))
@@ -79,7 +80,7 @@ asyncRequestMaybe dquery = do
   let
     -- Status when the request starts.
     initialStatus (Just _) = Loading
-    initialStatus Nothing  = NotRequested
+    initialStatus Nothing = NotRequested
 
   initialValue <- pull $ readBehavior $ current dquery
   dyn <- holdDyn (initialStatus initialValue) $
@@ -95,7 +96,8 @@ asyncRequestMaybe dquery = do
   pure dyn
 
 -- | Like `asyncRequestMaybe`, but without the Nothing case.
-asyncRequest :: forall m a
+asyncRequest
+  :: forall m a
    . MonadEffect m
   => MonadFRP m
   => Dynamic (Aff a)
@@ -114,9 +116,11 @@ performEvent
   -> m (Event a)
 performEvent event = do
   output <- newEvent
-  subscribeEvent_ (\action ->
-    void $ launchAff do
-      x <- action
-      liftEffect $ output.fire x
-    ) event
+  subscribeEvent_
+    ( \action ->
+        void $ launchAff do
+          x <- action
+          liftEffect $ output.fire x
+    )
+    event
   pure output.event

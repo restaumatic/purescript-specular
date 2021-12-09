@@ -15,14 +15,12 @@ type StabilizationNum = Int
 stabilizationIsNotInProgress :: StabilizationNum
 stabilizationIsNotInProgress = -1
 
-
 -- | Number of the last started stabilization.
 -- | Used as logical timestamp in `Node.changedAt`.
 -- |
 -- | The timestamp starts at 0.
 globalLastStabilizationNum :: Ref StabilizationNum
 globalLastStabilizationNum = unsafePerformEffect $ runEffectFn1 Ref.new 0
-
 
 -- | `globalCurrentStabilizationNum` has the value:
 -- | - if stabilization is in progress, then same as `globalLastStabilizationNum`
@@ -31,7 +29,6 @@ globalLastStabilizationNum = unsafePerformEffect $ runEffectFn1 Ref.new 0
 -- | This is used in `isChangingInCurrentStabilization`.
 globalCurrentStabilizationNum :: Ref StabilizationNum
 globalCurrentStabilizationNum = unsafePerformEffect $ runEffectFn1 Ref.new stabilizationIsNotInProgress
-
 
 -- | Total refcount of all nodes, for leak checking.
 globalTotalRefcount :: Ref Int

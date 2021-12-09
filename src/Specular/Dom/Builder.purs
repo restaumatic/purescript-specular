@@ -1,12 +1,12 @@
-module Specular.Dom.Builder (
-    Builder
+module Specular.Dom.Builder
+  ( Builder
   , runBuilder
   , local
   , unBuilder
   , mkBuilder'
   , runBuilder'
   , getParentNode
-) where
+  ) where
 
 import Prelude
 
@@ -119,10 +119,10 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
           Just parent -> do
             insertBefore fragment placeholderAfter parent
 
-            write (
-              Profiling.measure "slot cleanup" do
-                cleanup
-                write mempty cleanupRef -- TODO: explain this
+            write
+              ( Profiling.measure "slot cleanup" do
+                  cleanup
+                  write mempty cleanupRef -- TODO: explain this
               )
               cleanupRef
 

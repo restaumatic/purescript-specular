@@ -38,7 +38,7 @@ newtype SpyIO a = SpyIO
 newSpyIO :: forall a. Aff (SpyIO a)
 newSpyIO = do
   log <- liftEffect $ new []
-  pure $ SpyIO { fn: append log , values: log }
+  pure $ SpyIO { fn: append log, values: log }
 
 trigger :: forall a b. SpyIO a -> a -> b -> Effect b
 trigger (SpyIO spy) x y = spy.fn x *> pure y
@@ -80,6 +80,7 @@ withLeakCheck' msg action = do
   result <- action
   totalAfter <- liftEffect getTotalListeners
   let msg' = if msg == "" then "" else " (" <> msg <> ")"
-  when (totalBefore /= totalAfter) $
-    fail $ "Subscriber leak" <> msg' <> "! listeners before=" <> show totalBefore <> " after=" <> show totalAfter
+  when (totalBefore /= totalAfter)
+    $ fail
+    $ "Subscriber leak" <> msg' <> "! listeners before=" <> show totalBefore <> " after=" <> show totalAfter
   pure result

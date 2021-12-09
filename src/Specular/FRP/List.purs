@@ -34,15 +34,15 @@ import Unsafe.Reference (unsafeRefEq)
 -- | If the array grows (a new index appears), a new handler is invoked.
 -- |
 -- | The resulting Dynamic represents return values from all the handlers.
-dynamicListWithIndex :: forall m a b
+dynamicListWithIndex
+  :: forall m a b
    . MonadFRP m
   => MonadReplace m
   => Dynamic (Array a)
   -> (Int -> Dynamic a -> m b)
   -> m (Dynamic (Array b))
 dynamicListWithIndex dynArray handler = do
-  (latestRef :: Ref (Array (ListEntry m a b)))
-    <- liftEffect $ new []
+  (latestRef :: Ref (Array (ListEntry m a b))) <- liftEffect $ new []
 
   mainSlot <- newSlot
   resultChanged <- newEvent
@@ -52,15 +52,15 @@ dynamicListWithIndex dynArray handler = do
   pure result
 
 -- | Like `listWithIndex`, but operates on `WeakDynamics`.
-weakDynamicListWithIndex :: forall m a b
+weakDynamicListWithIndex
+  :: forall m a b
    . MonadFRP m
   => MonadReplace m
   => WeakDynamic (Array a)
   -> (Int -> WeakDynamic a -> m b)
   -> m (WeakDynamic (Array b))
 weakDynamicListWithIndex dynArray handler = do
-  (latestRef :: Ref (Array (ListEntry m a b)))
-    <- liftEffect $ new []
+  (latestRef :: Ref (Array (ListEntry m a b))) <- liftEffect $ new []
 
   mainSlot <- newSlot
   resultChanged <- newEvent
@@ -73,34 +73,35 @@ weakDynamicListWithIndex dynArray handler = do
 type ListEntry m a b =
   { slot :: Slot m
   , fire :: a -> Effect Unit
-  , result :: b }
+  , result :: b
+  }
 
 updateList
   :: forall m a b
    . MonadFRP m
   => Ref (Array (ListEntry m a b)) -- ^ list entries
-  -> Slot m                        -- ^ slot to add new entries
-  -> (Int -> Dynamic a -> m b)     -- ^ item handler
-  -> Array a                       -- ^ new array value
-  -> Effect (Array b)              -- ^ new resulting array is returned
+  -> Slot m -- ^ slot to add new entries
+  -> (Int -> Dynamic a -> m b) -- ^ item handler
+  -> Array a -- ^ new array value
+  -> Effect (Array b) -- ^ new resulting array is returned
 updateList latestRef mainSlot handler newArray = do
   latest <- read latestRef
   newEntries <- map Array.concat $ flip traverse (Array.range 0 (max (Array.length newArray) (Array.length latest))) $ \i -> do
     case Array.index latest i, Array.index newArray i of
-      Just entry, Just x  -> do
+      Just entry, Just x -> do
         nextMicrotask $ entry.fire x
         pure []
       Just entry, Nothing -> do
         destroySlot entry.slot
         pure []
-      Nothing,     Just x  -> do
+      Nothing, Just x -> do
         slot <- appendSlot mainSlot
-        {event, fire} <- newEvent
+        { event, fire } <- newEvent
         result <- replaceSlot slot do
           dyn <- holdUniqDynBy unsafeRefEq x event
           handler i dyn
-        pure [{slot, fire, result}]
-      Nothing,     Nothing ->
+        pure [ { slot, fire, result } ]
+      Nothing, Nothing ->
         pure []
   let newLatest = Array.take (Array.length newArray) $ latest <> newEntries
   write newLatest latestRef
@@ -108,7 +109,8 @@ updateList latestRef mainSlot handler newArray = do
 
 foreign import nextMicrotask :: Effect Unit -> Effect Unit
 
-dynamicList :: forall m a b
+dynamicList
+  :: forall m a b
    . MonadFRP m
   => MonadReplace m
   => Dynamic (Array a)
@@ -116,7 +118,8 @@ dynamicList :: forall m a b
   -> m (Dynamic (Array b))
 dynamicList dynArray handler = dynamicListWithIndex dynArray (\_ -> handler)
 
-weakDynamicList :: forall m a b
+weakDynamicList
+  :: forall m a b
    . MonadFRP m
   => MonadReplace m
   => WeakDynamic (Array a)
@@ -124,7 +127,8 @@ weakDynamicList :: forall m a b
   -> m (WeakDynamic (Array b))
 weakDynamicList dynArray handler = weakDynamicListWithIndex dynArray (\_ -> handler)
 
-weakDynamicListWithIndex_ :: forall m a
+weakDynamicListWithIndex_
+  :: forall m a
    . MonadFRP m
   => MonadReplace m
   => WeakDynamic (Array a)
@@ -132,7 +136,8 @@ weakDynamicListWithIndex_ :: forall m a
   -> m Unit
 weakDynamicListWithIndex_ dynArray handler = void $ weakDynamicListWithIndex dynArray handler
 
-weakDynamicList_ :: forall m a
+weakDynamicList_
+  :: forall m a
    . MonadFRP m
   => MonadReplace m
   => WeakDynamic (Array a)
@@ -140,20 +145,21 @@ weakDynamicList_ :: forall m a
   -> m Unit
 weakDynamicList_ dynArray handler = void $ weakDynamicListWithIndex dynArray (\_ -> handler)
 
-dynamicListWithIndex_ :: forall m a
+dynamicListWithIndex_
+  :: forall m a
    . MonadFRP m
   => MonadReplace m
   => Dynamic (Array a)
   -> (Int -> Dynamic a -> m Unit)
   -> m Unit
 dynamicListWithIndex_ dynArray handler = do
-  (latestRef :: Ref (Array (ListEntry m a Unit)))
-    <- liftEffect $ new []
+  (latestRef :: Ref (Array (ListEntry m a Unit))) <- liftEffect $ new []
 
   mainSlot <- newSlot
   subscribeDyn_ (void <<< updateList latestRef mainSlot handler) dynArray
 
-dynamicList_ :: forall m a
+dynamicList_
+  :: forall m a
    . MonadFRP m
   => MonadReplace m
   => Dynamic (Array a)

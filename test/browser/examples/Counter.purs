@@ -21,9 +21,10 @@ spec = describe "Counter" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
 
     liftEffect (innerHTML node) `shouldReturn`
-      ( """<p>0</p>""" <>
-        """<button class="increment">Increment</button>""" <>
-        """<button class="decrement">Decrement</button>"""
+      ( """<p>0</p>"""
+          <> """<button class="increment">Increment</button>"""
+          <>
+            """<button class="decrement">Decrement</button>"""
       )
 
   it "reacts to increment/decrement buttons" $ do
@@ -35,9 +36,10 @@ spec = describe "Counter" $ do
     liftEffect $ dispatchTrivialEvent incrementButton "click"
 
     liftEffect (innerHTML node) `shouldReturn`
-      ( """<p>1</p>""" <>
-        """<button class="increment">Increment</button>""" <>
-        """<button class="decrement">Decrement</button>"""
+      ( """<p>1</p>"""
+          <> """<button class="increment">Increment</button>"""
+          <>
+            """<button class="decrement">Decrement</button>"""
       )
 
     liftEffect $ dispatchTrivialEvent decrementButton "click"
@@ -45,21 +47,24 @@ spec = describe "Counter" $ do
     liftEffect $ dispatchTrivialEvent decrementButton "click"
 
     liftEffect (innerHTML node) `shouldReturn`
-      ( """<p>-2</p>""" <>
-        """<button class="increment">Increment</button>""" <>
-        """<button class="decrement">Decrement</button>"""
+      ( """<p>-2</p>"""
+          <> """<button class="increment">Increment</button>"""
+          <>
+            """<button class="decrement">Decrement</button>"""
       )
 
 mainWidget :: forall m. MonadWidget m => m Unit
 mainWidget = fixFRP $ view >=> control
 
-view :: forall m. MonadWidget m
+view
+  :: forall m
+   . MonadWidget m
   => { value :: WeakDynamic Int }
   -> m
-    { increment :: Event Unit
-    , decrement :: Event Unit
-    }
-view {value} = do
+       { increment :: Event Unit
+       , decrement :: Event Unit
+       }
+view { value } = do
   el "p" $ dynText (show <$> value)
 
   increment <- buttonOnClick (pure $ "class" := "increment") $ text "Increment"
@@ -67,18 +72,21 @@ view {value} = do
 
   pure { increment, decrement }
 
-control :: forall m. MonadFRP m
+control
+  :: forall m
+   . MonadFRP m
   => { increment :: Event Unit
      , decrement :: Event Unit
      }
-  -> m (Tuple
-    { value :: Dynamic Int }
-    Unit
-    )
-control {increment,decrement} = do
+  -> m
+       ( Tuple
+           { value :: Dynamic Int }
+           Unit
+       )
+control { increment, decrement } = do
   value <- foldDyn ($) 0 $
     leftmost
       [ (_ + 1) <$ increment
       , (_ - 1) <$ decrement
       ]
-  pure (Tuple {value} unit)
+  pure (Tuple { value } unit)

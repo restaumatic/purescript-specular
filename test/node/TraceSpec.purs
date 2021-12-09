@@ -15,7 +15,7 @@ spec = describe "Trace" $ do
 
   describe "event" $ do
     it "some tracing" $ withLeakCheck do
-      {event, fire} <- liftEffect newEvent
+      { event, fire } <- liftEffect newEvent
       log <- liftEffect $ new []
 
       let event' = traceEventIO (append log <<< show) event
@@ -26,13 +26,13 @@ spec = describe "Trace" $ do
       liftEffect $ fire 2
       liftEffect $ fire 5
 
-      log `shouldHaveValue` ["1", "2", "5"]
+      log `shouldHaveValue` [ "1", "2", "5" ]
 
       liftEffect unsub
 
   describe "dynamic" $ do
     it "some tracing" $ withLeakCheck do
-      {event, fire} <- liftEffect newEvent
+      { event, fire } <- liftEffect newEvent
       log <- liftEffect $ new []
 
       Tuple dyn unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 event
@@ -44,7 +44,7 @@ spec = describe "Trace" $ do
       liftEffect $ fire 2
       liftEffect $ fire 5
 
-      log `shouldHaveValue` ["1", "2", "5"]
+      log `shouldHaveValue` [ "1", "2", "5" ]
 
       liftEffect unsub
       liftEffect unsub1

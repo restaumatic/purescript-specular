@@ -1,4 +1,4 @@
-exports._new = function(none, source, dependents, observers, value, height) {
+exports._new = function (none, source, dependents, observers, value, height) {
   return {
     source: source,
     dependents: dependents,
@@ -8,7 +8,7 @@ exports._new = function(none, source, dependents, observers, value, height) {
     adjustedHeight: height,
     inRecomputeQueue: false,
     nextInRecomputeQueue: none,
-    name: '',
+    name: "",
 
     // For initial `changedAt` we want a value lower than all possible stabilization numbers, but different than `stabilizationIsNotInProgress`.
     // Hence -2.
@@ -40,32 +40,51 @@ exports._new = function(none, source, dependents, observers, value, height) {
 //     """ % {'name': name})
 // ]]]
 
-exports.get_dependents = function(node) { return node.dependents; };
+exports.get_dependents = function (node) {
+  return node.dependents;
+};
 
+exports.get_observers = function (node) {
+  return node.observers;
+};
 
-exports.get_observers = function(node) { return node.observers; };
+exports.get_source = function (node) {
+  return node.source;
+};
 
+exports.get_adjustedHeight = function (node) {
+  return node.adjustedHeight;
+};
+exports.set_adjustedHeight = function (node, value) {
+  node.adjustedHeight = value;
+};
 
-exports.get_source = function(node) { return node.source; };
+exports.get_changedAt = function (node) {
+  return node.changedAt;
+};
+exports.set_changedAt = function (node, value) {
+  node.changedAt = value;
+};
 
+exports.get_height = function (node) {
+  return node.height;
+};
+exports.set_height = function (node, value) {
+  node.height = value;
+};
 
-exports.get_adjustedHeight = function(node) { return node.adjustedHeight; };
-exports.set_adjustedHeight = function(node, value) { node.adjustedHeight = value; };
+exports.get_name = function (node) {
+  return node.name;
+};
+exports.set_name = function (node, value) {
+  node.name = value;
+};
 
-
-exports.get_changedAt = function(node) { return node.changedAt; };
-exports.set_changedAt = function(node, value) { node.changedAt = value; };
-
-
-exports.get_height = function(node) { return node.height; };
-exports.set_height = function(node, value) { node.height = value; };
-
-
-exports.get_name = function(node) { return node.name; };
-exports.set_name = function(node, value) { node.name = value; };
-
-
-exports.get_value = function(node) { return node.value; };
-exports.set_value = function(node, value) { node.value = value; };
+exports.get_value = function (node) {
+  return node.value;
+};
+exports.set_value = function (node, value) {
+  node.value = value;
+};
 
 // [[[end]]]

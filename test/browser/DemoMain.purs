@@ -23,7 +23,7 @@ newtype Demo = Demo
   }
 
 runDemo :: Demo -> Widget Unit
-runDemo (Demo {run}) = run unit
+runDemo (Demo { run }) = run unit
 
 demos :: Array Demo
 demos =
@@ -35,7 +35,7 @@ demos =
   ]
 
 demoButton :: forall m. MonadWidget m => Demo -> m (Event Demo)
-demoButton demo@(Demo {name}) = do
+demoButton demo@(Demo { name }) = do
   clicked <- buttonOnClick (pure mempty) (text name)
   pure $ demo <$ clicked
 
@@ -45,17 +45,16 @@ mainWidget = fixFRP $ \view -> do
     case m_demo of
       Nothing -> text "(no demo chosen)"
 
-      Just (Demo {name, run}) -> do
+      Just (Demo { name, run }) -> do
         el "h2" $ text $ "Current demo: " <> name
         run unit
-
 
   el "h2" $ text "Choose another demo:"
   changeDemo <- leftmost <$> traverse demoButton demos
 
   currentDemo <- holdDyn Nothing (map Just changeDemo)
 
-  pure (Tuple {currentDemo} unit)
+  pure (Tuple { currentDemo } unit)
 
 main :: Effect Unit
 main = runMainWidgetInBody mainWidget

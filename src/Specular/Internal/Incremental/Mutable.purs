@@ -1,8 +1,7 @@
 module Specular.Internal.Incremental.Mutable where
 
-
-
 data Mutability
+
 foreign import data Mutable :: Mutability
 foreign import data Immutable :: Mutability
 

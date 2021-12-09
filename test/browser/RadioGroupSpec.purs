@@ -16,7 +16,7 @@ spec = describe "radioGroup" $ do
     log <- liftEffect $ new []
     Tuple div _ <- runBuilderInDiv $ do
       dyn <- radioGroup
-        { options: ["foo", "bar"]
+        { options: [ "foo", "bar" ]
         , initialValueIndex: 0
         , render: \_ _ input -> input (pure mempty)
         }
@@ -25,10 +25,10 @@ spec = describe "radioGroup" $ do
     _inputFoo <- liftEffect $ querySelector "input:nth-child(1)" div
     inputBar <- liftEffect $ querySelector "input:nth-child(2)" div
 
-    log `shouldHaveValue` ["foo"]
+    log `shouldHaveValue` [ "foo" ]
 
     clear log
     liftEffect $ dispatchTrivialEvent inputBar "click"
     -- FIXME: the click event doesn't trigger the change in PhantomJS
 
-    log `shouldHaveValue` ["bar"]
+    log `shouldHaveValue` [ "bar" ]

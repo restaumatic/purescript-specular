@@ -1,5 +1,5 @@
-module Specular.Dom.Widget (
-    Widget
+module Specular.Dom.Widget
+  ( Widget
   , RWidget
   , runWidgetInNode
   , runWidgetInBody
@@ -12,7 +12,7 @@ module Specular.Dom.Widget (
 
   , liftWidget
   , emptyWidget
-) where
+  ) where
 
 import Prelude
 
@@ -72,6 +72,7 @@ foreign import documentBody :: Effect Node
 
 -- A handy alias for all the constraints you'll need
 class (MonadDomBuilder m, MonadFRP m, MonadReplace m, Monoid (m Unit)) <= MonadWidget m
+
 instance monadWidget :: (MonadDomBuilder m, MonadFRP m, MonadReplace m, Monoid (m Unit)) => MonadWidget m
 
 -- | Lift a `Widget` into any `MonadWidget` monad.

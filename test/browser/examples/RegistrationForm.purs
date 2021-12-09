@@ -26,10 +26,11 @@ spec = describe "RegistrationForm" $ do
     Tuple node _ <- runBuilderInDiv mainWidget
 
     liftEffect (innerHTML node) `shouldReturn`
-      ( """<div><label>Login: </label><input class="login"></div>""" <>
-        """<div><label>Password: </label><input class="password" type="password"></div>""" <>
-        """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>""" <>
-        """<button>Register</button>"""
+      ( """<div><label>Login: </label><input class="login"></div>"""
+          <> """<div><label>Password: </label><input class="password" type="password"></div>"""
+          <> """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>"""
+          <>
+            """<button>Register</button>"""
       )
 
   it "reacts to password change" $ do
@@ -40,20 +41,20 @@ spec = describe "RegistrationForm" $ do
 
     -- NB: Input values are not present in innerHTML
     liftEffect (innerHTML node) `shouldReturn`
-      ( """<div><label>Login: </label><input class="login"></div>""" <>
-        """<div><label>Password: </label><input class="password" type="password"></div>""" <>
-        """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>""" <>
-        """<div>Passwords do not match</div>""" <>
-        """<button>Register</button>"""
+      ( """<div><label>Login: </label><input class="login"></div>"""
+          <> """<div><label>Password: </label><input class="password" type="password"></div>"""
+          <> """<div><label>Repeat password: </label><input class="repeat-password" type="password"></div>"""
+          <> """<div>Passwords do not match</div>"""
+          <>
+            """<button>Register</button>"""
       )
 
   it "reacts to submit button" $ do
-    let showFormResult {login,password} = "login: " <> login <> ", password: " <> password
+    let showFormResult { login, password } = "login: " <> login <> ", password: " <> password
 
     Tuple node event <- runBuilderInDiv mainWidget
     log <- liftEffect $ new []
     _ <- liftEffect $ runCleanupT $ subscribeEvent_ (append log <<< showFormResult) event
-
 
     loginInput <- liftEffect $ querySelector ".login" node
     liftEffect $ setInputValueWithChange "user" loginInput
@@ -67,7 +68,7 @@ spec = describe "RegistrationForm" $ do
     liftEffect $ dispatchTrivialEvent submitButton "click"
 
     log `shouldHaveValue` [ "login: user, password: hunter2" ]
-    
+
 -- | Data obtained from the form.
 type FormResult =
   { login :: String
@@ -80,17 +81,19 @@ type FormResult =
 mainWidget :: forall m. MonadWidget m => m (Event FormResult)
 mainWidget = fixFRP $ view >=> control
 
-view :: forall m. MonadWidget m
+view
+  :: forall m
+   . MonadWidget m
   => { loginIsTaken :: WeakDynamic Boolean
      , passwordsMatch :: WeakDynamic Boolean
      }
   -> m
-    { login :: Dynamic String
-    , password :: Dynamic String
-    , repeatPassword :: Dynamic String
-    , register :: Event Unit
-    }
-view {loginIsTaken, passwordsMatch} = do
+       { login :: Dynamic String
+       , password :: Dynamic String
+       , repeatPassword :: Dynamic String
+       , register :: Event Unit
+       }
+view { loginIsTaken, passwordsMatch } = do
   login <- el "div" $ do
     el "label" $ text "Login: "
     value <- textInputOnChange "" ("class" := "login")
@@ -108,15 +111,16 @@ view {loginIsTaken, passwordsMatch} = do
     textInputOnChange "" ("type" := "password" <> "class" := "repeat-password")
 
   weakDynamic_ $ flip map passwordsMatch $ \passwordsMatchValue ->
-    unless passwordsMatchValue $
-      el "div" $ text "Passwords do not match"
+    unless passwordsMatchValue
+      $ el "div"
+      $ text "Passwords do not match"
 
   register <- buttonOnClick (pure mempty) $ text "Register"
 
   pure { login, password, repeatPassword, register }
 
-control ::
-     forall m
+control
+  :: forall m
    . MonadEffect m
   => MonadCleanup m
   => { login :: Dynamic String
@@ -124,26 +128,27 @@ control ::
      , repeatPassword :: Dynamic String
      , register :: Event Unit
      }
-  -> m (Tuple
-    { loginIsTaken :: Dynamic Boolean
-    , passwordsMatch :: Dynamic Boolean
-    }
-    (Event FormResult)
-    )
-control {login,password,repeatPassword,register: registerButtonClicked} = do
+  -> m
+       ( Tuple
+           { loginIsTaken :: Dynamic Boolean
+           , passwordsMatch :: Dynamic Boolean
+           }
+           (Event FormResult)
+       )
+control { login, password, repeatPassword, register: registerButtonClicked } = do
   let
     loginIsTaken = map (_ == "admin") login
     passwordsMatch = (==) <$> password <*> repeatPassword
 
     register = tagDyn formResult registerButtonClicked
-    
+
     -- FIXME: This should be replaced by `rsequence`
     formResult :: Dynamic FormResult
     formResult = do
-       loginValue <- login
-       passwordValue <- password
-       pure { login: loginValue, password: passwordValue }
+      loginValue <- login
+      passwordValue <- password
+      pure { login: loginValue, password: passwordValue }
 
   pure $ Tuple
-    {loginIsTaken, passwordsMatch}
+    { loginIsTaken, passwordsMatch }
     register

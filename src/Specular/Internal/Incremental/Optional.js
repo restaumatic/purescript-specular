@@ -1,5 +1,5 @@
 exports.none = {
-  toString: function() {
+  toString: function () {
     return "none";
-  }
+  },
 };
