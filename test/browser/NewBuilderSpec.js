@@ -1,12 +1,12 @@
 // getElementClasses :: String -> Effect (Array ClassName)
-exports.getElementClasses = function (selector) {
+export function getElementClasses(selector) {
   return function () {
     return Array.prototype.slice.call(
       document.querySelector(selector).classList
     );
   };
-};
+}
 
-exports.clearDocument = function () {
+export function clearDocument() {
   document.body.innerHTML = "";
-};
+}

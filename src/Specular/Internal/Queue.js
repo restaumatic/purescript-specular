@@ -1,20 +1,22 @@
 // foreign import new :: forall a. Effect (Queue a)
-exports.new = function () {
+function new_() {
   return {
     elements: [],
     end: 0,
     first: 0,
   };
-};
+}
+
+export { new_ as new };
 
 // foreign import enqueue :: forall a. EffectFn2 (Queue a) a Unit
-exports.enqueue = function (q, elem) {
+export function enqueue(q, elem) {
   q.elements[q.end] = elem;
   q.end++;
-};
+}
 
 // foreign import drain :: forall a. EffectFn2 (Queue a) (EffectFn1 a Unit) Unit
-exports.drain = function (q, fn) {
+export function drain(q, fn) {
   while (q.first < q.end) {
     var elem = q.elements[q.first];
     q.elements[q.first] = undefined;
@@ -23,4 +25,4 @@ exports.drain = function (q, fn) {
   }
   q.first = 0;
   q.end = 0;
-};
+}

@@ -1,4 +1,4 @@
 // documentBody :: IOSync Node
-exports.documentBody = function () {
+export function documentBody() {
   return document.body;
-};
+}

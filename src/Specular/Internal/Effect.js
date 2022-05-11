@@ -1,31 +1,31 @@
 // data DelayedEffects :: Type
 
 // emptyDelayed :: Effect DelayedEffects
-exports.emptyDelayed = function () {
+export function emptyDelayed() {
   return [];
-};
+}
 
 // pushDelayed :: DelayedEffects -> Effect Unit -> Effect Unit
-exports.pushDelayed = function (effs) {
+export function pushDelayed(effs) {
   return function (eff) {
     return function () {
       effs.push(eff);
     };
   };
-};
+}
 
 // unsafeFreezeDelayed :: DelayedEffects -> Effect (Array (Effect Unit))
-exports.unsafeFreezeDelayed = function (x) {
+export function unsafeFreezeDelayed(x) {
   return function () {
     return x;
   };
-};
+}
 
 // sequenceEffects :: Array (Effect Unit) -> Effect Unit
-exports.sequenceEffects = function (effects) {
+export function sequenceEffects(effects) {
   return function sequenceEffects_eff() {
     for (var i = 0; i < effects.length; i++) {
       effects[i]();
     }
   };
-};
+}

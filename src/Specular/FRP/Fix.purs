@@ -10,14 +10,16 @@ module Specular.FRP.Fix
 
 import Prelude
 
-import Data.Symbol (class IsSymbol, SProxy(..))
+import Data.Symbol (class IsSymbol)
+import Type.Proxy (Proxy(..))
 import Data.Tuple (Tuple(Tuple), snd)
 import Prim.Row as Row
+import Prim.RowList (RowList)
 import Record (delete, get, insert)
 import Specular.FRP.Base (class MonadFRP, Dynamic, Event, newEvent, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn)
 import Type.Equality (class TypeEquals, to)
-import Type.RowList (class RowToList, Cons, Nil, RLProxy(..))
+import Type.RowList (class RowToList, Cons, Nil)
 
 fixEvent
   :: forall m a b
@@ -55,13 +57,13 @@ instance fixFRPDynamic :: FixFRP (WeakDynamic a) (Dynamic a) where
   fixFRP = fixDyn
 
 instance fixFRPRecord :: (FixFRPRecord ro_list ri ro, RowToList ro ro_list) => FixFRP (Record ri) (Record ro) where
-  fixFRP = fixRecord (RLProxy :: RLProxy ro_list)
+  fixFRP = fixRecord (Proxy :: Proxy ro_list)
 
-class FixFRPRecord ro_list ri ro | ro_list -> ri ro where
+class FixFRPRecord (ro_list :: RowList Type) (ri :: Row Type) (ro :: Row Type) | ro_list -> ri ro where
   fixRecord
     :: forall m b
      . MonadFRP m
-    => RLProxy ro_list
+    => Proxy ro_list
     -> (Record ri -> m (Tuple (Record ro) b))
     -> m b
 
@@ -80,9 +82,9 @@ instance fixFRPRecordCons ::
   FixFRPRecord (Cons label output tail_ro_list) ri ro where
   fixRecord _ f =
     fixFRP $ \(input :: input) ->
-      fixRecord (RLProxy :: RLProxy tail_ro_list) $ \(tail_ri :: Record tail_ri) -> do
-        let ri = insert (SProxy :: SProxy label) input tail_ri :: Record ri
+      fixRecord (Proxy :: Proxy tail_ro_list) $ \(tail_ri :: Record tail_ri) -> do
+        let ri = insert (Proxy :: Proxy label) input tail_ri :: Record ri
         Tuple (ro :: Record ro) result <- f ri
-        let output = get (SProxy :: SProxy label) ro :: output
-        let tail_ro = delete (SProxy :: SProxy label) ro :: Record tail_ro
+        let output = get (Proxy :: Proxy label) ro :: output
+        let tail_ro = delete (Proxy :: Proxy label) ro :: Record tail_ro
         pure (Tuple tail_ro (Tuple output result))

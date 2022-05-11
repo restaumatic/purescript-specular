@@ -5,7 +5,7 @@
 //     (Field a Mutable Boolean)      -- Is the entry present in this queue?
 //     (Field a Mutable (Optional a)) -- Next entry with the same priority
 //   (PQ a)
-exports.new = function (none, priorityField, presentField, nextField) {
+function new_(none, priorityField, presentField, nextField) {
   return {
     none: none,
 
@@ -26,12 +26,14 @@ exports.new = function (none, priorityField, presentField, nextField) {
 
     // TODO: we should track minPriority
   };
-};
+}
+
+export { new_ as new };
 
 var PRIORITY_WARNING_MARK = 250;
 
 // add :: forall a. EffectFn2 (PQ a) a Boolean
-exports.add = function (pq, node) {
+export function add(pq, node) {
   if (node[pq.presentField]) {
     return false;
   }
@@ -53,7 +55,7 @@ exports.add = function (pq, node) {
   pq.priorityHeads[priority] = node;
 
   return true;
-};
+}
 
 var removeMin = function (pq) {
   for (var priority = 0; priority < pq.priorityHeads.length; priority++) {
@@ -70,8 +72,8 @@ var removeMin = function (pq) {
 };
 
 // drain :: forall a. EffectFn2 (PQ a) (EffectFn1 a Unit) Unit
-exports.drain = function (pq, fn) {
+export function drain(pq, fn) {
   while (pq.count > 0) {
     fn(removeMin(pq));
   }
-};
+}

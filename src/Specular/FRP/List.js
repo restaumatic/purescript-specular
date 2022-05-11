@@ -1,6 +1,6 @@
 // nextMicrotask :: Effect Unit -> Effect Unit
-exports.nextMicrotask = function (eff) {
+export function nextMicrotask(eff) {
   return function () {
     Promise.resolve().then(eff);
   };
-};
+}
