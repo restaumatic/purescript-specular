@@ -13,6 +13,10 @@ jobs:
 
       - name: Set up a PureScript toolchain
         uses: purescript-contrib/setup-purescript@main
+          with:
+            purescript: "0.15.0"
+            psa: "latest"
+            spago: "latest"
 
       - name: Cache NPM dependencies
         uses: actions/cache@v2
