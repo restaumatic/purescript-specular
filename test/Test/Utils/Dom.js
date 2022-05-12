@@ -1,5 +1,5 @@
 // dispatchEvent :: Node -> EventType -> Foreign -> Effect Unit
-exports.dispatchEvent = function (node) {
+export function dispatchEvent(node) {
   return function (eventType) {
     return function (options) {
       return function () {
@@ -7,10 +7,10 @@ exports.dispatchEvent = function (node) {
       };
     };
   };
-};
+}
 
 // querySelector :: String -> Node -> Effect Node
-exports.querySelector = function (selector) {
+export function querySelector(selector) {
   return function (parent) {
     return function () {
       var node = parent.querySelector(selector);
@@ -20,21 +20,21 @@ exports.querySelector = function (selector) {
       return node;
     };
   };
-};
+}
 
 // setInputValueWithChange :: String -> Node -> Effect Unit
-exports.setInputValueWithChange = function (value) {
+export function setInputValueWithChange(value) {
   return function (node) {
     return function () {
       node.value = value;
       node.dispatchEvent(new Event("change"));
     };
   };
-};
+}
 
 // numChildNodes :: Node -> Effect Int
-exports.numChildNodes = function (node) {
+export function numChildNodes(node) {
   return function () {
     return node.childNodes.length;
   };
-};
+}

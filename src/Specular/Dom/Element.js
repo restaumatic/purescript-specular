@@ -1,7 +1,7 @@
 // _stopPropagation :: EffectFn1 DOM.Event Unit
-exports._stopPropagation = function (event) {
+export function _stopPropagation(event) {
   event.stopPropagation();
-};
+}
 
 const spacesRE = /\s+/;
 
@@ -10,12 +10,12 @@ function splitClasses(classes) {
 }
 
 // _addClass :: EffectFn2 Node ClassName Unit
-exports._addClass = function (node, cls) {
+export function _addClass(node, cls) {
   node.classList.add(...splitClasses(cls));
-};
+}
 
 // _initClasses :: EffectFn1 Node (EffectFn1 (Array ClassName) Unit)
-exports._initClasses = function (node) {
+export function _initClasses(node) {
   var currentClassSet = {};
   return function (classes) {
     var newClassSet = {};
@@ -36,4 +36,4 @@ exports._initClasses = function (node) {
     }
     currentClassSet = newClassSet;
   };
-};
+}

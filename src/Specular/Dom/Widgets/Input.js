@@ -1,31 +1,31 @@
 // getTextInputValue :: Node -> IOSync String
-exports.getTextInputValue = function (node) {
+export function getTextInputValue(node) {
   return function () {
     return node.value;
   };
-};
+}
 
 // setTextInputValue :: Node -> String -> IOSync String
-exports.setTextInputValue = function (node) {
+export function setTextInputValue(node) {
   return function (value) {
     return function () {
       node.value = value;
     };
   };
-};
+}
 
 // getCheckboxChecked :: Node -> IOSync Boolean
-exports.getCheckboxChecked = function (node) {
+export function getCheckboxChecked(node) {
   return function () {
     return node.checked;
   };
-};
+}
 
 // setCheckboxChecked :: Node -> Boolean -> IOSync Unit
-exports.setCheckboxChecked = function (node) {
+export function setCheckboxChecked(node) {
   return function (value) {
     return function () {
       return (node.checked = value);
     };
   };
-};
+}

@@ -1,4 +1,4 @@
-exports._new = function (none, source, dependents, observers, value, height) {
+export function _new(none, source, dependents, observers, value, height) {
   return {
     source: source,
     dependents: dependents,
@@ -14,7 +14,7 @@ exports._new = function (none, source, dependents, observers, value, height) {
     // Hence -2.
     changedAt: -2,
   };
-};
+}
 
 // [[[cog
 // immutable_fields = [
@@ -31,60 +31,65 @@ exports._new = function (none, source, dependents, observers, value, height) {
 // ]
 // for name, _ in immutable_fields:
 //     cog.outl("""
-//     exports.get_%(name)s = function(node) { return node.%(name)s; };
+//     export function get_%(name)s(node) { return node.%(name)s; }
 //     """ % {'name': name})
 // for name, _ in mutable_fields:
 //     cog.outl("""
-//     exports.get_%(name)s = function(node) { return node.%(name)s; };
-//     exports.set_%(name)s = function(node, value) { node.%(name)s = value; };
+//     export function get_%(name)s(node) { return node.%(name)s; }
+//     export function set_%(name)s(node, value) { node.%(name)s = value; }
 //     """ % {'name': name})
 // ]]]
 
-exports.get_dependents = function (node) {
+export function get_dependents(node) {
   return node.dependents;
-};
+}
 
-exports.get_observers = function (node) {
+export function get_observers(node) {
   return node.observers;
-};
+}
 
-exports.get_source = function (node) {
+export function get_source(node) {
   return node.source;
-};
+}
 
-exports.get_adjustedHeight = function (node) {
+export function get_adjustedHeight(node) {
   return node.adjustedHeight;
-};
-exports.set_adjustedHeight = function (node, value) {
+}
+
+export function set_adjustedHeight(node, value) {
   node.adjustedHeight = value;
-};
+}
 
-exports.get_changedAt = function (node) {
+export function get_changedAt(node) {
   return node.changedAt;
-};
-exports.set_changedAt = function (node, value) {
+}
+
+export function set_changedAt(node, value) {
   node.changedAt = value;
-};
+}
 
-exports.get_height = function (node) {
+export function get_height(node) {
   return node.height;
-};
-exports.set_height = function (node, value) {
+}
+
+export function set_height(node, value) {
   node.height = value;
-};
+}
 
-exports.get_name = function (node) {
+export function get_name(node) {
   return node.name;
-};
-exports.set_name = function (node, value) {
-  node.name = value;
-};
+}
 
-exports.get_value = function (node) {
+export function set_name(node, value) {
+  node.name = value;
+}
+
+export function get_value(node) {
   return node.value;
-};
-exports.set_value = function (node, value) {
+}
+
+export function set_value(node, value) {
   node.value = value;
-};
+}
 
 // [[[end]]]

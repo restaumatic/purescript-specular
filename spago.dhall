@@ -18,7 +18,6 @@
   , "newtype"
   , "partial"
   , "prelude"
-  , "psci-support"
   , "random"
   , "record"
   , "refs"

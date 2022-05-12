@@ -50,7 +50,7 @@ global.SpecularProfiling = {
   },
 };
 
-function begin(name) {
+function begin_(name) {
   let frameIndex = frameNameToIndex[name];
   if (frameIndex === undefined) {
     frameIndex = frames.length;
@@ -61,17 +61,17 @@ function begin(name) {
   return frameIndex;
 }
 
-function end(frame) {
+function end_(frame) {
   events.push({ type: "C", frame: frame, at: performance.now() });
 }
 
 // enabled :: Boolean
-exports.enabled = enabled;
+export { enabled };
 
-exports.none = 0;
+export const none = 0;
 
 // begin :: EffectFn1 String Unit
-exports.begin = enabled ? begin : () => {};
+export const begin = enabled ? begin_ : () => {};
 
 // end :: EffectFn1 String Unit
-exports.end = enabled ? end : () => {};
+export const end = enabled ? end_ : () => {};

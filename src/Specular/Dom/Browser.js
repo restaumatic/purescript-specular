@@ -1,53 +1,53 @@
 // data Node :: Type
 
 // createTextNodeImpl :: String -> IOSync Node
-exports.createTextNodeImpl = function (text) {
+export function createTextNodeImpl(text) {
   return function () {
     return document.createTextNode(text);
   };
-};
+}
 
 // setTextImpl :: Node -> String -> IOSync Node
-exports.setTextImpl = function (node) {
+export function setTextImpl(node) {
   return function (text) {
     return function () {
       node.textContent = text;
     };
   };
-};
+}
 
 // createDocumentFragmentImpl :: IOSync Node
-exports.createDocumentFragmentImpl = function () {
+export function createDocumentFragmentImpl() {
   return document.createDocumentFragment();
-};
+}
 
 // createElementImpl :: TagName -> IOSync Node
-exports.createElementImpl = function (tag) {
+export function createElementImpl(tag) {
   return function () {
     return document.createElement(tag);
   };
-};
+}
 
 // createElementNSImpl :: Namespace -> TagName -> IOSync Node
-exports.createElementNSImpl = function (namespace) {
+export function createElementNSImpl(namespace) {
   return function (tag) {
     return function () {
       return document.createElementNS(namespace, tag);
     };
   };
-};
+}
 
 // _setAttributes :: EffectFn2 Node (Object String) Unit
-exports._setAttributes = function (node, attrs) {
+export function _setAttributes(node, attrs) {
   for (var k in attrs) {
     if (attrs.hasOwnProperty(k)) {
       node.setAttribute(k, attrs[k]);
     }
   }
-};
+}
 
 // removeAttributesImpl :: Node -> Array String -> IOSync Unit
-exports.removeAttributesImpl = function (node) {
+export function removeAttributesImpl(node) {
   return function (names) {
     return function () {
       names.forEach(function (name) {
@@ -55,10 +55,10 @@ exports.removeAttributesImpl = function (node) {
       });
     };
   };
-};
+}
 
 // parentNodeImpl :: (Node -> Maybe Node) -> Maybe Node -> Node -> IOSync (Maybe Node)
-exports.parentNodeImpl = function (Just) {
+export function parentNodeImpl(Just) {
   return function (Nothing) {
     return function (node) {
       return function () {
@@ -71,10 +71,10 @@ exports.parentNodeImpl = function (Just) {
       };
     };
   };
-};
+}
 
 // insertBeforeImpl :: Node -> Node -> Node -> IOSync Unit
-exports.insertBeforeImpl = function (newNode) {
+export function insertBeforeImpl(newNode) {
   return function (nodeAfter) {
     return function (parent) {
       return function () {
@@ -82,19 +82,19 @@ exports.insertBeforeImpl = function (newNode) {
       };
     };
   };
-};
+}
 
 // appendChildImpl :: Node -> Node -> IOSync Unit
-exports.appendChildImpl = function (newNode) {
+export function appendChildImpl(newNode) {
   return function (parent) {
     return function () {
       parent.appendChild(newNode);
     };
   };
-};
+}
 
 // removeAllBetweenImpl :: Node -> Node -> IOSync Unit
-exports.removeAllBetweenImpl = function (from) {
+export function removeAllBetweenImpl(from) {
   return function (to) {
     return function () {
       if (!from.parentNode) {
@@ -108,17 +108,17 @@ exports.removeAllBetweenImpl = function (from) {
       }
     };
   };
-};
+}
 
 // innerHTML :: Node -> IOSync String
-exports.innerHTML = function (node) {
+export function innerHTML(node) {
   return function () {
     return node.innerHTML;
   };
-};
+}
 
 // addEventListenerImpl :: EventType -> (Event -> IOSync Unit) -> Node -> IOSync (IOSync Unit)
-exports.addEventListenerImpl = function (eventType) {
+export function addEventListenerImpl(eventType) {
   return function (handler) {
     return function (node) {
       return function () {
@@ -132,10 +132,10 @@ exports.addEventListenerImpl = function (eventType) {
       };
     };
   };
-};
+}
 
 // appendRawHtmlImpl :: String -> Node -> IOSync Unit
-exports.appendRawHtmlImpl = function (html) {
+export function appendRawHtmlImpl(html) {
   return function (parent) {
     return function () {
       // According to https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentHTML
@@ -159,10 +159,10 @@ exports.appendRawHtmlImpl = function (html) {
       }
     };
   };
-};
+}
 
 // moveAllBetweenInclusiveImpl :: Node -> Node -> Node -> IOSync Unit
-exports.moveAllBetweenInclusiveImpl = function (from) {
+export function moveAllBetweenInclusiveImpl(from) {
   return function (to) {
     return function (newParent) {
       return function () {
@@ -178,20 +178,20 @@ exports.moveAllBetweenInclusiveImpl = function (from) {
       };
     };
   };
-};
+}
 
 // preventDefault :: Event -> IOSync Unit
-exports.preventDefault = function (event) {
+export function preventDefault(event) {
   return function () {
     return event.preventDefault();
   };
-};
+}
 
 // removeNode :: Node -> Effect Unit
-exports.removeNode = function (node) {
+export function removeNode(node) {
   return function () {
     if (node.parentNode) {
       node.parentNode.removeChild(node);
     }
   };
-};
+}
