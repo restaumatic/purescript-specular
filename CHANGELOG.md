@@ -1,7 +1,14 @@
 ## Next release
 
-- Fixed compatibility with latest `purs bundle`
 - Added support for checkbox `indeterminate` property
+
+## 0.13.0
+
+- PureScript 0.15 support
+
+## 0.12.1
+
+- Fixed compatibility with latest `purs bundle`
 
 ## 0.12.0
 
