@@ -1,5 +1,7 @@
 ## Next release
 
+## 0.13.1
+
 - Added support for checkbox `indeterminate` property
 
 ## 0.13.0
