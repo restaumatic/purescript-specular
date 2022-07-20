@@ -35,6 +35,8 @@ module Specular.Dom.Element
   , checkedD
   , bindChecked
 
+  , indeterminateD
+
   , ClassName
   , class_
   , classes
@@ -256,6 +258,12 @@ unsafeEventTarget e = (unsafeCoerce e).target
 -- | Only works on input `type="checkbox"` and `type="radio"` elements.
 checkedD :: Dynamic Boolean -> Prop
 checkedD = propertyD "checked"
+
+-- | Attach dynamically-changing `indeterminate` property to a checkbox element.
+-- |
+-- | Only works on input `type="checkbox"` elements.
+indeterminateD :: Dynamic Boolean -> Prop
+indeterminateD = propertyD "indeterminate"
 
 -- | Set up a two-way binding between the `checked` of an `<input>` element,
 -- | and the given `Ref`.

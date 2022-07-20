@@ -1,6 +1,7 @@
 ## Next release
 
 - Fixed compatibility with latest `purs bundle`
+- Added support for checkbox `indeterminate` property
 
 ## 0.12.0
 

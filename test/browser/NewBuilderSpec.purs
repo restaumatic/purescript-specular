@@ -148,6 +148,14 @@ spec =
         Ref.write ref true
         liftEffect (getElementProperty "#test" "checked") `shouldReturn` true
 
+      it "indeterminateD" do
+        ref <- Ref.new false
+        liftEffect $ runMainWidgetInBody $
+          el "input" [ attrs ("id" := "test"), E.indeterminateD (Ref.value ref) ] emptyWidget
+        liftEffect (getElementProperty "#test" "indeterminate") `shouldReturn` false
+        Ref.write ref true
+        liftEffect (getElementProperty "#test" "indeterminate") `shouldReturn` true
+
 foreign import clearDocument :: Effect Unit
 foreign import getElementClasses :: String -> Effect (Array ClassName)
 foreign import getElementProperty :: forall a. String -> String -> Effect a
