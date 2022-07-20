@@ -37,3 +37,7 @@ export function _initClasses(node) {
     currentClassSet = newClassSet;
   };
 }
+
+export function setProperty(node, property, value) {
+  node[property] = value;
+}

@@ -10,3 +10,12 @@ export function getElementClasses(selector) {
 export function clearDocument() {
   document.body.innerHTML = "";
 }
+
+// getElementProperty :: String -> String -> Effect a
+export function getElementProperty(selector) {
+  return function (property) {
+    return function () {
+      return document.querySelector(selector)[property];
+    };
+  };
+}

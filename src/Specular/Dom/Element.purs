@@ -60,7 +60,7 @@ import Specular.Dom.Builder.Class (BuilderEnv)
 import Specular.Dom.Builder.Class (rawHtml) as X
 import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes, setAttributes)
 import Specular.Dom.Widget (RWidget)
-import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setCheckboxChecked, setTextInputValue)
+import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue)
 import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDyn_)
 import Effect.Ref (new, read, write)
 import Specular.Internal.Effect (DelayedEffects, pushDelayed)
@@ -220,8 +220,7 @@ foreign import _stopPropagation :: EffectFn1 DOM.Event Unit
 -- |
 -- | Only works on `<input>` and `<select>` elements.
 valueD :: Dynamic String -> Prop
-valueD dyn = Prop $ mkEffectFn2 \node cleanups ->
-  runEffectFn3 _subscribeDyn cleanups dyn (mkEffectFn1 (setTextInputValue node))
+valueD = propertyD "value"
 
 -- | Set up a two-way binding between the `value` of an `<input>` element,
 -- | and the given `Ref`.
@@ -256,8 +255,7 @@ unsafeEventTarget e = (unsafeCoerce e).target
 -- |
 -- | Only works on input `type="checkbox"` and `type="radio"` elements.
 checkedD :: Dynamic Boolean -> Prop
-checkedD dyn = Prop $ mkEffectFn2 \node cleanups ->
-  runEffectFn3 _subscribeDyn cleanups dyn (mkEffectFn1 (\v -> setCheckboxChecked node v))
+checkedD = propertyD "checked"
 
 -- | Set up a two-way binding between the `checked` of an `<input>` element,
 -- | and the given `Ref`.
@@ -271,6 +269,14 @@ withTargetChecked :: (Boolean -> Effect Unit) -> (DOM.Event -> Effect Unit)
 withTargetChecked cb = \event -> do
   value <- getCheckboxChecked (unsafeEventTarget event)
   cb value
+
+-- | Attach a Dynamic to an arbitrary DOM property.
+-- | The caller must ensure that the property exists and has the same type as the Dynamic.
+propertyD :: forall a. String -> Dynamic a -> Prop
+propertyD property dyn = Prop $ mkEffectFn2 \node cleanups ->
+  runEffectFn3 _subscribeDyn cleanups dyn (mkEffectFn1 (\v -> runEffectFn3 setProperty node property v))
+
+foreign import setProperty :: forall a. EffectFn3 Node String a Unit
 
 -- * CSS classes
 

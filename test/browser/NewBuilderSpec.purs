@@ -6,16 +6,18 @@ import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Specular.Dom.Browser (innerHTML)
 import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dynText, el, el_, rawHtml, text, class_)
+import Specular.Dom.Element as E
 import Specular.Dom.Node.Class ((:=), createElement)
 import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody, runWidgetInNode)
 import Specular.FRP (newDynamic)
 import Test.Spec (Spec, after_, describe, it)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
 import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
+import Specular.Ref as Ref
 
 spec :: Spec Unit
 spec =
-  after_ (liftEffect clearDocument) $
+  after_ (liftEffect clearDocument) do
     describe "New Builder (Specular.Dom.Element)" do
       describe "runWidgetInNode" do
         it "runWidgetInNode should remove DOM content on cleanup" do
@@ -130,5 +132,22 @@ spec =
           liftEffect $ runMainWidgetInBody $ el "div" [ attrs ("id" := "test"), class_ "foo bar  baz  " ] emptyWidget
           liftEffect (getElementClasses "#test") `shouldReturn` [ "foo", "bar", "baz" ]
 
+      it "valueD" do
+        ref <- Ref.new "hello"
+        liftEffect $ runMainWidgetInBody $
+          el "input" [ attrs ("id" := "test"), E.valueD (Ref.value ref) ] emptyWidget
+        liftEffect (getElementProperty "#test" "value") `shouldReturn` "hello"
+        Ref.write ref "world"
+        liftEffect (getElementProperty "#test" "value") `shouldReturn` "world"
+
+      it "checkedD" do
+        ref <- Ref.new false
+        liftEffect $ runMainWidgetInBody $
+          el "input" [ attrs ("id" := "test"), E.checkedD (Ref.value ref) ] emptyWidget
+        liftEffect (getElementProperty "#test" "checked") `shouldReturn` false
+        Ref.write ref true
+        liftEffect (getElementProperty "#test" "checked") `shouldReturn` true
+
 foreign import clearDocument :: Effect Unit
 foreign import getElementClasses :: String -> Effect (Array ClassName)
+foreign import getElementProperty :: forall a. String -> String -> Effect a
