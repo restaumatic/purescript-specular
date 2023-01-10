@@ -9,6 +9,7 @@
     "browser-test": "spago bundle-app --main BrowserMain --to output/BrowserMain.js && karma start karma.conf.js",
     "test": "purs --version && spago --version && npm run node-test && npm run browser-test",
     "build-demo": "spago bundle-app --main DemoMain --to output/DemoMain.js",
+    "build-demo-pwidget": "spago bundle-app --main DemoPWidget --to output/DemoPWidget.js",
     "open-demo": "xdg-open ./test/demo.html",
     "build-bench": "spago bundle-app --main BenchMain --to output/BenchMain.js",
     "open-bench": "xdg-open ./bench/benchmark.html",
@@ -21,9 +22,12 @@
     "benchmark": "^2.1.4",
     "bower": "^1.8.12",
     "esbuild": "^0.14.38",
+    "parcel": "^2.8.2",
     "prettier": "^2.5.1",
     "puppeteer": "^9.1.1",
-    "purs-tidy": "^0.6.4"
+    "purescript": "^0.15.0",
+    "purs-tidy": "^0.6.4",
+    "spago": "^0.20.9"
   },
   "dependencies": {
     "karma": "^6.3.2",

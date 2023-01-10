@@ -14,6 +14,8 @@ in  upstream
       , "newtype"
       , "prelude"
       , "spec"
+      , "profunctor"
+      , "profunctor-lenses"
       ]
     , repo = "https://github.com/restaumatic/purescript-spec-mocha.git"
     , version = "v4.0.0-restaumatic2"
