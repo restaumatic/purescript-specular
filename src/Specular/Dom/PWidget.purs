@@ -80,16 +80,9 @@ instance Choice PWidget where
 --   wander
 --     :: forall s t a b
 --      . (forall f. Applicative f => (a -> f b) -> s -> f t)
---     -> PWidget a b -- D a -> W Unit
---     -> PWidget s t -- D s -> W Unit
---   wander t (PWidget f) = PWidget \dyns -> do
---     withDynamic_ dyns \s -> do
---       t (\a -> do
---         dyn' <- newDynamic a
---         f dyn'.dynamic
---         -- pure unit
---         ) s
---       -- pure unit
+--     -> PWidget a b
+--     -> PWidget s t
+--   wander = impossible (?)
 
 -- entry points
 withRef :: forall a. Ref a -> PWidget a a -> Widget Unit
