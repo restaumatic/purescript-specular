@@ -101,7 +101,10 @@ text = wrap \textD -> do
 widget :: forall a i o. Widget a -> PWidget i o
 widget w = PWidget $ const $ w *> pure never
 
--- PWidget combinators (notice: <> combinator as PWidget is a Semigroup)
+-- PWidget combinators
+--  - `<>` as PWidget is a Semigroup
+--  - `left`/`right` as PWidget is Choice
+--  - `first`/`second` as PWidget is Strong
 
 -- PWidget optics combinators (considered as functions form PWidget profunctor to PWidget profunctor)
 
