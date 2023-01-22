@@ -96,7 +96,7 @@ withRef ref w = do
 -- PWidget primitives (notice: mempty primitive as PWidget is a Monoid)
 
 text ∷ forall a. PWidget String a
-text = wrap \textD -> do
+text = withUniqDyn $ wrap \textD -> do
   S.dynText (weaken textD)
   pure never
 
@@ -142,16 +142,16 @@ inside tagName attrs event wrapped = PWidget \dyn -> do
 -- helpers on top of primitives, combinators and optics
 
 textInput :: (String -> Attrs) -> PWidget String String
-textInput attrs = mempty # inside "input" attrs \dyn node -> do
+textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   liftEffect $ do
     initialValue <- readDynamic dyn
     setTextInputValue node initialValue
   subscribeEvent_ (setTextInputValue node) (changed dyn)
-  domEventWithSample (\_ -> getTextInputValue node) "input" node
+  domEventWithSample (\_ -> getTextInputValue node) "input" node) # withUniqDyn
 
 checkbox :: (Boolean -> Attrs) -> PWidget Boolean Boolean
-checkbox attrs = mempty # inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
-  domEventWithSample (\_ -> getCheckboxChecked node) "change" node
+checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
+  domEventWithSample (\_ -> getCheckboxChecked node) "change" node) # withUniqDyn
 
 onClick ∷ forall a e. e -> a → Node → Widget (Event e)
 onClick e _ node = do

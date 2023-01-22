@@ -6,25 +6,18 @@ module DemoPWidget
 
 import Prelude
 
-import Control.Monad.Cleanup (runCleanupT)
 import Data.Generic.Rep (class Generic)
-import Data.Lens (Lens, only)
-import Data.Lens.Record (prop)
+import Data.Lens (only)
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
-import Data.String (length)
-import Data.Symbol (class IsSymbol)
-import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
 import Effect.Class (liftEffect)
-import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
-import Prim.Row as Row
+import Effect.Uncurried (EffectFn2, runEffectFn2)
 import Specular.Dom.Browser (Node, (:=))
-import Specular.Dom.Element (class_)
-import Specular.Dom.PWidget (PWidget(..), checkbox, controlled, controller, inside, onClick, prismEq, propEq, static, text, textInput, whenControl, withControl, withRef)
-import Specular.Dom.Widget (Widget, runMainWidgetInBody)
-import Specular.FRP (never, uniqDyn)
+import Specular.Dom.PWidget (PWidget, checkbox, controlled, controller, inside, onClick, prismEq, propEq, static, text, textInput, whenControl, withControl, withRef, withUniqDyn)
+import Specular.Dom.Widget (runMainWidgetInBody)
+import Specular.FRP (never)
 import Specular.Ref (newRef)
 import Type.Proxy (Proxy(..))
 
@@ -179,10 +172,10 @@ main = runMainWidgetInBody do
           (
             (text # static "Address" # inside "span" mempty mempty)
             <>
-            -- (checkbox' # dimap (case _ of
-            --   Verbatim -> false
-            --   Capitals -> true) (if _ then Capitals else Verbatim) # controller)
-            -- <>
+            (checkbox' # dimap (case _ of
+              Verbatim -> false
+              Capitals -> true) (if _ then Capitals else Verbatim) # controller)
+            <>
             (filledText "City" # city # controlled)
             <>
             (filledText "Street" # street # controlled)
@@ -210,7 +203,7 @@ main = runMainWidgetInBody do
     # inside "div" mempty mempty # withControl true # customer)
   # inside "div" mempty mempty # withRef orderRef)
 
-  text # lcmap show # inside "p" mempty mempty # withRef orderRef
+  text # lcmap show # withUniqDyn # inside "p" mempty mempty # withRef orderRef
 
 
 -- MDC components
@@ -239,7 +232,7 @@ button text =
     (inside "span" (const $ "class" := "mdc-button__label") mempty text)
 
 filledText :: String -> PWidget String String
-filledText hintText =
+filledText hintText = withUniqDyn $
   inside "label" (const $ "class" := "mdc-text-field mdc-text-field--filled") (\_ node -> (liftEffect $ mdcWith material.textField."MDCTextField" node mempty) *> pure never) $
     (inside "span" (const $ "class" := "mdc-text-field__ripple") mempty mempty)
     <>
@@ -251,15 +244,16 @@ filledText hintText =
 
 
 checkbox' :: PWidget Boolean Boolean
-checkbox' = inside "div" (const $ "class" := "mdc-touch-target-wrapper") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
-  inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") mempty $
-    (checkbox (const $ "class" := "mdc-checkbox__native-control"))
-    <>
-    (inside "div" (const $ "class":= "mdc-checkbox__background") mempty $
-      inside "svg" (const $ "class" := "mdc-checkbox__checkmark" <> "viewBox" := "0 0 24 24") mempty $
-        (inside "path" (const $ "class" := "mdc-checkbox__checkmark-path" <> "fill" := "none" <> "d" := "M1.73,12.91 8.1,19.28 22.79,4.59") mempty mempty)
-        <>
-        (inside "div" (const $ "class" := "mdc-checkbox__mixedmark") mempty mempty)
-    )
-    <>
-    (inside "div" (const $ "class" := "mdc-checkbox__ripple") mempty mempty)
+checkbox' = withUniqDyn $
+  inside "div" (const $ "class" := "mdc-touch-target-wrapper") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
+    inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") mempty $
+      (checkbox (const $ "class" := "mdc-checkbox__native-control"))
+      <>
+      (inside "div" (const $ "class":= "mdc-checkbox__background") mempty $
+        inside "svg" (const $ "class" := "mdc-checkbox__checkmark" <> "viewBox" := "0 0 24 24") mempty $
+          (inside "path" (const $ "class" := "mdc-checkbox__checkmark-path" <> "fill" := "none" <> "d" := "M1.73,12.91 8.1,19.28 22.79,4.59") mempty mempty)
+          <>
+          (inside "div" (const $ "class" := "mdc-checkbox__mixedmark") mempty mempty)
+      )
+      <>
+      (inside "div" (const $ "class" := "mdc-checkbox__ripple") mempty mempty)
