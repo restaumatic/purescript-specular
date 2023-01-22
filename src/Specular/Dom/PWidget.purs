@@ -93,23 +93,33 @@ withRef ref w = do
   e <- unwrap w (value ref)
   subscribeEvent_ (write ref) e
 
--- PWidget primitives (notice: mempty primitive as PWidget is a Monoid)
+-- PWidget primitives
+
+-- mempty
 
 text ∷ forall a. PWidget String a
 text = withUniqDyn $ wrap \textD -> do
   S.dynText (weaken textD)
   pure never
 
--- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
-widget :: forall a i o. Widget a -> PWidget i o
-widget w = PWidget $ const $ w *> pure never
-
 -- PWidget combinators
---  - `<>` as PWidget is a Semigroup
---  - `left`/`right` as PWidget is Choice
---  - `first`/`second` as PWidget is Strong
 
--- PWidget optics combinators (considered as functions form PWidget profunctor to PWidget profunctor)
+-- <>
+
+
+-- PWidget optics (considered as functions from PWidget to PWidget)
+
+-- left
+
+-- right
+
+-- first
+
+-- second
+
+-- prop
+
+-- prism
 
 propEq
   :: forall l r1 r2 r a b
@@ -178,3 +188,9 @@ withControl c w = wrap \dyna -> do
 
 whenControl :: forall p a b. Profunctor p => Strong p => Choice p => (b -> Boolean) -> p a a -> p (Control a b) (Control a b)
 whenControl pred p = dimap (\({ controlled, controller }) -> Tuple controlled controller) (\(Tuple controlled controller) -> { controlled, controller} ) $ dimap (\(Tuple a b) -> (if pred b then Right else Left) (Tuple a b)) (either identity identity) $ right $ first p
+
+---
+
+-- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
+widget :: forall a i o. Widget a -> PWidget i o
+widget w = PWidget $ const $ w *> pure never
