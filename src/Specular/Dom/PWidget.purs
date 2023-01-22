@@ -3,21 +3,24 @@ module Specular.Dom.PWidget where
 import Prelude
 
 import Data.Either (Either(..), either, isLeft, isRight)
+import Data.Lens (prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap, wrap)
-import Data.Profunctor (class Profunctor, dimap, lcmap)
+import Data.Profunctor (class Profunctor, dimap)
 import Data.Profunctor.Choice (class Choice, right)
 import Data.Profunctor.Strong (class Strong, first)
+import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect.Class (liftEffect)
+import Prim.Row as Row
 import Specular.Dom.Browser (Attrs, Node, TagName, (:=))
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, uniqDynBy, weaken, whenD)
+import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, uniqDyn, uniqDynBy, weaken, whenD)
 import Specular.Ref (Ref, newRef, value, write)
 import Type.Proxy (Proxy(..))
 
@@ -80,9 +83,9 @@ instance Choice PWidget where
 --   wander
 --     :: forall s t a b
 --      . (forall f. Applicative f => (a -> f b) -> s -> f t)
---     -> PWidget a b
---     -> PWidget s t
---   wander = impossible (?)
+--     -> PWidget a b -- Dynamic a -> Widget (Event b)
+--     -> PWidget s t -- Dynamic s -> Widget (Event t)
+  -- wander = unsafeThrow "impossible?"
 
 -- entry points
 withRef :: forall a. Ref a -> PWidget a a -> Widget Unit
@@ -108,8 +111,27 @@ widget w = PWidget $ const $ w *> pure never
 
 -- PWidget optics combinators (considered as functions form PWidget profunctor to PWidget profunctor)
 
+propEq
+  :: forall l r1 r2 r a b
+   . IsSymbol l
+  => Row.Cons l a r r1
+  => Row.Cons l b r r2
+  => Eq a
+  => Proxy l
+  -> PWidget a b -> PWidget (Record r1) (Record r2)
+propEq k = withUniqDyn >>> prop k
+
+prismEq ∷ ∀ (s501 ∷ Type) (a502 ∷ Type). Eq a502 ⇒ (a502 → s501) → (s501 → Maybe a502) → PWidget a502 a502 → PWidget s501 s501
+prismEq p q = withUniqDyn >>> prism' p q
+
+withUniqDyn :: forall a b . Eq a => PWidget a b -> PWidget a b
+withUniqDyn (PWidget f) = PWidget \dyn -> do
+  udyn <- uniqDyn dyn
+  f udyn
+
 static :: forall a b c. a -> PWidget a b -> PWidget c b
-static a = lcmap (const a)
+static a (PWidget f) = PWidget \_ -> do
+  f $ pure a
 
 inside :: forall a b. TagName -> (a -> Attrs) -> (Dynamic a -> Node -> Widget (Event b)) -> PWidget a b -> PWidget a b
 inside tagName attrs event wrapped = PWidget \dyn -> do

@@ -8,22 +8,23 @@ import Prelude
 
 import Control.Monad.Cleanup (runCleanupT)
 import Data.Generic.Rep (class Generic)
-import Data.Lens (only, prism')
+import Data.Lens (Lens, only)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (lcmap, rmap)
 import Data.Show.Generic (genericShow)
 import Data.String (length)
+import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn2, runEffectFn2)
+import Prim.Row as Row
 import Specular.Dom.Browser (Node, (:=))
 import Specular.Dom.Element (class_)
-import Specular.Dom.PWidget (PWidget, checkbox, controlled, controller, inside, onClick, static, text, textInput, whenControl, withControl, withRef)
+import Specular.Dom.PWidget (PWidget(..), checkbox, controlled, controller, inside, onClick, prismEq, propEq, static, text, textInput, whenControl, withControl, withRef)
 import Specular.Dom.Widget (Widget, runMainWidgetInBody)
-import Specular.FRP (never)
-import Specular.Internal.Effect (DelayedEffects)
+import Specular.FRP (never, uniqDyn)
 import Specular.Ref (newRef)
 import Type.Proxy (Proxy(..))
 
@@ -95,32 +96,33 @@ type Product = String
 type Addition = String
 
 -- optics
-id = prop (Proxy :: Proxy "id")
-items = prop (Proxy :: Proxy "items")
-delivery = prism' Delivery $ case _ of
+id = propEq (Proxy :: Proxy "id")
+items = propEq (Proxy :: Proxy "items")
+delivery = prismEq Delivery $ case _ of
   Delivery d -> Just d
   _ -> Nothing
-takeaway = prism' Takeaway $ case _ of
+takeaway = prismEq Takeaway $ case _ of
   Takeaway t -> Just t
   _ -> Nothing
-coords = prism' Coords $ case _ of
+coords = prismEq Coords $ case _ of
   Coords c -> Just c
   _ -> Nothing
-address = prism' Address $ case _ of
+address = prismEq Address $ case _ of
   Address a -> Just a
   _ -> Nothing
-long = prop (Proxy :: Proxy "long")
-lat = prop (Proxy :: Proxy "lat")
-city = prop (Proxy :: Proxy "city")
-street = prop (Proxy :: Proxy "street")
-streetNumber = prop (Proxy :: Proxy "streetNumber")
-at = prop (Proxy :: Proxy "at")
-to = prop (Proxy :: Proxy "to")
-product = prop (Proxy :: Proxy "product")
-qty = prop (Proxy :: Proxy "qty")
-fulfillment = prop (Proxy :: Proxy "fulfillment")
-payed = prop (Proxy :: Proxy "payed")
-customer = prop (Proxy :: Proxy "customer")
+long = propEq (Proxy :: Proxy "long")
+lat = propEq (Proxy :: Proxy "lat")
+city = propEq (Proxy :: Proxy "city")
+street = propEq (Proxy :: Proxy "street")
+
+streetNumber = propEq (Proxy :: Proxy "streetNumber")
+at = propEq (Proxy :: Proxy "at")
+to = propEq (Proxy :: Proxy "to")
+product = propEq (Proxy :: Proxy "product")
+qty = propEq (Proxy :: Proxy "qty")
+fulfillment = propEq (Proxy :: Proxy "fulfillment")
+payed = propEq (Proxy :: Proxy "payed")
+customer = propEq (Proxy :: Proxy "customer")
 
 data ShowMode = Capitals | Verbatim
 
