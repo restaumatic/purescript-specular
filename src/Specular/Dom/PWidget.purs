@@ -131,15 +131,15 @@ propEq
   -> PWidget a b -> PWidget (Record r1) (Record r2)
 propEq k = withUniqDyn >>> prop k
 
-prismEq ∷ ∀ (s501 ∷ Type) (a502 ∷ Type). Eq a502 ⇒ (a502 → s501) → (s501 → Maybe a502) → PWidget a502 a502 → PWidget s501 s501
+prismEq ∷ forall a s . Eq s ⇒ (s → a) → (a → Maybe s) → PWidget s s → PWidget a a
 prismEq p q = withUniqDyn >>> prism' p q
 
-withUniqDyn :: forall a b . Eq a => PWidget a b -> PWidget a b
+withUniqDyn :: forall a s . Eq a => PWidget a s -> PWidget a s
 withUniqDyn (PWidget f) = PWidget \dyn -> do
   udyn <- uniqDyn dyn
   f udyn
 
-static :: forall a b c. a -> PWidget a b -> PWidget c b
+static :: forall a b s. a -> PWidget a s -> PWidget b s
 static a (PWidget f) = PWidget \_ -> do
   f $ pure a
 
