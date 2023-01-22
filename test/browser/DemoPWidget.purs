@@ -11,7 +11,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Lens (Lens, only)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
-import Data.Profunctor (lcmap, rmap)
+import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
 import Data.String (length)
 import Data.Symbol (class IsSymbol)
@@ -114,7 +114,6 @@ long = propEq (Proxy :: Proxy "long")
 lat = propEq (Proxy :: Proxy "lat")
 city = propEq (Proxy :: Proxy "city")
 street = propEq (Proxy :: Proxy "street")
-
 streetNumber = propEq (Proxy :: Proxy "streetNumber")
 at = propEq (Proxy :: Proxy "at")
 to = propEq (Proxy :: Proxy "to")
@@ -180,6 +179,10 @@ main = runMainWidgetInBody do
           (
             (text # static "Address" # inside "span" mempty mempty)
             <>
+            -- (checkbox' # dimap (case _ of
+            --   Verbatim -> false
+            --   Capitals -> true) (if _ then Capitals else Verbatim) # controller)
+            -- <>
             (filledText "City" # city # controlled)
             <>
             (filledText "Street" # street # controlled)
