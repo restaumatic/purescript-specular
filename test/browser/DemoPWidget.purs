@@ -11,7 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
 import Effect (Effect)
-import Specular.Dom.PWidget (controlled, controller, inside, prismEq, propEq, static, text, whenControl, withControl, withRef, withUniqDyn)
+import Specular.Dom.PWidget (controlled, controller, inside, prismEq, propEq, static, text, whenControl, withControl, withRef)
 import Specular.Dom.PWidgetMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Specular.Ref (newRef)
@@ -181,4 +181,4 @@ main = runMainWidgetInBody do
     # inside "div" mempty mempty # withControl true # customer)
   # inside "div" mempty mempty # withRef orderRef)
 
-  text # lcmap show # withUniqDyn # inside "p" mempty mempty # withRef orderRef
+  text # lcmap show # inside "p" mempty mempty # withRef orderRef

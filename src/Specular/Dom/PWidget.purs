@@ -87,6 +87,15 @@ instance Choice PWidget where
 --     -> PWidget s t -- Dynamic s -> Widget (Event t)
   -- wander = unsafeThrow "impossible?"
 
+mergeUnit :: forall a . PWidget Unit a
+mergeUnit = mempty
+
+merge :: forall a b c d . PWidget a b -> PWidget c d -> PWidget (Tuple a c) (Either b d)
+merge (PWidget w1) (PWidget w2) = PWidget \ac -> do
+  b <- w1 (fst <$> ac)
+  d <- w2 (snd <$> ac)
+  pure ((Left <$> b) <> (Right <$> d))
+
 -- entry points
 withRef :: forall a. Ref a -> PWidget a a -> Widget Unit
 withRef ref w = do
