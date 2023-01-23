@@ -14,9 +14,9 @@ import Specular.Dom.PWidget (PWidget, inside, onClick, static, text, textInput, 
 import Specular.Dom.PWidget as PWidget
 import Specular.FRP (never)
 
-button :: forall a. PWidget a Unit -> PWidget a Unit
+button :: forall a. PWidget a a -> PWidget a a
 button text =
-  inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\_ node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick unit) $
+  inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\dyn node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick) $
     (inside "div" (const $ "class" := "mdc-button__ripple") mempty mempty)
     <>
     (inside "span" (const $ "class" := "mdc-button__label") mempty text)

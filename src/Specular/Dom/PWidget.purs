@@ -7,11 +7,13 @@ import Data.Lens (prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap, wrap)
-import Data.Profunctor (class Profunctor, dimap)
+import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
 import Data.Profunctor.Strong (class Strong, first)
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
+import Effect (Effect)
+import Effect.Aff (Aff, launchAff, launchAff_)
 import Effect.Class (liftEffect)
 import Prim.Row as Row
 import Specular.Dom.Browser (Attrs, Node, TagName, (:=))
@@ -20,7 +22,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, uniqDyn, uniqDynBy, weaken, whenD)
+import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
 import Specular.Ref (Ref, newRef, value, write)
 import Type.Proxy (Proxy(..))
 
@@ -86,15 +88,6 @@ instance Choice PWidget where
 --     -> PWidget a b -- Dynamic a -> Widget (Event b)
 --     -> PWidget s t -- Dynamic s -> Widget (Event t)
   -- wander = unsafeThrow "impossible?"
-
-mergeUnit :: forall a . PWidget Unit a
-mergeUnit = mempty
-
-merge :: forall a b c d . PWidget a b -> PWidget c d -> PWidget (Tuple a c) (Either b d)
-merge (PWidget w1) (PWidget w2) = PWidget \ac -> do
-  b <- w1 (fst <$> ac)
-  d <- w2 (snd <$> ac)
-  pure ((Left <$> b) <> (Right <$> d))
 
 -- entry points
 withRef :: forall a. Ref a -> PWidget a a -> Widget Unit
@@ -172,11 +165,11 @@ checkbox :: (Boolean -> Attrs) -> PWidget Boolean Boolean
 checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
   domEventWithSample (\_ -> getCheckboxChecked node) "change" node) # withUniqDyn
 
-onClick ∷ forall a e. e -> a → Node → Widget (Event e)
-onClick e _ node = do
+onClick ∷ forall a. Dynamic a → Node → Widget (Event a)
+onClick dyna node = do
   {event, fire} <- newEvent
   _ <- liftEffect $ DOM.addEventListener "click" fire node
-  pure (e <$ event)
+  pure $ tagDyn dyna (unit <$ event)
 
 type Control a b =
   { controlled :: a
@@ -199,6 +192,40 @@ whenControl :: forall p a b. Profunctor p => Strong p => Choice p => (b -> Boole
 whenControl pred p = dimap (\({ controlled, controller }) -> Tuple controlled controller) (\(Tuple controlled controller) -> { controlled, controller} ) $ dimap (\(Tuple a b) -> (if pred b then Right else Left) (Tuple a b)) (either identity identity) $ right $ first p
 
 ---
+
+mergeUnit :: forall a . PWidget Unit a
+mergeUnit = mempty
+
+merge :: forall a b c d . PWidget a b -> PWidget c d -> PWidget (Tuple a c) (Either b d)
+merge (PWidget w1) (PWidget w2) = PWidget \ac -> do
+  b <- w1 (fst <$> ac)
+  d <- w2 (snd <$> ac)
+  pure ((Left <$> b) <> (Right <$> d))
+
+adaptInput :: forall a b c. (c -> a) -> PWidget a b -> PWidget c b
+adaptInput f = lcmap f
+
+adaptOutput :: forall a b c. (b -> c) -> PWidget a b -> PWidget a c
+adaptOutput f = rmap f
+
+enrich :: forall a b . PWidget a b -> PWidget a (Tuple a b)
+enrich (PWidget w) = PWidget \dyna -> do
+  eventb <- w dyna
+  pure (attachDynWith Tuple dyna eventb)
+
+foo :: forall a b c. (b -> Aff Unit) -> PWidget a b -> PWidget a c
+foo f (PWidget w) = PWidget \dyna -> do
+  eventb <- w dyna
+  subscribeEvent_ (\e -> launchAff_ $ f e) eventb
+  pure never
+
+bar :: forall a b c. (a -> Aff a) -> PWidget a a -> PWidget a a
+bar f (PWidget w) = PWidget \dyna -> do
+  eventb <- w dyna
+  {event, fire} <- newEvent
+  subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eventb
+  pure $ eventb <> event
+
 
 -- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
 widget :: forall a i o. Widget a -> PWidget i o

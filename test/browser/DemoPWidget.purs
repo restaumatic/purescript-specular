@@ -10,8 +10,12 @@ import Data.Lens (only)
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
+import Data.Time (Millisecond)
 import Effect (Effect)
-import Specular.Dom.PWidget (controlled, controller, inside, prismEq, propEq, static, text, whenControl, withControl, withRef)
+import Effect.Aff (Milliseconds(..), delay)
+import Effect.Class (liftEffect)
+import Effect.Console (log)
+import Specular.Dom.PWidget (bar, controlled, controller, foo, inside, prismEq, propEq, static, text, whenControl, withControl, withRef)
 import Specular.Dom.PWidgetMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Specular.Ref (newRef)
@@ -124,6 +128,8 @@ main = runMainWidgetInBody do
   (
     (MDC.filledText "Id" # id)
     <>
+    (text # static "Generate" # MDC.button # bar (const (delay (Milliseconds 3000.0) *> pure "13")) # id)
+    <>
     (
       (text # static "Dine-in" # only DineIn)
       <>
@@ -159,6 +165,8 @@ main = runMainWidgetInBody do
             (MDC.filledText "Street" # street # controlled)
             <>
             (MDC.filledText "Street number" # streetNumber # controlled)
+            <>
+            (text # static "Clear" # MDC.button # bar (const $ pure $ { city: "", street: "", streetNumber: ""}) # controlled)
           # withControl Capitals # address)
         # inside "div" mempty mempty # to)
       # delivery)
@@ -179,6 +187,8 @@ main = runMainWidgetInBody do
       <>
       (MDC.filledText "Customer" # whenControl identity)
     # inside "div" mempty mempty # withControl true # customer)
+    <>
+    ( text # static "Submit" # MDC.button # foo (show >>> log >>> liftEffect))
   # inside "div" mempty mempty # withRef orderRef)
 
   text # lcmap show # inside "p" mempty mempty # withRef orderRef
