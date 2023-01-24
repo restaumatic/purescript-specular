@@ -99,8 +99,10 @@ lala dyn callback w = do
   b <- unwrap w dyn
   subscribeEvent_ callback b
 
-withRef :: forall a. Ref a -> PWidget a a -> Widget Unit
-withRef ref = lala (value ref) (write ref)
+renderPWidget :: forall a. a -> PWidget a a -> Widget Unit
+renderPWidget a w = do
+  ref <-liftEffect $ newRef a
+  lala (value ref) (write ref) w
 
 -- PWidget primitives
 

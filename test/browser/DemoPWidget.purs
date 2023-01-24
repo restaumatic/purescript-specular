@@ -14,10 +14,9 @@ import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
-import Specular.Dom.PWidget (bar, controlled, controller, foo, inside, prismEq, propEq, static, text, whenControl, withControl, withRef)
+import Specular.Dom.PWidget (bar, controlled, controller, foo, inside, prismEq, propEq, static, text, whenControl, withControl, renderPWidget)
 import Specular.Dom.PWidgetMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
-import Specular.Ref (newRef)
 import Type.Proxy (Proxy(..))
 
 type Order =
@@ -102,27 +101,27 @@ data ShowMode = Capitals | Verbatim
 main :: Effect Unit
 main = runMainWidgetInBody do
   -- Data model - not a view model
-  orderRef <- newRef
-    { id: "7"
-    , fulfillment: Delivery
-      { to: Address
-        { city: "London"
-        , street: "Abbey Road"
-        , streetNumber: "13"
+  let order =
+        { id: "7"
+        , fulfillment: Delivery
+          { to: Address
+            { city: "London"
+            , street: "Abbey Road"
+            , streetNumber: "13"
+            }
+          , at: "12:15"
+          }
+        , items:
+          [ { product: "Cappriciosa"
+            , qty: 2
+            , addition: Just "garlic sauce"}
+          , { product: "Siciliana"
+            , qty: 1
+            , addition: Nothing}
+          ]
+        , payed: true
+        , customer: "John Doe"
         }
-      , at: "12:15"
-      }
-    , items:
-      [ { product: "Cappriciosa"
-        , qty: 2
-        , addition: Just "garlic sauce"}
-      , { product: "Siciliana"
-        , qty: 1
-        , addition: Nothing}
-      ]
-    , payed: true
-    , customer: "John Doe"
-    }
   -- View
   (
     (MDC.filledText "Id" # id)
@@ -188,6 +187,7 @@ main = runMainWidgetInBody do
     # inside "div" mempty mempty # withControl true # customer)
     <>
     ( text # static "Submit" # MDC.button # foo (show >>> log >>> liftEffect))
-  # inside "div" mempty mempty # withRef orderRef)
+    <>
+    (text # lcmap show # inside "p" mempty mempty)
+  # inside "div" mempty mempty) # renderPWidget order
 
-  text # lcmap show # inside "p" mempty mempty # withRef orderRef
