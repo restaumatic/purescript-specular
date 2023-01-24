@@ -3,12 +3,14 @@ module Specular.Dom.PWidget where
 import Prelude
 
 import Data.Either (Either(..), either, isLeft, isRight)
-import Data.Lens (prism')
+import Data.Functor.Contravariant ((>$<))
+import Data.Lens (first, prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
+import Data.Profunctor.Costrong (class Costrong)
 import Data.Profunctor.Strong (class Strong, first)
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -24,6 +26,7 @@ import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
 import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
 import Specular.Ref (Ref, newRef, value, write)
+import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
 
 newtype PWidget :: Type -> Type -> Type
@@ -90,10 +93,14 @@ instance Choice PWidget where
   -- wander = unsafeThrow "impossible?"
 
 -- entry points
+
+lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> PWidget a b -> Widget Unit
+lala dyn callback w = do
+  b <- unwrap w dyn
+  subscribeEvent_ callback b
+
 withRef :: forall a. Ref a -> PWidget a a -> Widget Unit
-withRef ref w = do
-  e <- unwrap w (value ref)
-  subscribeEvent_ (write ref) e
+withRef ref = lala (value ref) (write ref)
 
 -- PWidget primitives
 
@@ -230,3 +237,62 @@ bar f (PWidget w) = PWidget \dyna -> do
 -- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
 widget :: forall a i o. Widget a -> PWidget i o
 widget w = PWidget $ const $ w *> pure never
+
+data Ref'' e d = Ref'' (Event e -> Effect (Dynamic d))
+
+-- newRef'' :: forall a. a -> Ref'' a a
+-- newRef'' a = Ref'' $ \e -> do
+--   ref <- Ref.newRef a
+--   subscribeEvent (write ref) e
+--   pure $ value ref
+
+instance Profunctor Ref'' where
+ dimap pre post (Ref'' f) = Ref'' (\e' -> map post <$> f (pre <$> e'))
+
+-- instance Strong Ref'' where
+--   first (Ref'' f) = Ref'' $ \ab -> do
+--     d <- f (fst <$> ab)
+
+
+-- instance Choice
+
+data Ref' e d = Ref' (Dynamic d) (e -> Effect Unit)
+
+newRef' :: forall a. a -> Effect (Ref' a a)
+newRef' a = do
+  ref <- Ref.newRef a
+  pure $ Ref' (value ref) (write ref)
+
+instance Profunctor Ref' where
+  dimap pre post (Ref' dyn action) = Ref' (post <$> dyn) (pre >>> action)
+
+-- instance Costrong Ref' where
+--   -- unfirst (Ref dyn action) = Ref (fst <$> dyn) (fst >>> action)
+--   unsecond (Ref dyn action) = Ref (fst <$> dyn) (fst >>> action)
+
+instance Choice Ref' where
+  left (Ref' dyn action) = Ref' (Left <$> dyn) (case _ of
+    Left e -> action e
+    _ -> pure unit)
+  right (Ref' dyn action) = Ref' (Right <$> dyn) (case _ of
+    Right e -> action e
+    _ -> pure unit)
+
+data Option
+  = OptionInt Int
+  | OptionString String
+  | Option Boolean
+
+optionInt = prism' OptionInt (case _ of
+  OptionInt o -> Just o
+  _ -> Nothing)
+optionString = prism' OptionString (case _ of
+  OptionString o -> Just o
+  _ -> Nothing)
+
+foo'' = do
+  ref <- newRef' 2
+  let (Ref' dyn action) = ref # optionInt
+  action (OptionInt 3)
+  action (OptionString "2")
+  pure unit
