@@ -1,4 +1,4 @@
-module Specular.Dom.PWidgetMDC
+module Specular.Dom.ComponentMDC
   ( button
   , filledText
   , checkbox
@@ -10,18 +10,18 @@ import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Uncurried (EffectFn2, runEffectFn2)
 import Specular.Dom.Browser (Node, (:=))
-import Specular.Dom.PWidget (PWidget, inside, onClick, static, text, textInput, withUniqDyn)
-import Specular.Dom.PWidget as PWidget
+import Specular.Dom.Component (inside, onClick, static, text, textInput, withUniqDyn)
+import Specular.Dom.Component as Specular
 import Specular.FRP (never)
 
-button :: forall a. PWidget a a -> PWidget a a
+button :: forall a. Specular.Component a a -> Specular.Component a a
 button text =
   inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\dyn node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick) $
     (inside "div" (const $ "class" := "mdc-button__ripple") mempty mempty)
     <>
     (inside "span" (const $ "class" := "mdc-button__label") mempty text)
 
-filledText :: String -> PWidget String String
+filledText :: String -> Specular.Component String String
 filledText hintText = withUniqDyn $
   inside "label" (const $ "class" := "mdc-text-field mdc-text-field--filled") (\_ node -> (liftEffect $ mdcWith material.textField."MDCTextField" node mempty) *> pure never) $
     (inside "span" (const $ "class" := "mdc-text-field__ripple") mempty mempty)
@@ -33,11 +33,11 @@ filledText hintText = withUniqDyn $
     (inside "span" (const $ "class" := "mdc-line-ripple") mempty mempty)
 
 
-checkbox :: PWidget Boolean Boolean
+checkbox :: Specular.Component Boolean Boolean
 checkbox = withUniqDyn $
   inside "div" (const $ "class" := "mdc-touch-target-wrapper") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
     inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") mempty $
-      (PWidget.checkbox (const $ "class" := "mdc-checkbox__native-control"))
+      (Specular.checkbox (const $ "class" := "mdc-checkbox__native-control"))
       <>
       (inside "div" (const $ "class":= "mdc-checkbox__background") mempty $
         inside "svg" (const $ "class" := "mdc-checkbox__checkmark" <> "viewBox" := "0 0 24 24") mempty $

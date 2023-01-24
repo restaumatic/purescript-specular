@@ -1,4 +1,4 @@
-module Specular.Dom.PWidget where
+module Specular.Dom.Component where
 
 import Prelude
 
@@ -27,35 +27,35 @@ import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
 
-newtype PWidget :: Type -> Type -> Type
-newtype PWidget a b = PWidget (Dynamic a -> Widget (Event b))
+newtype Component :: Type -> Type -> Type
+newtype Component a b = Component (Dynamic a -> Widget (Event b))
 
-instance Semigroup (PWidget a b) where
-  append (PWidget f1) (PWidget f2) = PWidget \dyn -> do
+instance Semigroup (Component a b) where
+  append (Component f1) (Component f2) = Component \dyn -> do
     b1 <- f1 dyn
     b2 <- f2 dyn
     pure $ leftmost [b1, b2]
 
-instance Monoid (PWidget a b) where
-  mempty = PWidget $ const $ pure never
+instance Monoid (Component a b) where
+  mempty = Component $ const $ pure never
 
-derive instance Newtype (PWidget a b) _
+derive instance Newtype (Component a b) _
 
-instance Profunctor PWidget where
-  dimap pre post (PWidget f) = PWidget \dyna -> do
+instance Profunctor Component where
+  dimap pre post (Component f) = Component \dyna -> do
     b <- f $ pre <$> dyna
     pure (post <$> b)
 
-instance Strong PWidget where
-  first (PWidget f) = PWidget \dynab -> do
+instance Strong Component where
+  first (Component f) = Component \dynab -> do
     c <- f (fst <$> dynab)
     pure $ attachDynWith (\b c -> Tuple c b) (snd <$> dynab) c
-  second (PWidget f) = PWidget \dynab -> do
+  second (Component f) = Component \dynab -> do
     c <- f (snd <$> dynab)
     pure $ attachDynWith (\a c -> Tuple a c) (fst <$> dynab) c
 
-instance Choice PWidget where
-  left (PWidget f) = PWidget $ \dynaorb -> do
+instance Choice Component where
+  left (Component f) = Component $ \dynaorb -> do
     shouldDisplay <- uniqDynBy eq (isLeft <$> dynaorb)
     {event, fire} <- newEvent
     whenD shouldDisplay do
@@ -68,7 +68,7 @@ instance Choice PWidget where
           subscribeEvent_ dyn'.set $ filterMapEvent (either Just (const Nothing)) $ changed dynaorb
         _ -> pure unit
     pure event
-  right (PWidget f) = PWidget $ \dynaorb -> do
+  right (Component f) = Component $ \dynaorb -> do
     shouldDisplay <- uniqDynBy eq (isRight <$> dynaorb)
     {event, fire} <- newEvent
     whenD shouldDisplay do
@@ -82,41 +82,41 @@ instance Choice PWidget where
         _ -> pure unit
     pure event
 
--- instance Wander PWidget where
+-- instance Wander Component where
 --   wander
 --     :: forall s t a b
 --      . (forall f. Applicative f => (a -> f b) -> s -> f t)
---     -> PWidget a b -- Dynamic a -> Widget (Event b)
---     -> PWidget s t -- Dynamic s -> Widget (Event t)
+--     -> Component a b -- Dynamic a -> Widget (Event b)
+--     -> Component s t -- Dynamic s -> Widget (Event t)
   -- wander = unsafeThrow "impossible?"
 
 -- entry points
 
-lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> PWidget a b -> Widget Unit
+lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> Component a b -> Widget Unit
 lala dyn callback w = do
   b <- unwrap w dyn
   subscribeEvent_ callback b
 
-renderPWidget :: forall a. a -> PWidget a a -> Widget Unit
-renderPWidget a w = do
+renderComponent :: forall a. a -> Component a a -> Widget Unit
+renderComponent a w = do
   ref <-liftEffect $ newRef a
   lala (value ref) (write ref) w
 
--- PWidget primitives
+-- Component primitives
 
 -- mempty
 
-text ∷ forall a. PWidget String a
+text ∷ forall a. Component String a
 text = withUniqDyn $ wrap \textD -> do
   S.dynText (weaken textD)
   pure never
 
--- PWidget combinators
+-- Component combinators
 
 -- <>
 
 
--- PWidget optics (considered as functions from PWidget to PWidget)
+-- Component optics (considered as functions from Component to Component)
 
 -- left
 
@@ -137,30 +137,30 @@ propEq
   => Row.Cons l b r r2
   => Eq a
   => Proxy l
-  -> PWidget a b -> PWidget (Record r1) (Record r2)
+  -> Component a b -> Component (Record r1) (Record r2)
 propEq k = withUniqDyn >>> prop k
 
-prismEq ∷ forall a s . Eq s ⇒ (s → a) → (a → Maybe s) → PWidget s s → PWidget a a
+prismEq ∷ forall a s . Eq s ⇒ (s → a) → (a → Maybe s) → Component s s → Component a a
 prismEq p q = withUniqDyn >>> prism' p q
 
-withUniqDyn :: forall a s . Eq a => PWidget a s -> PWidget a s
-withUniqDyn (PWidget f) = PWidget \dyn -> do
+withUniqDyn :: forall a s . Eq a => Component a s -> Component a s
+withUniqDyn (Component f) = Component \dyn -> do
   udyn <- uniqDyn dyn
   f udyn
 
-static :: forall a b s. a -> PWidget a s -> PWidget b s
-static a (PWidget f) = PWidget \_ -> do
+static :: forall a b s. a -> Component a s -> Component b s
+static a (Component f) = Component \_ -> do
   f $ pure a
 
-inside :: forall a b. TagName -> (a -> Attrs) -> (Dynamic a -> Node -> Widget (Event b)) -> PWidget a b -> PWidget a b
-inside tagName attrs event wrapped = PWidget \dyn -> do
+inside :: forall a b. TagName -> (a -> Attrs) -> (Dynamic a -> Node -> Widget (Event b)) -> Component a b -> Component a b
+inside tagName attrs event wrapped = Component \dyn -> do
   Tuple node innerEvent <- elDynAttr' tagName (weaken dyn <#> attrs) $ unwrap wrapped dyn
   outerEvent <- event dyn node
   pure $ innerEvent <> outerEvent
 
 -- helpers on top of primitives, combinators and optics
 
-textInput :: (String -> Attrs) -> PWidget String String
+textInput :: (String -> Attrs) -> Component String String
 textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   liftEffect $ do
     initialValue <- readDynamic dyn
@@ -168,7 +168,7 @@ textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   subscribeEvent_ (setTextInputValue node) (changed dyn)
   domEventWithSample (\_ -> getTextInputValue node) "input" node) # withUniqDyn
 
-checkbox :: (Boolean -> Attrs) -> PWidget Boolean Boolean
+checkbox :: (Boolean -> Attrs) -> Component Boolean Boolean
 checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
   domEventWithSample (\_ -> getCheckboxChecked node) "change" node) # withUniqDyn
 
@@ -204,7 +204,7 @@ controller :: forall r801 a802 b803 p.
                    }
 controller = prop (Proxy :: Proxy "controller")
 
-withControl :: forall a b c. c -> PWidget (Control a c) (Control b c) -> PWidget a b
+withControl :: forall a b c. c -> Component (Control a c) (Control b c) -> Component a b
 withControl c w = wrap \dyna -> do
   cref <- newRef c
   let dynac = (\controlled controller -> { controlled, controller }) <$> dyna <*> value cref
@@ -216,36 +216,36 @@ withControl c w = wrap \dyna -> do
 whenControl :: forall p a b. Profunctor p => Strong p => Choice p => (b -> Boolean) -> p a a -> p (Control a b) (Control a b)
 whenControl pred p = dimap (\({ controlled, controller }) -> Tuple controlled controller) (\(Tuple controlled controller) -> { controlled, controller} ) $ dimap (\(Tuple a b) -> (if pred b then Right else Left) (Tuple a b)) (either identity identity) $ right $ first p
 
----
+--- BELOW ARE JUST SCATCHES
 
-mergeUnit :: forall a . PWidget Unit a
+mergeUnit :: forall a . Component Unit a
 mergeUnit = mempty
 
-merge :: forall a b c d . PWidget a b -> PWidget c d -> PWidget (Tuple a c) (Either b d)
-merge (PWidget w1) (PWidget w2) = PWidget \ac -> do
+merge :: forall a b c d . Component a b -> Component c d -> Component (Tuple a c) (Either b d)
+merge (Component w1) (Component w2) = Component \ac -> do
   b <- w1 (fst <$> ac)
   d <- w2 (snd <$> ac)
   pure ((Left <$> b) <> (Right <$> d))
 
-adaptInput :: forall a b c. (c -> a) -> PWidget a b -> PWidget c b
+adaptInput :: forall a b c. (c -> a) -> Component a b -> Component c b
 adaptInput f = lcmap f
 
-adaptOutput :: forall a b c. (b -> c) -> PWidget a b -> PWidget a c
+adaptOutput :: forall a b c. (b -> c) -> Component a b -> Component a c
 adaptOutput f = rmap f
 
-enrich :: forall a b . PWidget a b -> PWidget a (Tuple a b)
-enrich (PWidget w) = PWidget \dyna -> do
+enrich :: forall a b . Component a b -> Component a (Tuple a b)
+enrich (Component w) = Component \dyna -> do
   eventb <- w dyna
   pure (attachDynWith Tuple dyna eventb)
 
-foo :: forall a b c. (b -> Aff Unit) -> PWidget a b -> PWidget a c
-foo f (PWidget w) = PWidget \dyna -> do
+foo :: forall a b c. (b -> Aff Unit) -> Component a b -> Component a c
+foo f (Component w) = Component \dyna -> do
   eventb <- w dyna
   subscribeEvent_ (\e -> launchAff_ $ f e) eventb
   pure never
 
-bar :: forall a b c. (a -> Aff a) -> PWidget a a -> PWidget a a
-bar f (PWidget w) = PWidget \dyna -> do
+bar :: forall a b c. (a -> Aff a) -> Component a a -> Component a a
+bar f (Component w) = Component \dyna -> do
   eventb <- w dyna
   {event, fire} <- newEvent
   subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eventb
@@ -253,8 +253,8 @@ bar f (PWidget w) = PWidget \dyna -> do
 
 
 -- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
-widget :: forall a i o. Widget a -> PWidget i o
-widget w = PWidget $ const $ w *> pure never
+widget :: forall a i o. Widget a -> Component i o
+widget w = Component $ const $ w *> pure never
 
 data Ref'' e d = Ref'' (Event e -> Effect (Dynamic d))
 

@@ -1,4 +1,4 @@
-module DemoPWidget
+module DemoComponent
   ( main
   )
   where
@@ -14,8 +14,8 @@ import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
-import Specular.Dom.PWidget (PWidget, bar, controlled, controller, foo, inside, prismEq, propEq, renderPWidget, static, text, whenControl, withControl)
-import Specular.Dom.PWidgetMDC as MDC
+import Specular.Dom.Component (Component, bar, controlled, controller, foo, inside, prismEq, propEq, renderComponent, static, text, whenControl, withControl)
+import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
 
@@ -101,8 +101,8 @@ data ShowMode = Capitals | Verbatim
 main :: Effect Unit
 main = runMainWidgetInBody do
   -- Data model - not a view model
-  let order =
-        { id: "7"
+  let initialOrder =
+        { id: "178"
         , fulfillment: Delivery
           { to: Address
             { city: "London"
@@ -123,10 +123,10 @@ main = runMainWidgetInBody do
         , customer: "John Doe"
         }
   -- View
-  orderPWidget # renderPWidget order
+  order # renderComponent initialOrder
 
-orderPWidget :: PWidget Order Order
-orderPWidget =
+order :: Component Order Order
+order =
   (
     (MDC.filledText "Id" # id)
     <>
