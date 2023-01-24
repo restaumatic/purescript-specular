@@ -3,19 +3,17 @@ module Specular.Dom.PWidget where
 import Prelude
 
 import Data.Either (Either(..), either, isLeft, isRight)
-import Data.Functor.Contravariant ((>$<))
-import Data.Lens (first, prism')
+import Data.Lens (prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
-import Data.Profunctor.Costrong (class Costrong)
 import Data.Profunctor.Strong (class Strong, first)
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
-import Effect.Aff (Aff, launchAff, launchAff_)
+import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
 import Prim.Row as Row
 import Specular.Dom.Browser (Attrs, Node, TagName, (:=))
@@ -25,7 +23,7 @@ import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
 import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
-import Specular.Ref (Ref, newRef, value, write)
+import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
 
@@ -185,7 +183,25 @@ type Control a b =
   , controller :: b
   }
 
+controlled :: forall r811 a812 b813 p.
+  Strong p => p a812 b813
+              -> p
+                   { controlled :: a812
+                   | r811
+                   }
+                   { controlled :: b813
+                   | r811
+                   }
 controlled = prop (Proxy :: Proxy "controlled")
+controller :: forall r801 a802 b803 p.
+  Strong p => p a802 b803
+              -> p
+                   { controller :: a802
+                   | r801
+                   }
+                   { controller :: b803
+                   | r801
+                   }
 controller = prop (Proxy :: Proxy "controller")
 
 withControl :: forall a b c. c -> PWidget (Control a c) (Control b c) -> PWidget a b
@@ -283,15 +299,18 @@ instance Choice Ref' where
 data Option
   = OptionInt Int
   | OptionString String
-  | Option Boolean
+  | OptionBoolean Boolean
 
+optionInt :: forall p. Choice p => p Int Int -> p Option Option
 optionInt = prism' OptionInt (case _ of
   OptionInt o -> Just o
   _ -> Nothing)
+optionString :: forall p. Choice p => p String String -> p Option Option
 optionString = prism' OptionString (case _ of
   OptionString o -> Just o
   _ -> Nothing)
 
+foo'' :: Effect Unit
 foo'' = do
   ref <- newRef' 2
   let (Ref' dyn action) = ref # optionInt

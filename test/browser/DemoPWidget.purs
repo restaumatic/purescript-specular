@@ -14,7 +14,7 @@ import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
-import Specular.Dom.PWidget (bar, controlled, controller, foo, inside, prismEq, propEq, static, text, whenControl, withControl, renderPWidget)
+import Specular.Dom.PWidget (PWidget, bar, controlled, controller, foo, inside, prismEq, propEq, renderPWidget, static, text, whenControl, withControl)
 import Specular.Dom.PWidgetMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -123,6 +123,10 @@ main = runMainWidgetInBody do
         , customer: "John Doe"
         }
   -- View
+  orderPWidget # renderPWidget order
+
+orderPWidget :: PWidget Order Order
+orderPWidget =
   (
     (MDC.filledText "Id" # id)
     <>
@@ -189,5 +193,5 @@ main = runMainWidgetInBody do
     ( text # static "Submit" # MDC.button # foo (show >>> log >>> liftEffect))
     <>
     (text # lcmap show # inside "p" mempty mempty)
-  # inside "div" mempty mempty) # renderPWidget order
+  # inside "div" mempty mempty)
 
