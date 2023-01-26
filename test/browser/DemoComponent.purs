@@ -23,7 +23,7 @@ type Order =
   { id :: String
   , fulfillment :: Fulfillment
   , items :: Array Item
-  , payed :: Boolean
+  , paid :: Boolean
   , customer :: String
   }
 
@@ -94,7 +94,7 @@ to = propEq (Proxy :: Proxy "to")
 product = propEq (Proxy :: Proxy "product")
 qty = propEq (Proxy :: Proxy "qty")
 fulfillment = propEq (Proxy :: Proxy "fulfillment")
-payed = propEq (Proxy :: Proxy "payed")
+paid = propEq (Proxy :: Proxy "paid")
 customer = propEq (Proxy :: Proxy "customer")
 
 data ShowMode = Capitals | Verbatim
@@ -120,7 +120,7 @@ main = runMainWidgetInBody do
             , qty: 1
             , addition: Nothing}
           ]
-        , payed: true
+        , paid: true
         , customer: "John Doe"
         }
   -- View
@@ -175,7 +175,7 @@ order =
       # delivery)
     # inside "div" mempty mempty # fulfillment)
     <>
-    (MDC.checkbox # payed)
+    (MDC.checkbox # paid)
     <>
     ( 
       (text # static "Customer" # inside "span" mempty mempty)
@@ -192,22 +192,22 @@ order =
     # inside "div" mempty mempty # withControl true # customer)
     <>
     (text # static "Submit" # MDC.button >>>> (
-      (text # static "Really submit?")
+      (
+        (text # static "Really submit? Order is not paid.")
+        <>
+        (text # static "Yes" # MDC.button)
+      # only false)
       <>
-      (text # static "Yes" # MDC.button # delivery)
-      <>
-      (mempty # takeaway)
-      <>
-      (mempty # dineIn)
+      (identity # only true)
     ) >>>> (
       (text # static "Really, really submit?")
       <>
-      (text # static "Yes" # MDC.button # delivery)
+      (text # static "Yes" # MDC.button)
     ) >>>> (
       (text # static "Ok, submitted.")
       <>
       (text # static "Close" # MDC.button)
-    ) >>>> mempty # fulfillment)
+    ) >>>> mempty # paid)
     <>
     (text # lcmap show # inside "p" mempty mempty)
   # inside "div" mempty mempty)

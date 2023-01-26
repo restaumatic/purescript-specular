@@ -110,12 +110,12 @@ instance Semigroupoid Component where
 
 infixl 1 composeFlipped as >>>>
 
--- instance Category Component where
---   identity = wrap \dyn -> do
---     {event, fire } <- newEvent
---     e <- liftEffect $ readDynamic dyn
---     liftEffect $ fire e
---     pure event
+instance Category Component where
+  identity = wrap \dyn -> do
+    {event, fire } <- newEvent
+    e <- liftEffect $ readDynamic dyn
+    liftEffect $ fire e
+    pure event
 -- impossible (?)
 
 
