@@ -6,7 +6,7 @@ module DemoComponent
 import Prelude
 
 import Data.Generic.Rep (class Generic)
-import Data.Lens (only)
+import Data.Lens (only, prism')
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
@@ -14,7 +14,7 @@ import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
-import Specular.Dom.Component (Component, bar, controlled, controller, foo, inside, prismEq, propEq, renderComponent, static, text, whenControl, withControl)
+import Specular.Dom.Component (Component, bar, controlled, controller, foo, inside, prismEq, propEq, renderComponent, static, text, whenControl, withControl, (>>>>))
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -71,12 +71,13 @@ type Addition = String
 -- optics
 id = propEq (Proxy :: Proxy "id")
 items = propEq (Proxy :: Proxy "items")
-delivery = prismEq Delivery $ case _ of
+delivery = prism' Delivery $ case _ of
   Delivery d -> Just d
   _ -> Nothing
-takeaway = prismEq Takeaway $ case _ of
+takeaway = prism' Takeaway $ case _ of
   Takeaway t -> Just t
   _ -> Nothing
+dineIn = only DineIn
 coords = prismEq Coords $ case _ of
   Coords c -> Just c
   _ -> Nothing
@@ -190,8 +191,23 @@ order =
       (MDC.filledText "Customer" # whenControl identity)
     # inside "div" mempty mempty # withControl true # customer)
     <>
-    ( text # static "Submit" # MDC.button # foo (show >>> log >>> liftEffect))
+    (text # static "Submit" # MDC.button >>>> (
+      (text # static "Really submit?")
+      <>
+      (text # static "Yes" # MDC.button # delivery)
+      <>
+      (mempty # takeaway)
+      <>
+      (mempty # dineIn)
+    ) >>>> (
+      (text # static "Really, really submit?")
+      <>
+      (text # static "Yes" # MDC.button # delivery)
+    ) >>>> (
+      (text # static "Ok, submitted.")
+      <>
+      (text # static "Close" # MDC.button)
+    ) >>>> mempty # fulfillment)
     <>
     (text # lcmap show # inside "p" mempty mempty)
   # inside "div" mempty mempty)
-

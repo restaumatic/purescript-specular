@@ -2,8 +2,9 @@ module Specular.Dom.Component where
 
 import Prelude
 
-import Data.Either (Either(..), either, isLeft, isRight)
-import Data.Lens (prism')
+import Control.Semigroupoid (composeFlipped)
+import Data.Either (Either(..), either, hush, isLeft, isRight)
+import Data.Lens (_Just, prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap, wrap)
@@ -22,13 +23,15 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterMapEvent, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
+import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterEvent, filterJustEvent, filterMapEvent, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD, whenJustD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
 
 newtype Component :: Type -> Type -> Type
 newtype Component a b = Component (Dynamic a -> Widget (Event b))
+
+derive instance Newtype (Component a b) _
 
 instance Semigroup (Component a b) where
   append (Component f1) (Component f2) = Component \dyn -> do
@@ -38,8 +41,6 @@ instance Semigroup (Component a b) where
 
 instance Monoid (Component a b) where
   mempty = Component $ const $ pure never
-
-derive instance Newtype (Component a b) _
 
 instance Profunctor Component where
   dimap pre post (Component f) = Component \dyna -> do
@@ -89,6 +90,34 @@ instance Choice Component where
 --     -> Component a b -- Dynamic a -> Widget (Event b)
 --     -> Component s t -- Dynamic s -> Widget (Event t)
   -- wander = unsafeThrow "impossible?"
+
+instance Semigroupoid Component where
+  compose spawned spawner = wrap \dyna -> do
+    evb <- unwrap spawner dyna
+    (spawn spawned) evb
+      where
+        spawn :: forall a b. Component a b -> Event a -> Widget(Event b)
+        spawn c eva = do
+          { event, fire } <- newEvent
+          dynma <- holdDyn Nothing ((Just <$> eva) <> event)
+          let c' = c # _Just 
+          evmb <- unwrap c' dynma
+          let evb = filterJustEvent evmb
+          _ <- subscribeEvent_ (const (fire Nothing)) evb
+          pure evb
+
+
+
+infixl 1 composeFlipped as >>>>
+
+-- instance Category Component where
+--   identity = wrap \dyn -> do
+--     {event, fire } <- newEvent
+--     e <- liftEffect $ readDynamic dyn
+--     liftEffect $ fire e
+--     pure event
+-- impossible (?)
+
 
 -- entry points
 
