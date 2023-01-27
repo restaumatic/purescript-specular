@@ -3,7 +3,7 @@ module Specular.Dom.Component where
 import Prelude
 
 import Control.Semigroupoid (composeFlipped)
-import Data.Either (Either(..), either, hush, isLeft, isRight)
+import Data.Either (Either(..), either, isLeft, isRight)
 import Data.Lens (_Just, prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
@@ -23,7 +23,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterEvent, filterJustEvent, filterMapEvent, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD, whenJustD)
+import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
@@ -113,11 +113,9 @@ infixl 1 composeFlipped as >>>>
 instance Category Component where
   identity = wrap \dyn -> do
     {event, fire } <- newEvent
-    e <- liftEffect $ readDynamic dyn
-    liftEffect $ fire e
+    liftEffect $ launchAff_ (readDynamic dyn >>= liftEffect <<< fire)
     pure event
--- impossible (?)
-
+    -- this fails, TODO
 
 -- entry points
 
