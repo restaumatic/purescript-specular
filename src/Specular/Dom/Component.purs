@@ -94,9 +94,9 @@ instance Choice Component where
 instance Semigroupoid Component where
   compose spawned spawner = wrap \dyna -> do
     evb <- unwrap spawner dyna
-    (spawn spawned) evb
+    spawn spawned evb
       where
-        spawn :: forall a b. Component a b -> Event a -> Widget(Event b)
+        spawn :: forall a b. Component a b -> Event a -> Widget (Event b)
         spawn c eva = do
           { event, fire } <- newEvent
           dynma <- holdDyn Nothing ((Just <$> eva) <> event)
@@ -141,6 +141,8 @@ text = withUniqDyn $ wrap \textD -> do
 -- Component combinators
 
 -- <>
+
+-- >>>>
 
 
 -- Component optics (considered as functions from Component to Component)
