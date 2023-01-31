@@ -32,7 +32,6 @@
   , "typelevel-prelude"
   , "unsafe-coerce"
   , "unsafe-reference"
-  , "contravariant"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]

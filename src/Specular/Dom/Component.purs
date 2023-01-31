@@ -3,10 +3,9 @@ module Specular.Dom.Component where
 import Prelude
 
 import Control.Apply (lift2)
-import Control.Semigroupoid (composeFlipped)
-import Data.Either (Either(..), either, isLeft, isRight)
-import Data.Lens (_Just, left, prism', second)
-import Data.Lens.Prism.Coproduct (_Left)
+import Control.Monad.Replace (class MonadReplace)
+import Data.Either (Either(..), either)
+import Data.Lens (_Just, prism')
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (class Newtype, unwrap, wrap)
@@ -25,7 +24,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, foldDyn, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD, whenJustD)
+import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
@@ -93,7 +92,7 @@ instance Strong Action where
     let eva = fst <$> evab
     dynmb <- holdDyn Nothing ((Just <<< snd) <$> evab)
     evc <- unwrap action eva
-    let evmcb = attachDynWith (\mc mb ->  lift2 Tuple mb mc) dynmb (Just <$> evc)
+    let evmcb = attachDynWith (\mc mb -> lift2 Tuple mb mc) dynmb (Just <$> evc)
     pure $ filterJustEvent evmcb
   second action = wrap \evab -> do
     let evb = snd <$> evab
@@ -102,28 +101,29 @@ instance Strong Action where
     let evmac = attachDynWith (lift2 Tuple) dynma (Just <$> evc)
     pure $ filterJustEvent evmac
   
-
 instance Choice Action where
   left action = wrap \evab -> do
-    dynmab <- holdDyn Nothing (Just <$> evab)
-    let eva = filterMapEvent (either Just (const Nothing)) evab
     let evb = filterMapEvent (either (const Nothing) Just) evab
     {event: evc, fire: firec} <- newEvent
-    let dynma = dynmab <#> (map $ either Just (const Nothing))
-    whenJustD dynma $ \dyna -> do
+    whenJustE ((either Just (const Nothing) <$> evab)) $ \eva -> do
       evc' <- unwrap action eva
       subscribeEvent_ firec evc'
     pure $ (Left <$> evc) <> (Right <$> evb)
   right action = wrap \evab -> do
-    dynmab <- holdDyn Nothing (Just <$> evab)
     let eva = filterMapEvent (either Just (const Nothing)) evab
-    let evb = filterMapEvent (either (const Nothing) Just) evab
     {event: evc, fire: firec} <- newEvent
-    let dynmb = dynmab <#> (map $ either (const Nothing) Just)
-    whenJustD dynmb $ \dynb -> do
+    whenJustE ((either (const Nothing) Just <$> evab)) $ \evb -> do
       evc' <- unwrap action evb
       subscribeEvent_ firec evc'
     pure $ (Left <$> eva) <> (Right <$> evc)
+
+whenJustE :: forall m a. MonadReplace m => MonadFRP m => Event (Maybe a) -> (Event a -> m Unit) -> m Unit
+whenJustE evt widget = do
+  let eva = filterJustEvent evt
+  dyn <- holdDyn Nothing evt
+  whenD (isJust <$> dyn) do
+    widget eva
+
 
 instance Semigroupoid Action where
   compose action2 action1 = wrap $ unwrap action1 >=> unwrap action2

@@ -13,7 +13,6 @@ import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
-import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Specular.Dom.Component (Component, aff, controlled, controller, eff, eff_, inside, onChange, prismEq, propEq, react, react_, renderComponent, spawn, static, text, whenControl, withControl)
 import Specular.Dom.ComponentMDC as MDC
