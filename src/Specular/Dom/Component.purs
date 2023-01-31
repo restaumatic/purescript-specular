@@ -6,8 +6,9 @@ import Control.Apply (lift2)
 import Control.Semigroupoid (composeFlipped)
 import Data.Either (Either(..), either, isLeft, isRight)
 import Data.Lens (_Just, left, prism', second)
+import Data.Lens.Prism.Coproduct (_Left)
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
@@ -24,7 +25,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, foldDyn, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
+import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, foldDyn, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD, whenJustD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
@@ -57,32 +58,20 @@ instance Strong Component where
     pure $ attachDynWith (\a c -> Tuple a c) (fst <$> dynab) c
 
 instance Choice Component where
-  left (Component f) = Component $ \dynaorb -> do
-    shouldDisplay <- uniqDynBy eq (isLeft <$> dynaorb)
-    {event, fire} <- newEvent
-    whenD shouldDisplay do
-      aorb <- readDynamic dynaorb
-      case aorb of
-        Left b -> do
-          dyn' <- newDynamic b
-          c <- f dyn'.dynamic
-          subscribeEvent_ (fire <<< Left) c
-          subscribeEvent_ dyn'.set $ filterMapEvent (either Just (const Nothing)) $ changed dynaorb
-        _ -> pure unit
-    pure event
-  right (Component f) = Component $ \dynaorb -> do
-    shouldDisplay <- uniqDynBy eq (isRight <$> dynaorb)
-    {event, fire} <- newEvent
-    whenD shouldDisplay do
-      aorb <- readDynamic dynaorb
-      case aorb of
-        Right a -> do
-          dyn' <- newDynamic a
-          c <- f dyn'.dynamic
-          subscribeEvent_ (fire <<< Right) c
-          subscribeEvent_ dyn'.set $ filterMapEvent (either (const Nothing) Just) $ changed dynaorb
-        _ -> pure unit
-    pure event
+  left component = wrap \dynab -> do
+    {event: evc, fire: firec} <- newEvent
+    let dynma = dynab <#> (either Just (const Nothing))
+    whenJustD dynma $ \dyna -> do
+      evc' <- unwrap component dyna
+      subscribeEvent_ firec evc'
+    pure $ (Left <$> evc)
+  right component = wrap \dynab -> do
+    {event: evc, fire: firec} <- newEvent
+    let dynmb = dynab <#> (either (const Nothing) Just)
+    whenJustD dynmb $ \dynb -> do
+      evc' <- unwrap component dynb
+      subscribeEvent_ firec evc'
+    pure $ (Right <$> evc)
 
 -- instance Wander Component where
 --   wander
@@ -116,13 +105,25 @@ instance Strong Action where
 
 instance Choice Action where
   left action = wrap \evab -> do
+    dynmab <- holdDyn Nothing (Just <$> evab)
     let eva = filterMapEvent (either Just (const Nothing)) evab
-    evb <- unwrap action eva
-    pure $ Left <$> evb
+    let evb = filterMapEvent (either (const Nothing) Just) evab
+    {event: evc, fire: firec} <- newEvent
+    let dynma = dynmab <#> (map $ either Just (const Nothing))
+    whenJustD dynma $ \dyna -> do
+      evc' <- unwrap action eva
+      subscribeEvent_ firec evc'
+    pure $ (Left <$> evc) <> (Right <$> evb)
   right action = wrap \evab -> do
-    let eva = filterMapEvent (either (const Nothing) Just) evab
-    evb <- unwrap action eva
-    pure $ Right <$> evb
+    dynmab <- holdDyn Nothing (Just <$> evab)
+    let eva = filterMapEvent (either Just (const Nothing)) evab
+    let evb = filterMapEvent (either (const Nothing) Just) evab
+    {event: evc, fire: firec} <- newEvent
+    let dynmb = dynmab <#> (map $ either (const Nothing) Just)
+    whenJustD dynmb $ \dynb -> do
+      evc' <- unwrap action evb
+      subscribeEvent_ firec evc'
+    pure $ (Left <$> eva) <> (Right <$> evc)
 
 instance Semigroupoid Action where
   compose action2 action1 = wrap $ unwrap action1 >=> unwrap action2
