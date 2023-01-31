@@ -7,6 +7,7 @@ import Prelude
 
 import Data.Generic.Rep (class Generic)
 import Data.Lens (only, prism')
+import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
@@ -14,7 +15,7 @@ import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
-import Specular.Dom.Component (Component, bar, controlled, controller, foo, inside, prismEq, propEq, renderComponent, static, text, whenControl, withControl, (>>>>))
+import Specular.Dom.Component (Component, aff, controlled, controller, eff, eff_, inside, onChange, prismEq, propEq, react, react_, renderComponent, spawn, static, text, whenControl, withControl)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -95,6 +96,7 @@ product = propEq (Proxy :: Proxy "product")
 qty = propEq (Proxy :: Proxy "qty")
 fulfillment = propEq (Proxy :: Proxy "fulfillment")
 paid = propEq (Proxy :: Proxy "paid")
+paid' = prop (Proxy :: Proxy "paid")
 customer = propEq (Proxy :: Proxy "customer")
 
 data ShowMode = Capitals | Verbatim
@@ -131,7 +133,11 @@ order =
   (
     (MDC.filledText "Id" # id)
     <>
-    (text # static "Generate" # MDC.button # bar (const (delay (Milliseconds 3000.0) *> pure "13")) # id)
+    (text # static "Generate" # MDC.button #id # react_ (aff (const (delay (Milliseconds 3000.0) *> pure "13"))))
+    <>
+    (text # static "Generate" # MDC.button # onChange
+      (text)
+    #id )
     <>
     (
       (text # static "Dine-in" # only DineIn)
@@ -169,7 +175,7 @@ order =
             <>
             (MDC.filledText "Street number" # streetNumber # controlled)
             <>
-            (text # static "Clear" # MDC.button # bar (const $ pure $ { city: "", street: "", streetNumber: ""}) # controlled)
+            (text # static "Clear" # MDC.button # react (eff (const $ pure $ { city: "", street: "", streetNumber: ""})) # controlled)
           # withControl Capitals # address)
         # inside "div" mempty mempty # to)
       # delivery)
@@ -188,26 +194,45 @@ order =
         )
       # controller)
       <>
+      (text # static "Peek" # MDC.button # onChange 
+        (text)
+       # controlled)
+      <>
       (MDC.filledText "Customer" # whenControl identity)
+
     # inside "div" mempty mempty # withControl true # customer)
     <>
-    (text # static "Submit" # MDC.button >>>> (
+    (text # static "Submit" # MDC.button # react ((((spawn
       (
-        (text # static "Really submit? Order is not paid.")
+        (text # static "Order is not paid. Do you really want to submit?" # inside "p" mempty mempty)
         <>
+        -- (text # static "No" # MDC.button # rmap (const false))
+        (text # static "No" # MDC.button)
+        <>
+        -- (text # static "Yes" # MDC.button # rmap (const true # rmap (const true))
         (text # static "Yes" # MDC.button)
-      # only false)
-      <>
-      (identity # only true)
-    ) >>>> (
-      (text # static "Really, really submit?")
-      <>
-      (text # static "Yes" # MDC.button)
-    ) >>>> (
-      (text # static "Ok, submitted.")
-      <>
-      (text # static "Close" # MDC.button)
-    ) >>>> mempty # paid)
+      )
+    ) # only false # paid')
+    >>> eff_ (\b -> log (show b)))))
+    -- >>>
+    -- (spawn
+    --   (
+    --     (text # static "Really submit?")
+    --     <>
+    --     (text # static "No" # MDC.button # rmap (const false))
+    --     <>
+    --     (text # static "Yes" # MDC.button # rmap (const true))
+    --   )
+    -- # only true)
+    -- >>> (
+    --   (text # static "Really, really submit?")
+    --   <>
+    --   (text # static "Yes" # MDC.button)
+    -- ) >>> (
+    --   (text # static "Ok, submitted.")
+    --   <>
+    --   (text # static "Close" # MDC.button)
+    -- ) 
     <>
     (text # lcmap show # inside "p" mempty mempty)
   # inside "div" mempty mempty)

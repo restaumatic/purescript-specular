@@ -2,9 +2,10 @@ module Specular.Dom.Component where
 
 import Prelude
 
+import Control.Apply (lift2)
 import Control.Semigroupoid (composeFlipped)
 import Data.Either (Either(..), either, isLeft, isRight)
-import Data.Lens (_Just, prism')
+import Data.Lens (_Just, left, prism', second)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap, wrap)
@@ -23,7 +24,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
+import Specular.FRP (Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, foldDyn, holdDyn, leftmost, never, newDynamic, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, uniqDynBy, weaken, whenD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
@@ -37,14 +38,14 @@ instance Semigroup (Component a b) where
   append (Component f1) (Component f2) = Component \dyn -> do
     b1 <- f1 dyn
     b2 <- f2 dyn
-    pure $ leftmost [b1, b2]
+    pure $ b1 <> b2
 
 instance Monoid (Component a b) where
   mempty = Component $ const $ pure never
 
 instance Profunctor Component where
-  dimap pre post (Component f) = Component \dyna -> do
-    b <- f $ pre <$> dyna
+  dimap pre post c = wrap \dyna -> do
+    b <- unwrap c $ pre <$> dyna
     pure (post <$> b)
 
 instance Strong Component where
@@ -91,31 +92,86 @@ instance Choice Component where
 --     -> Component s t -- Dynamic s -> Widget (Event t)
   -- wander = unsafeThrow "impossible?"
 
-instance Semigroupoid Component where
-  compose spawned spawner = wrap \dyna -> do
-    evb <- unwrap spawner dyna
-    spawn spawned evb
-      where
-        spawn :: forall a b. Component a b -> Event a -> Widget (Event b)
-        spawn c eva = do
-          { event, fire } <- newEvent
-          dynma <- holdDyn Nothing ((Just <$> eva) <> event)
-          let c' = c # _Just 
-          evmb <- unwrap c' dynma
-          let evb = filterJustEvent evmb
-          _ <- subscribeEvent_ (const (fire Nothing)) evb
-          pure evb
+newtype Action a b = Action (Event a -> Widget (Event b))
+
+derive instance Newtype (Action a b) _
+
+instance Profunctor Action where
+  dimap pre post action = wrap \eva -> map post <$> unwrap action (pre <$> eva)
+
+instance Strong Action where
+  first action = wrap \evab -> do
+    let eva = fst <$> evab
+    dynmb <- holdDyn Nothing ((Just <<< snd) <$> evab)
+    evc <- unwrap action eva
+    let evmcb = attachDynWith (\mc mb ->  lift2 Tuple mb mc) dynmb (Just <$> evc)
+    pure $ filterJustEvent evmcb
+  second action = wrap \evab -> do
+    let evb = snd <$> evab
+    dynma <- holdDyn Nothing ((Just <<< fst) <$> evab)
+    evc <- unwrap action evb
+    let evmac = attachDynWith (lift2 Tuple) dynma (Just <$> evc)
+    pure $ filterJustEvent evmac
+  
+
+instance Choice Action where
+  left action = wrap \evab -> do
+    let eva = filterMapEvent (either Just (const Nothing)) evab
+    evb <- unwrap action eva
+    pure $ Left <$> evb
+  right action = wrap \evab -> do
+    let eva = filterMapEvent (either (const Nothing) Just) evab
+    evb <- unwrap action eva
+    pure $ Right <$> evb
+
+instance Semigroupoid Action where
+  compose action2 action1 = wrap $ unwrap action1 >=> unwrap action2
+
+instance Category Action where
+  identity = wrap pure
+
+instance Semigroup (Action a b) where
+  append action1 action2 = wrap \eva -> do
+    evb1 <- unwrap action1 eva
+    evb2 <- unwrap action2 eva
+    pure $ append evb1 evb2
+
+instance Monoid (Action a b) where
+  mempty = wrap (const $ pure never)
+
+onChange :: forall a b c. Component b c -> Component a b -> Component a c 
+onChange component2 component1 = wrap \dyna -> do
+  evb <- unwrap component1 dyna
+  dynb <- holdDyn Nothing (Just <$> evb)
+  evmc <- unwrap (component2 # _Just) dynb 
+  pure $ filterJustEvent evmc
+
+react :: forall a b c. Action b c -> Component a b -> Component a c
+react action component = wrap \dyna -> do
+  evb <- unwrap component dyna
+  unwrap action evb
+
+react_ :: forall a b c. Action b c -> Component a b -> Component a b
+react_ action component = wrap \dyna -> do
+  evb <- unwrap component dyna
+  _ <- unwrap action evb -- TODO: should we ingore outcome?
+  pure evb
+
+
+spawn :: forall a b. Component a b -> Action a b
+spawn component = wrap \eva -> do
+  { event, fire } <- newEvent
+  dynma <- holdDyn Nothing ((Just <$> eva) <> event)
+  let component' = component # _Just 
+  evmb <- unwrap component' dynma
+  let evb = filterJustEvent evmb
+  subscribeEvent_ (const (fire Nothing)) evb
+  pure evb
 
 
 
-infixl 1 composeFlipped as >>>>
+-- infixl 1 composeFlipped as >>>>
 
-instance Category Component where
-  identity = wrap \dyn -> do
-    {event, fire } <- newEvent
-    liftEffect $ launchAff_ (readDynamic dyn >>= liftEffect <<< fire)
-    pure event
-    -- this fails, TODO
 
 -- entry points
 
@@ -247,7 +303,7 @@ whenControl pred p = dimap (\({ controlled, controller }) -> Tuple controlled co
 
 --- BELOW ARE JUST SCATCHES
 
-mergeUnit :: forall a . Component Unit a
+mergeUnit :: Component Unit Void
 mergeUnit = mempty
 
 merge :: forall a b c d . Component a b -> Component c d -> Component (Tuple a c) (Either b d)
@@ -267,18 +323,29 @@ enrich (Component w) = Component \dyna -> do
   eventb <- w dyna
   pure (attachDynWith Tuple dyna eventb)
 
-foo :: forall a b c. (b -> Aff Unit) -> Component a b -> Component a c
-foo f (Component w) = Component \dyna -> do
-  eventb <- w dyna
-  subscribeEvent_ (\e -> launchAff_ $ f e) eventb
-  pure never
-
-bar :: forall a b c. (a -> Aff a) -> Component a a -> Component a a
-bar f (Component w) = Component \dyna -> do
-  eventb <- w dyna
+eff :: forall a b. (a -> Effect b) -> Action a b
+eff f = wrap  \eva -> do
   {event, fire} <- newEvent
-  subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eventb
-  pure $ eventb <> event
+  subscribeEvent_ (\e -> f e >>= \e' -> liftEffect $ fire e') eva
+  pure event
+
+eff_ :: forall a b. (a -> Effect b) -> Action a a
+eff_ f = wrap  \eva -> do
+  subscribeEvent_ (\e -> f e $> unit) eva
+  pure eva
+
+aff :: forall a b. (a -> Aff b) -> Action a b
+aff f = wrap  \eva -> do
+  {event, fire} <- newEvent
+  subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eva
+  pure event
+
+-- bar :: forall a b c. (a -> Aff a) -> Component a a -> Component a a
+-- bar f (Component w) = Component \dyna -> do
+--   eventb <- w dyna
+--   {event, fire} <- newEvent
+--   subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eventb
+--   pure $ eventb <> event
 
 
 -- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
@@ -346,3 +413,21 @@ foo'' = do
   action (OptionInt 3)
   action (OptionString "2")
   pure unit
+
+--
+
+-- composeOptics1 :: forall p. Profunctor p => (p a b -> p s t) -> (p a' b' -> p s' t') -> (p (Tuple a a') (Tuple b b') -> p (Tuple s s') (Tuple t t'))
+
+-- composeOptics2 :: forall p. Profunctor p => (p a b -> p s t) -> (p a' b' -> p s t) -> (p (Tuple a a') (Tuple b b') -> p s t)
+
+-- composeOptics3 :: forall p. Profunctor p => (p a a -> p s s) -> (p b b -> p s s) -> (p (Tuple a b) (Tuple a b) -> p s s)
+
+
+-- composeOptics :: forall p. Profunctor p, Semigroup p => (p a b -> p s t) -> (p a' b' -> p s' t') -> (p (Tuple a a') (Tuple b b') -> p (Tuple s s') (Tuple t t'))
+
+-- composeOptics :: forall p a b c d. Profunctor p => Semigroup (p a b) => p a b -> p c d -> p (Tuple a c) (Tuple b d)
+-- composeOptics p1 p2 = first p1 <> second p2
+
+
+-- composeOptics o o' p = let
+  -- first 
