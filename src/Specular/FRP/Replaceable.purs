@@ -34,7 +34,7 @@ weakDynamic dyn = do
 
 whenJustD :: forall m a. MonadReplace m => MonadFRP m => Dynamic (Maybe a) -> (Dynamic a -> m Unit) -> m Unit
 whenJustD dyn widget = do
-  whenD ((isJust <$> dyn)) do
+  whenD (isJust <$> dyn) do
     dynVal <- readDynamic dyn
     case dynVal of
       Just dynVal' -> do
