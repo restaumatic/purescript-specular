@@ -4,10 +4,11 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Replace (class MonadReplace)
+import Data.Array (cons, drop, take, updateAt, (!!))
 import Data.Either (Either(..), either)
-import Data.Lens (_Just, prism')
+import Data.Lens (_Just, left, prism', second)
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
@@ -475,3 +476,11 @@ foo'' = do
 
 -- composeOptics o o' p = let
   -- first 
+
+
+-- Arrays
+
+nth :: forall a p. Profunctor p => Strong p => Choice p => Int -> p a a -> p (Array a) (Array a)
+nth n p = dimap (\array -> maybe (Left array) (\element -> Right $ Tuple (Tuple (take n array) (drop (n+1) array)) element) (array !! n)) (case _ of
+  Left array -> array
+  Right (Tuple (Tuple preceding following) element) -> preceding <> element `cons` following) (right (second p)) 

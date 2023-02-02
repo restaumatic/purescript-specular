@@ -14,7 +14,7 @@ import Data.Show.Generic (genericShow)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Console (log)
-import Specular.Dom.Component (Component, aff, controlled, controller, eff, eff_, inside, onChange, prismEq, propEq, react, react_, renderComponent, spawn', static, text, whenControl, withControl)
+import Specular.Dom.Component (Component, aff, controlled, controller, eff, eff_, inside, nth, onChange, prismEq, propEq, react, react_, renderComponent, spawn', static, text, whenControl, withControl)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -201,6 +201,18 @@ order =
 
     # inside "div" mempty mempty # withControl true # customer)
     <>
+    ( 
+      (itemComponent # inside "li" mempty mempty # nth 0)
+      <>
+      (itemComponent # inside "li" mempty mempty # nth 1)
+      <>
+      (itemComponent # inside "li" mempty mempty # nth 2)
+      <>
+      (itemComponent # inside "li" mempty mempty # nth 3)
+      <>
+      (itemComponent # inside "li" mempty mempty # nth 4)
+    # inside "ol" mempty mempty # items)
+    <>
     (text # static "Submit" # MDC.button # spawn' 
       (
         (
@@ -215,3 +227,13 @@ order =
     <>
     (text # lcmap show # inside "p" mempty mempty)
   # inside "div" mempty mempty)
+
+
+itemComponent =
+  (
+    (MDC.filledText "Product" # inside "span" mempty mempty # product)
+    <>
+    (text # static " x " # inside "span" mempty mempty)
+    <>
+    (text # inside "span" mempty mempty # lcmap show # qty)
+  )
