@@ -17,6 +17,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
+import Effect.Console (log)
 import Prim.Row as Row
 import Specular.Dom.Browser (Attrs, Node, TagName, (:=))
 import Specular.Dom.Browser as DOM
@@ -49,12 +50,18 @@ instance Profunctor Component where
     pure (post <$> b)
 
 instance Strong Component where
-  first (Component f) = Component \dynab -> do
-    c <- f (fst <$> dynab)
+  first component = wrap \dynab -> do
+    c <- unwrap component (fst <$> dynab)
     pure $ attachDynWith (\b c -> Tuple c b) (snd <$> dynab) c
-  second (Component f) = Component \dynab -> do
-    c <- f (snd <$> dynab)
+  second component = wrap \dynab -> do
+    c <- unwrap component (snd <$> dynab)
     pure $ attachDynWith (\a c -> Tuple a c) (fst <$> dynab) c
+
+noStrongComponent :: forall a. Component a Unit
+noStrongComponent = wrap $ \dyn -> pure $ unit <$ changed dyn
+
+noStrongComponent' :: forall a b. b -> Component a b
+noStrongComponent' b = rmap (const b) noStrongComponent
 
 instance Choice Component where
   left component = wrap \dynab -> do
@@ -71,6 +78,12 @@ instance Choice Component where
       evc' <- unwrap component dynb
       subscribeEvent_ firec evc'
     pure $ (Right <$> evc)
+
+noChoiceComponent :: forall a. Component a Void
+noChoiceComponent = wrap $ const $ pure never
+
+noChoiceComponent' :: forall a b. Component a b
+noChoiceComponent' = rmap absurd noChoiceComponent
 
 -- instance Wander Component where
 --   wander
@@ -92,15 +105,21 @@ instance Strong Action where
     let eva = fst <$> evab
     dynmb <- holdDyn Nothing ((Just <<< snd) <$> evab)
     evc <- unwrap action eva
-    let evmcb = attachDynWith (\mc mb -> lift2 Tuple mb mc) dynmb (Just <$> evc)
+    let evmcb = attachDynWith (\mc mb -> lift2 Tuple mb mc) dynmb (Just <$> evc) -- TODO refactor
     pure $ filterJustEvent evmcb
   second action = wrap \evab -> do
     let evb = snd <$> evab
-    dynma <- holdDyn Nothing ((Just <<< fst) <$> evab)
+    dynma <- holdDyn Nothing ((Just <<< fst) <$> evab) -- TODO refactor
     evc <- unwrap action evb
     let evmac = attachDynWith (lift2 Tuple) dynma (Just <$> evc)
     pure $ filterJustEvent evmac
-  
+
+noStrongAction :: forall a. Action a Unit
+noStrongAction = wrap $ \ev -> pure $ unit <$ ev
+
+noStrongAction' :: forall a b. b -> Action a b
+noStrongAction' b = rmap (const b) noStrongAction
+
 instance Choice Action where
   left action = wrap \evab -> do
     let evb = filterMapEvent (either (const Nothing) Just) evab
@@ -116,6 +135,14 @@ instance Choice Action where
       evc' <- unwrap action evb
       subscribeEvent_ firec evc'
     pure $ (Left <$> eva) <> (Right <$> evc)
+
+-- Unit for Choice
+noChoiceAction :: forall a. Action a Void
+noChoiceAction = wrap $ const $ pure never
+
+noChoiceAction' :: forall a b. Action a b
+noChoiceAction' = rmap absurd noChoiceAction
+
 
 whenJustE :: forall m a. MonadReplace m => MonadFRP m => Event (Maybe a) -> (Event a -> m Unit) -> m Unit
 whenJustE evt widget = do
@@ -159,17 +186,25 @@ react_ action component = wrap \dyna -> do
   pure evb
 
 
-spawn :: forall a b. Component a b -> Action a b
+spawn :: forall a b. Show a => Component a b -> Action a b
 spawn component = wrap \eva -> do
   { event, fire } <- newEvent
-  dynma <- holdDyn Nothing ((Just <$> eva) <> event)
+  subscribeEvent_ (log <<< ("!!!" <> _) <<< show) eva
+  dynma <- holdDyn Nothing ((Just <$> eva))
+  -- dynma <- holdDyn Nothing ((Just <$> eva) <> event)
   let component' = component # _Just 
   evmb <- unwrap component' dynma
   let evb = filterJustEvent evmb
   subscribeEvent_ (const (fire Nothing)) evb
   pure evb
 
-
+spawn' :: forall a b c. Show a => Component b c -> Component a b -> Component a c
+spawn' component2 component1 = wrap \dyna -> do
+  evb <- unwrap component1 dyna
+  dynmb <- holdDyn Nothing (Just <$> evb)
+  let component2' = component2 # _Just 
+  evmc <- unwrap component2' dynmb
+  pure $ filterJustEvent evmc
 
 -- infixl 1 composeFlipped as >>>>
 
@@ -194,6 +229,14 @@ text ∷ forall a. Component String a
 text = withUniqDyn $ wrap \textD -> do
   S.dynText (weaken textD)
   pure never
+
+-- Action primitives
+
+textA ∷ forall a b. String -> Action a b
+textA txt = wrap $ \ev -> do
+  S.text txt
+  pure never
+
 
 -- Component combinators
 

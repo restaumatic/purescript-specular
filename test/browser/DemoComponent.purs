@@ -14,7 +14,7 @@ import Data.Show.Generic (genericShow)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Console (log)
-import Specular.Dom.Component (Component, aff, controlled, controller, eff, eff_, inside, onChange, prismEq, propEq, react, react_, renderComponent, spawn, static, text, whenControl, withControl)
+import Specular.Dom.Component (Component, aff, controlled, controller, eff, eff_, inside, onChange, prismEq, propEq, react, react_, renderComponent, spawn', static, text, whenControl, withControl)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -201,37 +201,17 @@ order =
 
     # inside "div" mempty mempty # withControl true # customer)
     <>
-    (text # static "Submit" # MDC.button # react ((((spawn
+    (text # static "Submit" # MDC.button # spawn' 
       (
-        (text # static "Order is not paid. Do you really want to submit?" # inside "p" mempty mempty)
-        <>
-        -- (text # static "No" # MDC.button # rmap (const false))
-        (text # static "No" # MDC.button)
-        <>
-        -- (text # static "Yes" # MDC.button # rmap (const true # rmap (const true))
-        (text # static "Yes" # MDC.button)
+        (
+          (
+            (text # static "Order is not paid. Submit anyway?")
+            <>
+            (text # static "Yes" # MDC.button) 
+          # only false # paid')
+        )
       )
-    ) # only false # paid')
-    >>> eff_ (\b -> log (show b)))))
-    -- >>>
-    -- (spawn
-    --   (
-    --     (text # static "Really submit?")
-    --     <>
-    --     (text # static "No" # MDC.button # rmap (const false))
-    --     <>
-    --     (text # static "Yes" # MDC.button # rmap (const true))
-    --   )
-    -- # only true)
-    -- >>> (
-    --   (text # static "Really, really submit?")
-    --   <>
-    --   (text # static "Yes" # MDC.button)
-    -- ) >>> (
-    --   (text # static "Ok, submitted.")
-    --   <>
-    --   (text # static "Close" # MDC.button)
-    -- ) 
+    # react_ (eff_ (\b -> log (show b))))
     <>
     (text # lcmap show # inside "p" mempty mempty)
   # inside "div" mempty mempty)
