@@ -201,7 +201,7 @@ order =
 
     # inside "div" mempty mempty # withControl true # customer)
     <>
-    ( 
+    (
       (itemComponent # inside "li" mempty mempty # nth 0)
       <>
       (itemComponent # inside "li" mempty mempty # nth 1)

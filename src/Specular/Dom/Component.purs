@@ -4,17 +4,19 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Replace (class MonadReplace)
-import Data.Array (cons, drop, take, updateAt, (!!))
+import Data.Array (cons, drop, fromFoldable, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
-import Data.Lens (_Just, left, prism', second)
+import Data.Foldable (class Foldable)
+import Data.Lens (_Just, prism', second)
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
+import Data.Maybe (Maybe(..), isJust, maybe)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
 import Data.Profunctor.Strong (class Strong, first)
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
+import Data.Unfoldable (class Unfoldable)
 import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
@@ -478,9 +480,9 @@ foo'' = do
   -- first 
 
 
--- Arrays
+-- Foldables
 
-nth :: forall a p. Profunctor p => Strong p => Choice p => Int -> p a a -> p (Array a) (Array a)
-nth n p = dimap (\array -> maybe (Left array) (\element -> Right $ Tuple (Tuple (take n array) (drop (n+1) array)) element) (array !! n)) (case _ of
+nth :: forall a f p. Foldable f => Unfoldable f => Profunctor p => Strong p => Choice p => Int -> p a a -> p (f a) (f a)
+nth n p = dimap (fromFoldable) toUnfoldable $ dimap (\array -> maybe (Left array) (\element -> Right $ Tuple (Tuple (take n array) (drop (n+1) array)) element) (array !! n)) (case _ of
   Left array -> array
   Right (Tuple (Tuple preceding following) element) -> preceding <> element `cons` following) (right (second p)) 
