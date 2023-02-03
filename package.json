@@ -9,7 +9,7 @@
     "browser-test": "spago bundle-app --main BrowserMain --to output/BrowserMain.js && karma start karma.conf.js",
     "test": "purs --version && spago --version && npm run node-test && npm run browser-test",
     "build-demo": "spago bundle-app --main DemoMain --to output/DemoMain.js",
-    "build-demo-component": "spago bundle-app --main DemoComponent --to output/DemoComponent.js",
+    "build-demo-component": "spago bundle-app --main DemoComponentMockup --to output/DemoComponent.js",
     "open-demo": "xdg-open ./test/demo.html",
     "build-bench": "spago bundle-app --main BenchMain --to output/BenchMain.js",
     "open-bench": "xdg-open ./bench/benchmark.html",

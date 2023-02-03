@@ -30,6 +30,7 @@
   , "tuples"
   , "type-equality"
   , "typelevel-prelude"
+  , "unfoldable"
   , "unsafe-coerce"
   , "unsafe-reference"
   ]

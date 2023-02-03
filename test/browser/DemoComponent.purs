@@ -71,10 +71,10 @@ type Addition = String
 -- optics
 id = propEq (Proxy :: Proxy "id")
 items = propEq (Proxy :: Proxy "items")
-delivery = prism' Delivery $ case _ of
+delivery = prismEq Delivery $ case _ of
   Delivery d -> Just d
   _ -> Nothing
-takeaway = prism' Takeaway $ case _ of
+takeaway = prismEq Takeaway $ case _ of
   Takeaway t -> Just t
   _ -> Nothing
 dineIn = only DineIn

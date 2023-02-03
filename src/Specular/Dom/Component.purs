@@ -28,7 +28,7 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD)
+import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeDyn_, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
@@ -228,14 +228,15 @@ renderComponent a w = do
 
 -- mempty
 
-text ∷ forall a. Component String a
+text :: forall a. Component String a
 text = withUniqDyn $ wrap \textD -> do
   S.dynText (weaken textD)
+  subscribeEvent_ (\text -> log $ "text updated: '" <> text <> "'") (changed textD)
   pure never
 
 -- Action primitives
 
-textA ∷ forall a b. String -> Action a b
+textA :: forall a b. String -> Action a b
 textA txt = wrap $ \ev -> do
   S.text txt
   pure never
@@ -486,3 +487,11 @@ nth :: forall a f p. Foldable f => Unfoldable f => Profunctor p => Strong p => C
 nth n p = dimap (fromFoldable) toUnfoldable $ dimap (\array -> maybe (Left array) (\element -> Right $ Tuple (Tuple (take n array) (drop (n+1) array)) element) (array !! n)) (case _ of
   Left array -> array
   Right (Tuple (Tuple preceding following) element) -> preceding <> element `cons` following) (right (second p)) 
+
+
+-- 
+
+swallow :: forall a b c. Component a b -> Component a c
+swallow component = wrap \dyna -> do
+  _ <- unwrap component dyna
+  pure never

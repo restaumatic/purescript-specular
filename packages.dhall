@@ -16,6 +16,7 @@ in  upstream
       , "spec"
       , "profunctor"
       , "profunctor-lenses"
+      , "unsafe-coerce"
       ]
     , repo = "https://github.com/restaumatic/purescript-spec-mocha.git"
     , version = "v4.0.0-restaumatic2"
