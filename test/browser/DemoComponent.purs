@@ -6,7 +6,7 @@ module DemoComponent
 import Prelude
 
 import Data.Generic.Rep (class Generic)
-import Data.Lens (only, prism')
+import Data.Lens (only)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap, lcmap, rmap)
