@@ -1,16 +1,17 @@
 module DynamicSpec where
 
 import Prelude hiding (append)
-import Test.Spec (Spec, describe, it)
 
 import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect.Console (log) as Console
-import Specular.FRP (foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, subscribeDyn_, readDynamic, Dynamic)
-import Specular.FRP.Base (latestJust, newDynamic, subscribeDyn)
 import Effect.Ref (new)
+import Specular.FRP (Dynamic, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
+import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn)
+import Specular.Ref as Ref
+import Test.Spec (Spec, describe, it, pending')
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 
 -- | import Debug (traceM)
@@ -305,6 +306,31 @@ spec = describe "Dynamic" $ do
 
       -- clean up
       liftEffect unsub3
+
+    pending' "weird glitch test" $ withLeakCheck do
+      -- Example minimized from a real-world bug.
+      log <- liftEffect $ new []
+      root <- Ref.new "1"
+      unsub1 <- liftEffect $ execCleanupT do
+        let dyn = ado
+              x <-
+                pure unit >>= \_ ->
+                ((identity <$> pure unit) *> Ref.value root) >>= \x ->
+                pure x
+              y <- Ref.value root
+              in [x,y]
+        subscribeEvent_ (append log) (changed dyn)
+
+      liftEffect $ Ref.write root "2"
+      liftEffect $ Ref.write root "3"
+
+      log `shouldHaveValue`
+        [ ["2", "2"]
+        , ["3", "3"]
+        ]
+
+      -- clean up
+      liftEffect unsub1
 
   describe "subscribeDyn_" $ do
     it "simple case - no changes" $ withLeakCheck $ do
