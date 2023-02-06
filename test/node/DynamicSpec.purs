@@ -312,21 +312,22 @@ spec = describe "Dynamic" $ do
       log <- liftEffect $ new []
       root <- Ref.new "1"
       unsub1 <- liftEffect $ execCleanupT do
-        let dyn = ado
-              x <-
-                pure unit >>= \_ ->
+        let
+          dyn = ado
+            x <-
+              pure unit >>= \_ ->
                 ((identity <$> pure unit) *> Ref.value root) >>= \x ->
-                pure x
-              y <- Ref.value root
-              in [x,y]
+                  pure x
+            y <- Ref.value root
+            in [ x, y ]
         subscribeEvent_ (append log) (changed dyn)
 
       liftEffect $ Ref.write root "2"
       liftEffect $ Ref.write root "3"
 
       log `shouldHaveValue`
-        [ ["2", "2"]
-        , ["3", "3"]
+        [ [ "2", "2" ]
+        , [ "3", "3" ]
         ]
 
       -- clean up
