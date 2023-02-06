@@ -189,7 +189,7 @@ recomputeNode = mkEffectFn1 \node -> do
   if adjustedHeight > height then do
     mark <- runEffectFn1 Profiling.begin ("bump height " <> Node.name node)
 
-    --    trace $ "stabilize: node " <> show name <> ": height bump " <> show height <> " -> " <> show adjustedHeight
+    trace $ "stabilize: node " <> show (Node.name node) <> ": height bump " <> show height <> " -> " <> show adjustedHeight
 
     dependents <- runEffectFn1 Node.get_dependents node
     runEffectFn2 MutableArray.iterate dependents $ mkEffectFn1 \dependent -> do
@@ -204,7 +204,7 @@ recomputeNode = mkEffectFn1 \node -> do
 
   else do
     mark <- runEffectFn1 Profiling.begin ("compute " <> Node.name node)
-    --    trace $ "stabilize: node " <> show name <> ": compute at height " <> show height
+    trace $ "stabilize: node " <> show (Node.name node) <> ": compute at height " <> show height
 
     source <- runEffectFn1 Node.get_source node
     -- oldValue_opt <- runEffectFn1 Node.get_value node
@@ -220,13 +220,11 @@ recomputeNode = mkEffectFn1 \node -> do
 
       dependents <- runEffectFn1 Node.get_dependents node
       runEffectFn2 MutableArray.iterate dependents $ mkEffectFn1 \dependent -> do
-        _added <- runEffectFn2 PQ.add globalRecomputeQueue dependent
-        --        if added then do
-        --          dependentName <- runEffectFn1 Node.name dependent
-        --          trace $ "stabilize: node " <> show dependentName <> " added to recompute queue"
-        --        else do
-        --          dependentName <- runEffectFn1 Node.name dependent
-        --          trace $ "stabilize: node " <> show dependentName <> " already in recompute queue"
+        added <- runEffectFn2 PQ.add globalRecomputeQueue dependent
+        if added then
+          trace $ "stabilize: node " <> show (Node.name dependent) <> " added to recompute queue"
+        else
+          trace $ "stabilize: node " <> show (Node.name dependent) <> " already in recompute queue"
         pure unit
 
       observers <- runEffectFn1 Node.get_observers node
@@ -235,7 +233,7 @@ recomputeNode = mkEffectFn1 \node -> do
         -- (like in Specular - a FIFO queue)
         runEffectFn1 observer newValue
     else do
-      --      trace $ "stabilize: node " <> show name <> " cut off"
+      trace $ "stabilize: node " <> show (Node.name node) <> " cut off"
       pure unit
 
     runEffectFn1 Profiling.end mark
@@ -420,7 +418,7 @@ effectCrash :: forall a. String -> Effect a
 effectCrash msg = unsafeCoerce ((\_ -> unsafeCrashWith msg) :: Unit -> a) :: Effect a
 
 isTracing :: Boolean
-isTracing = false
+isTracing = true
 
 trace :: String -> Effect Unit
 trace = if isTracing then Console.log else \_ -> pure unit

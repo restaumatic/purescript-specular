@@ -6,12 +6,12 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
-import Effect.Console (log) as Console
+import Effect.Class.Console as Console
 import Effect.Ref (new)
-import Specular.FRP (Dynamic, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
+import Specular.FRP (Dynamic, annotate, annotated, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn)
 import Specular.Ref as Ref
-import Test.Spec (Spec, describe, it, pending')
+import Test.Spec (Spec, describe, it, itOnly, pending')
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 
 -- | import Debug (traceM)
@@ -307,22 +307,26 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub3
 
-    pending' "weird glitch test" $ withLeakCheck do
+    itOnly "weird glitch test" $ withLeakCheck do
       -- Example minimized from a real-world bug.
       log <- liftEffect $ new []
       root <- Ref.new "1"
+      liftEffect $ annotate (Ref.value root) "root"
       unsub1 <- liftEffect $ execCleanupT do
         let
-          dyn = ado
-            x <-
-              pure unit >>= \_ ->
-                ((identity <$> pure unit) *> Ref.value root) >>= \x ->
+          dyn = annotated "dyn" ado
+            x <- annotated "x" $
+              annotated "pure1" (pure unit) >>= \_ ->
+                annotated "x bind2" $
+                annotated "root ap" (annotated "map_pure2" (identity <$> annotated "pure2" (pure unit)) *> Ref.value root) >>= \x ->
                   pure x
             y <- Ref.value root
             in [ x, y ]
         subscribeEvent_ (append log) (changed dyn)
 
+      Console.log "writing 2"
       liftEffect $ Ref.write root "2"
+      Console.log "writing 3"
       liftEffect $ Ref.write root "3"
 
       log `shouldHaveValue`
