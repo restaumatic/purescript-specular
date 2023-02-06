@@ -98,142 +98,143 @@ paid = propEq (Proxy :: Proxy "paid")
 paid' = prop (Proxy :: Proxy "paid")
 customer = propEq (Proxy :: Proxy "customer")
 
-data ShowMode = Capitals | Verbatim
+-- data ShowMode = Capitals | Verbatim
 
 main :: Effect Unit
-main = runMainWidgetInBody do
-  -- Data model - not a view model
-  let initialOrder =
-        { id: "178"
-        , fulfillment: Delivery
-          { to: Address
-            { city: "London"
-            , street: "Abbey Road"
-            , streetNumber: "13"
-            }
-          , at: "12:15"
-          }
-        , items:
-          [ { product: "Cappriciosa"
-            , qty: 2
-            , addition: Just "garlic sauce"}
-          , { product: "Siciliana"
-            , qty: 1
-            , addition: Nothing}
-          ]
-        , paid: true
-        , customer: "John Doe"
-        }
-  -- View
-  order # renderComponent initialOrder
+main = mempty
+-- main = runMainWidgetInBody do
+--   -- Data model - not a view model
+--   let initialOrder =
+--         { id: "178"
+--         , fulfillment: Delivery
+--           { to: Address
+--             { city: "London"
+--             , street: "Abbey Road"
+--             , streetNumber: "13"
+--             }
+--           , at: "12:15"
+--           }
+--         , items:
+--           [ { product: "Cappriciosa"
+--             , qty: 2
+--             , addition: Just "garlic sauce"}
+--           , { product: "Siciliana"
+--             , qty: 1
+--             , addition: Nothing}
+--           ]
+--         , paid: true
+--         , customer: "John Doe"
+--         }
+--   -- View
+--   order # renderComponent initialOrder
 
-order :: Component Order Order
-order =
-  (
-    (MDC.filledText "Id" # id)
-    <>
-    (text # static "Generate" # MDC.button #id # react_ (aff (const (delay (Milliseconds 3000.0) *> pure "13"))))
-    <>
-    (text # static "Generate" # MDC.button # onChange
-      (text)
-    #id )
-    <>
-    (
-      (text # static "Dine-in" # only DineIn)
-      <>
-      (
-        (text # static "Takeaway")
-        <>
-        (text # at)
-      # takeaway)
-      <>
-      (
-        (text # static "Delivery")
-        <>
-        (text # inside "div" mempty mempty # at)
-        <>
-        (
-          (
-            (text # static "Coordinates")
-            <>
-            (text # long)
-            <>
-            (text # lat)
-          # coords)
-          <>
-          (
-            (text # static "Address" # inside "span" mempty mempty)
-            <>
-            (MDC.checkbox # dimap (case _ of
-              Verbatim -> false
-              Capitals -> true) (if _ then Capitals else Verbatim) # controller)
-            <>
-            (MDC.filledText "City" # city # controlled)
-            <>
-            (MDC.filledText "Street" # street # controlled)
-            <>
-            (MDC.filledText "Street number" # streetNumber # controlled)
-            <>
-            (text # static "Clear" # MDC.button # react (eff (const $ pure $ { city: "", street: "", streetNumber: ""})) # controlled)
-          # withControl Capitals # address)
-        # inside "div" mempty mempty # to)
-      # delivery)
-    # inside "div" mempty mempty # fulfillment)
-    <>
-    (MDC.checkbox # paid)
-    <>
-    ( 
-      (text # static "Customer" # inside "span" mempty mempty)
-      <>
-      (
-        (
-          (text # static "Show" # MDC.button # rmap (const true))
-          <>
-          (text # static "Hide" # MDC.button # rmap (const false))
-        )
-      # controller)
-      <>
-      (text # static "Peek" # MDC.button # onChange 
-        (text)
-       # controlled)
-      <>
-      (MDC.filledText "Customer" # whenControl identity)
+-- order :: Component Order Order
+-- order =
+--   (
+--     (MDC.filledText "Id" # id)
+--     <>
+--     (text # static "Generate" # MDC.button #id # react_ (aff (const (delay (Milliseconds 3000.0) *> pure "13"))))
+--     <>
+--     (text # static "Generate" # MDC.button # onChange
+--       (text)
+--     #id )
+--     <>
+--     (
+--       (text # static "Dine-in" # only DineIn)
+--       <>
+--       (
+--         (text # static "Takeaway")
+--         <>
+--         (text # at)
+--       # takeaway)
+--       <>
+--       (
+--         (text # static "Delivery")
+--         <>
+--         (text # inside "div" mempty mempty # at)
+--         <>
+--         (
+--           (
+--             (text # static "Coordinates")
+--             <>
+--             (text # long)
+--             <>
+--             (text # lat)
+--           # coords)
+--           <>
+--           (
+--             (text # static "Address" # inside "span" mempty mempty)
+--             <>
+--             (MDC.checkbox # dimap (case _ of
+--               Verbatim -> false
+--               Capitals -> true) (if _ then Capitals else Verbatim) # controller)
+--             <>
+--             (MDC.filledText "City" # city # controlled)
+--             <>
+--             (MDC.filledText "Street" # street # controlled)
+--             <>
+--             (MDC.filledText "Street number" # streetNumber # controlled)
+--             <>
+--             (text # static "Clear" # MDC.button # react (eff (const $ pure $ { city: "", street: "", streetNumber: ""})) # controlled)
+--           # withControl Capitals # address)
+--         # inside "div" mempty mempty # to)
+--       # delivery)
+--     # inside "div" mempty mempty # fulfillment)
+--     <>
+--     (MDC.checkbox # paid)
+--     <>
+--     ( 
+--       (text # static "Customer" # inside "span" mempty mempty)
+--       <>
+--       (
+--         (
+--           (text # static "Show" # MDC.button # rmap (const true))
+--           <>
+--           (text # static "Hide" # MDC.button # rmap (const false))
+--         )
+--       # controller)
+--       <>
+--       (text # static "Peek" # MDC.button # onChange 
+--         (text)
+--        # controlled)
+--       <>
+--       (MDC.filledText "Customer" # whenControl identity)
 
-    # inside "div" mempty mempty # withControl true # customer)
-    <>
-    (
-      (itemComponent # inside "li" mempty mempty # nth 0)
-      <>
-      (itemComponent # inside "li" mempty mempty # nth 1)
-      <>
-      (itemComponent # inside "li" mempty mempty # nth 2)
-      <>
-      (itemComponent # inside "li" mempty mempty # nth 3)
-      <>
-      (itemComponent # inside "li" mempty mempty # nth 4)
-    # inside "ol" mempty mempty # items)
-    <>
-    (text # static "Submit" # MDC.button # spawn' 
-      (
-        (
-          (
-            (text # static "Order is not paid. Submit anyway?")
-            <>
-            (text # static "Yes" # MDC.button) 
-          # only false # paid')
-        )
-      )
-    # react_ (eff_ (\b -> log (show b))))
-    <>
-    (text # lcmap show # inside "p" mempty mempty)
-  # inside "div" mempty mempty)
+--     # inside "div" mempty mempty # withControl true # customer)
+--     <>
+--     (
+--       (itemComponent # inside "li" mempty mempty # nth 0)
+--       <>
+--       (itemComponent # inside "li" mempty mempty # nth 1)
+--       <>
+--       (itemComponent # inside "li" mempty mempty # nth 2)
+--       <>
+--       (itemComponent # inside "li" mempty mempty # nth 3)
+--       <>
+--       (itemComponent # inside "li" mempty mempty # nth 4)
+--     # inside "ol" mempty mempty # items)
+--     <>
+--     (text # static "Submit" # MDC.button # spawn' 
+--       (
+--         (
+--           (
+--             (text # static "Order is not paid. Submit anyway?")
+--             <>
+--             (text # static "Yes" # MDC.button) 
+--           # only false # paid')
+--         )
+--       )
+--     # react_ (eff_ (\b -> log (show b))))
+--     <>
+--     (text # lcmap show # inside "p" mempty mempty)
+--   # inside "div" mempty mempty)
 
 
-itemComponent =
-  (
-    (MDC.filledText "Product" # inside "span" mempty mempty # product)
-    <>
-    (text # static " x " # inside "span" mempty mempty)
-    <>
-    (text # inside "span" mempty mempty # lcmap show # qty)
-  )
+-- itemComponent =
+--   (
+--     (MDC.filledText "Product" # inside "span" mempty mempty # product)
+--     <>
+--     (text # static " x " # inside "span" mempty mempty)
+--     <>
+--     (text # inside "span" mempty mempty # lcmap show # qty)
+--   )

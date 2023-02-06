@@ -7,10 +7,10 @@ import Control.Monad.Replace (class MonadReplace)
 import Data.Array (cons, drop, fromFoldable, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
-import Data.Lens (_Just, prism', second)
+import Data.Lens (_Just, left, prism', second)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), isJust, maybe)
-import Data.Newtype (class Newtype, unwrap, wrap)
+import Data.Newtype (class Newtype, modify, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
 import Data.Profunctor.Strong (class Strong, first)
@@ -46,6 +46,9 @@ instance Semigroup (Component a b) where
 
 instance Monoid (Component a b) where
   mempty = Component $ const $ pure never
+
+replace :: forall a b. Component a b -> Component a b -> Component a b
+replace = const
 
 instance Profunctor Component where
   dimap pre post c = wrap \dyna -> do
@@ -228,8 +231,8 @@ renderComponent a w = do
 
 -- mempty
 
-text :: forall a. Component String a
-text = withUniqDyn $ wrap \textD -> do
+text :: forall f a. Applicative f => ComponentWrapper f String a
+text = withUniqDyn $ wrap $ pure $ wrap \textD -> do
   S.dynText (weaken textD)
   subscribeEvent_ (\text -> log $ "text updated: '" <> text <> "'") (changed textD)
   pure never
@@ -264,36 +267,36 @@ textA txt = wrap $ \ev -> do
 -- prism
 
 propEq
-  :: forall l r1 r2 r a b
+  :: forall f l r1 r2 r a b
    . IsSymbol l
   => Row.Cons l a r r1
   => Row.Cons l b r r2
   => Eq a
+  => Functor f
   => Proxy l
-  -> Component a b -> Component (Record r1) (Record r2)
+  -> ComponentWrapper f a b -> ComponentWrapper f (Record r1) (Record r2)
 propEq k = withUniqDyn >>> prop k
 
-prismEq ∷ forall a s . Eq s ⇒ (s → a) → (a → Maybe s) → Component s s → Component a a
+prismEq ∷ forall f a s . Functor f => Eq s ⇒ (s → a) → (a → Maybe s) → ComponentWrapper f s s → ComponentWrapper f a a
 prismEq p q = withUniqDyn >>> prism' p q
 
-withUniqDyn :: forall a s . Eq a => Component a s -> Component a s
-withUniqDyn (Component f) = Component \dyn -> do
+withUniqDyn :: forall f a s . Functor f => Eq a => ComponentWrapper f a s -> ComponentWrapper f a s
+withUniqDyn = modify $ map \component -> wrap \dyn -> do
   udyn <- uniqDyn dyn
-  f udyn
+  unwrap component udyn
 
-static :: forall a b s. a -> Component a s -> Component b s
-static a (Component f) = Component \_ -> do
-  f $ pure a
+static :: forall f a b s. Functor f => a -> ComponentWrapper f a s -> ComponentWrapper f b s
+static a = unwrap >>> map (\component -> Component \_ -> unwrap component (pure a)) >>> wrap
 
-inside :: forall a b. TagName -> (a -> Attrs) -> (Dynamic a -> Node -> Widget (Event b)) -> Component a b -> Component a b
-inside tagName attrs event wrapped = Component \dyn -> do
-  Tuple node innerEvent <- elDynAttr' tagName (weaken dyn <#> attrs) $ unwrap wrapped dyn
+inside :: forall f a b. Functor f => TagName -> (a -> Attrs) -> (Dynamic a -> Node -> Widget (Event b)) -> ComponentWrapper f a b -> ComponentWrapper f a b
+inside tagName attrs event = modify $ map \component -> wrap \dyn -> do
+  Tuple node innerEvent <- elDynAttr' tagName (weaken dyn <#> attrs) $ unwrap component dyn
   outerEvent <- event dyn node
   pure $ innerEvent <> outerEvent
 
 -- helpers on top of primitives, combinators and optics
 
-textInput :: (String -> Attrs) -> Component String String
+textInput :: forall f. Applicative f => (String -> Attrs) -> ComponentWrapper f String String
 textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   liftEffect $ do
     initialValue <- readDynamic dyn
@@ -301,7 +304,7 @@ textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   subscribeEvent_ (setTextInputValue node) (changed dyn)
   domEventWithSample (\_ -> getTextInputValue node) "input" node) # withUniqDyn
 
-checkbox :: (Boolean -> Attrs) -> Component Boolean Boolean
+checkbox :: forall f. Applicative f => (Boolean -> Attrs) -> ComponentWrapper f Boolean Boolean
 checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
   domEventWithSample (\_ -> getCheckboxChecked node) "change" node) # withUniqDyn
 
@@ -491,7 +494,38 @@ nth n p = dimap (fromFoldable) toUnfoldable $ dimap (\array -> maybe (Left array
 
 -- 
 
-swallow :: forall a b c. Component a b -> Component a c
-swallow component = wrap \dyna -> do
+swallow :: forall f a b c. Functor f => ComponentWrapper f a b -> ComponentWrapper f a c
+swallow = unwrap >>> map (\component -> wrap \dyna -> do
   _ <- unwrap component dyna
-  pure never
+  pure never) >>> wrap
+
+swallow' :: forall a. Component a Void
+swallow' = wrap $ mempty
+
+hide :: forall a b s t. Component a b -> Component s t
+hide = const mempty
+
+--
+
+newtype Cayley f p a b = Cayley (f (p a b))
+
+derive instance Newtype (Cayley f p a b) _
+
+instance (Functor f, Profunctor p) => Profunctor (Cayley f p) where
+  dimap f g = wrap <<< map (dimap f g) <<< unwrap
+
+instance (Apply f, Profunctor p, Semigroup (p a b)) => Semigroup (Cayley f p a b) where
+  append c1 c2 = wrap $ append <$> unwrap c1 <*> unwrap c2
+
+instance (Functor f, Strong p) => Strong (Cayley f p) where
+  first  = wrap <<< map first <<< unwrap
+  second = wrap <<< map second <<< unwrap
+
+instance (Functor f, Choice p) => Choice (Cayley f p) where
+  left   = wrap <<< map left <<< unwrap
+  right  = wrap <<< map right <<< unwrap
+
+instance (Applicative f, Profunctor p, Monoid (p a b)) => Monoid (Cayley f p a b) where
+  mempty = wrap $ pure mempty
+
+type ComponentWrapper f a b = Cayley f Component a b

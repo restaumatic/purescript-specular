@@ -6,6 +6,7 @@ module Specular.Dom.ComponentMDC
 
 import Prelude
 
+import Data.Newtype (modify, wrap)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Uncurried (EffectFn2, runEffectFn2)
@@ -14,14 +15,14 @@ import Specular.Dom.Component (inside, onClick, static, text, textInput, withUni
 import Specular.Dom.Component as Specular
 import Specular.FRP (never)
 
-button :: forall a. Specular.Component a a -> Specular.Component a a
-button wrapped =
+button :: forall f a. Applicative f => Specular.ComponentWrapper f a a -> Specular.ComponentWrapper f a a
+button wrapped = 
   inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\dyn node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick) $
     (inside "div" (const $ "class" := "mdc-button__ripple") mempty mempty)
     <>
     (inside "span" (const $ "class" := "mdc-button__label") mempty wrapped)
 
-filledText :: String -> Specular.Component String String
+filledText :: forall f. Applicative f => String -> Specular.ComponentWrapper f String String
 filledText hintText = withUniqDyn $
   inside "label" (const $ "class" := "mdc-text-field mdc-text-field--filled") (\_ node -> (liftEffect $ mdcWith material.textField."MDCTextField" node mempty) *> pure never) $
     (inside "span" (const $ "class" := "mdc-text-field__ripple") mempty mempty)
@@ -33,7 +34,7 @@ filledText hintText = withUniqDyn $
     (inside "span" (const $ "class" := "mdc-line-ripple") mempty mempty)
 
 
-checkbox :: Specular.Component Boolean Boolean
+checkbox :: forall f. Applicative f => Specular.ComponentWrapper f Boolean Boolean
 checkbox = withUniqDyn $
   inside "div" (const $ "class" := "mdc-touch-target-wrapper") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
     inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") mempty $
