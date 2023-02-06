@@ -7,6 +7,7 @@ import Control.Monad.Replace (class MonadReplace)
 import Data.Array (cons, drop, fromFoldable, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
+import Data.Identity (Identity(..))
 import Data.Lens (_Just, left, prism', second)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), isJust, maybe)
@@ -217,12 +218,13 @@ spawn' component2 component1 = wrap \dyna -> do
 
 -- entry points
 
-lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> Component a b -> Widget Unit
-lala dyn callback w = do
+lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> ComponentWrapper Identity a b -> Widget Unit
+lala dyn callback w' = do
+  let (Identity w) = unwrap w'
   b <- unwrap w dyn
   subscribeEvent_ callback b
 
-renderComponent :: forall a. a -> Component a a -> Widget Unit
+renderComponent :: forall a. a -> ComponentWrapper Identity a a -> Widget Unit
 renderComponent a w = do
   ref <-liftEffect $ newRef a
   lala (value ref) (write ref) w
@@ -340,14 +342,14 @@ controller :: forall r801 a802 b803 p.
                    }
 controller = prop (Proxy :: Proxy "controller")
 
-withControl :: forall a b c. c -> Component (Control a c) (Control b c) -> Component a b
-withControl c w = wrap \dyna -> do
+withControl :: forall f a b c. Functor f => c -> ComponentWrapper f (Control a c) (Control b c) -> ComponentWrapper f a b
+withControl c = unwrap >>> (map \component -> Component \dyna -> do
   cref <- newRef c
   let dynac = (\controlled controller -> { controlled, controller }) <$> dyna <*> value cref
-  evbc <- unwrap w dynac
+  evbc <- unwrap component dynac
   let evc = (\({ controller }) -> controller) <$> evbc
   subscribeEvent_ (write cref) evc
-  pure $ (\({ controlled }) -> controlled) <$> evbc
+  pure $ (\({ controlled }) -> controlled) <$> evbc) >>> wrap
 
 whenControl :: forall p a b. Profunctor p => Strong p => Choice p => (b -> Boolean) -> p a a -> p (Control a b) (Control a b)
 whenControl pred p = dimap (\({ controlled, controller }) -> Tuple controlled controller) (\(Tuple controlled controller) -> { controlled, controller} ) $ dimap (\(Tuple a b) -> (if pred b then Right else Left) (Tuple a b)) (either identity identity) $ right $ first p
