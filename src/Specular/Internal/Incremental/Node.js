@@ -1,5 +1,8 @@
+let nextNodeId = 1;
+
 export function _new(none, source, dependents, observers, value, height) {
   return {
+    id: ++nextNodeId,
     source: source,
     dependents: dependents,
     observers: observers,
@@ -14,6 +17,10 @@ export function _new(none, source, dependents, observers, value, height) {
     // Hence -2.
     changedAt: -2,
   };
+}
+
+export function id(node) {
+  return node.id;
 }
 
 // [[[cog
