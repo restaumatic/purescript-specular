@@ -4,17 +4,19 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Replace (class MonadReplace)
-import Data.Array (cons, drop, fromFoldable, take, toUnfoldable, (!!))
+import Data.Array (cons, drop, fromFoldable, head, tail, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
+import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
 import Data.Lens (_Just, left, prism', second)
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..), isJust, maybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (class Newtype, modify, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
 import Data.Profunctor.Strong (class Strong, first)
+import Data.Show.Generic (genericShow)
 import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Unfoldable (class Unfoldable)
@@ -22,6 +24,7 @@ import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
+import Effect.Exception.Unsafe (unsafeThrow)
 import Prim.Row as Row
 import Specular.Dom.Browser (Attrs, Node, TagName, (:=))
 import Specular.Dom.Browser as DOM
@@ -29,13 +32,29 @@ import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
 import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeDyn_, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD)
+import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeDyn_, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD, withDynamic_)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
 
+type Path = Array Hop
+
+data Hop = HopLeft | HopRight | HopFirst | HopSecond
+
+derive instance Generic Hop _
+derive instance Eq Hop
+
+instance Show Hop where
+  show = genericShow
+
+-- Dynamic for lenses
+type WithPath a =  
+  { path :: Path
+  , value :: a
+  }
+
 newtype Component :: Type -> Type -> Type
-newtype Component a b = Component (Dynamic a -> Widget (Event b))
+newtype Component a b = Component (Dynamic (WithPath a) -> Widget (Event (WithPath b)))
 
 derive instance Newtype (Component a b) _
 
@@ -52,39 +71,69 @@ replace :: forall a b. Component a b -> Component a b -> Component a b
 replace = const
 
 instance Profunctor Component where
-  dimap pre post c = wrap \dyna -> do
-    b <- unwrap c $ pre <$> dyna
-    pure (post <$> b)
+  dimap pre post c = wrap \dynap -> do
+    b <- unwrap c $ (\{ value} -> { path: [], value: pre value }) <$> dynap
+    pure $ (\{ value } -> { path: [], value: post value}) <$> b
 
 instance Strong Component where
-  first component = wrap \dynab -> do
-    c <- unwrap component (fst <$> dynab)
-    pure $ attachDynWith (\b c -> Tuple c b) (snd <$> dynab) c
-  second component = wrap \dynab -> do
-    c <- unwrap component (snd <$> dynab)
-    pure $ attachDynWith (\a c -> Tuple a c) (fst <$> dynab) c
+  first component = wrap \dynabp -> do
+    abp <- readDynamic dynabp
+    apref <- newRef ({ path: abp.path, value: fst $ abp.value})
+    bref <- newRef $ snd $ abp.value
+    flip subscribeDyn_ dynabp \abp -> do
+      case head abp.path of
+        Nothing -> do -- we don't know if it's the first or the second that changed so updating both
+          write apref $ { path: [], value: fst abp.value }
+          write bref $ snd abp.value
+        Just HopFirst -> -- we know that only first has changed so updating only first 
+          write apref $ { path: fromMaybe [] $ tail abp.path, value: fst abp.value }
+        Just HopSecond -> -- we know that only second has changed so not updating first 
+          write bref $ snd abp.value
+        (Just enexpectedHop) -> unsafeThrow $ "Component: unexpected hop " <> show enexpectedHop <> " in Strong"
+    let dynap = value apref
+    let dynb = value bref
+    c <- unwrap component dynap
+    pure $ attachDynWith (\b { path, value } -> { path: HopFirst `cons` path, value: Tuple value b}) dynb c
+  second component = wrap \dynabp -> do
+    abp <- readDynamic dynabp
+    bpref <- newRef ({ path: abp.path, value: snd $ abp.value})
+    aref <- newRef $ fst $ abp.value
+    flip subscribeDyn_ dynabp \abp -> do
+      case head abp.path of
+        Nothing -> do -- we don't know if it's the first or the second that changed so updating both
+          write bpref $ { path: [], value: snd abp.value }
+          write aref $ fst abp.value
+        Just HopSecond -> -- we know that only second has changed so updating only second 
+          write bpref $ { path: fromMaybe [] $ tail abp.path, value: snd abp.value }
+        Just HopFirst -> -- -- we know that only first has changed so updating only first  
+          write aref $ fst abp.value
+        (Just enexpectedHop) -> unsafeThrow $ "Component: unexpected hop " <> show enexpectedHop <> " in Strong"
+    let dynbp = value bpref
+    let dyna = value aref
+    c <- unwrap component dynbp
+    pure $ attachDynWith (\a { path, value } -> { path: HopSecond `cons` path, value: Tuple a value}) dyna c
 
-noStrongComponent :: forall a. Component a Unit
-noStrongComponent = wrap $ \dyn -> pure $ unit <$ changed dyn
+-- noStrongComponent :: forall a. Component a Unit
+-- noStrongComponent = wrap $ \dyn -> pure $ unit <$ changed dyn
 
-noStrongComponent' :: forall a b. b -> Component a b
-noStrongComponent' b = rmap (const b) noStrongComponent
+-- noStrongComponent' :: forall a b. b -> Component a b
+-- noStrongComponent' b = rmap (const b) noStrongComponent
 
 instance Choice Component where
-  left component = wrap \dynab -> do
+  left component = wrap \dynabp -> do
     {event: evc, fire: firec} <- newEvent
-    let dynma = dynab <#> (either Just (const Nothing))
-    whenJustD dynma $ \dyna -> do
-      evc' <- unwrap component dyna
+    let dynmap = dynabp <#> (\{ path, value } -> (\path value -> { path, value }) <$> pure path <*> either Just (const Nothing) value )
+    whenJustD dynmap $ \dynap -> do
+      evc' <- unwrap component dynap
       subscribeEvent_ firec evc'
-    pure $ (Left <$> evc)
-  right component = wrap \dynab -> do
+    pure $ ((\{ path, value } -> { path, value: Left value }) <$> evc)
+  right component = wrap \dynabp -> do
     {event: evc, fire: firec} <- newEvent
-    let dynmb = dynab <#> (either (const Nothing) Just)
-    whenJustD dynmb $ \dynb -> do
-      evc' <- unwrap component dynb
+    let dynmbp = dynabp <#> (\{ path, value } -> (\path value -> { path, value }) <$> pure path <*> either (const Nothing) Just value )
+    whenJustD dynmbp $ \dynbp -> do
+      evc' <- unwrap component dynbp
       subscribeEvent_ firec evc'
-    pure $ (Right <$> evc)
+    pure $ ((\{ path, value } -> { path, value: Right value }) <$> evc)
 
 noChoiceComponent :: forall a. Component a Void
 noChoiceComponent = wrap $ const $ pure never
@@ -174,44 +223,45 @@ instance Semigroup (Action a b) where
 instance Monoid (Action a b) where
   mempty = wrap (const $ pure never)
 
-onChange :: forall a b c. Component b c -> Component a b -> Component a c 
-onChange component2 component1 = wrap \dyna -> do
-  evb <- unwrap component1 dyna
-  dynb <- holdDyn Nothing (Just <$> evb)
-  evmc <- unwrap (component2 # _Just) dynb 
-  pure $ filterJustEvent evmc
+-- onChange :: forall a b c. Component b c -> Component a b -> Component a c 
+-- onChange component2 component1 = wrap \dynap -> let dyna = dynap <#> _.value in do
+--   evb <- unwrap component1 dynap
+--   dynb <- holdDyn Nothing (Just <$> evb)
+--   evmc <- unwrap (component2 # _Just) dynb 
+--   -- pure $ filterJustEvent evmc
+--   pure $ never
 
-react :: forall a b c. Action b c -> Component a b -> Component a c
-react action component = wrap \dyna -> do
-  evb <- unwrap component dyna
-  unwrap action evb
+-- react :: forall a b c. Action b c -> Component a b -> Component a c
+-- react action component = wrap \dyna -> do
+--   evb <- unwrap component dyna
+--   unwrap action evb
 
-react_ :: forall a b c. Action b c -> Component a b -> Component a b
-react_ action component = wrap \dyna -> do
-  evb <- unwrap component dyna
-  _ <- unwrap action evb -- TODO: should we ingore outcome?
-  pure evb
+-- react_ :: forall a b c. Action b c -> Component a b -> Component a b
+-- react_ action component = wrap \dyna -> do
+--   evb <- unwrap component dyna
+--   _ <- unwrap action evb -- TODO: should we ingore outcome?
+--   pure evb
 
 
-spawn :: forall a b. Show a => Component a b -> Action a b
-spawn component = wrap \eva -> do
-  { event, fire } <- newEvent
-  subscribeEvent_ (log <<< ("!!!" <> _) <<< show) eva
-  dynma <- holdDyn Nothing ((Just <$> eva))
-  -- dynma <- holdDyn Nothing ((Just <$> eva) <> event)
-  let component' = component # _Just 
-  evmb <- unwrap component' dynma
-  let evb = filterJustEvent evmb
-  subscribeEvent_ (const (fire Nothing)) evb
-  pure evb
+-- spawn :: forall a b. Show a => Component a b -> Action a b
+-- spawn component = wrap \eva -> do
+--   { event, fire } <- newEvent
+--   subscribeEvent_ (log <<< ("!!!" <> _) <<< show) eva
+--   dynma <- holdDyn Nothing ((Just <$> eva))
+--   -- dynma <- holdDyn Nothing ((Just <$> eva) <> event)
+--   let component' = component # _Just 
+--   evmb <- unwrap component' dynma
+--   let evb = filterJustEvent evmb
+--   subscribeEvent_ (const (fire Nothing)) evb
+--   pure evb
 
-spawn' :: forall a b c. Show a => Component b c -> Component a b -> Component a c
-spawn' component2 component1 = wrap \dyna -> do
-  evb <- unwrap component1 dyna
-  dynmb <- holdDyn Nothing (Just <$> evb)
-  let component2' = component2 # _Just 
-  evmc <- unwrap component2' dynmb
-  pure $ filterJustEvent evmc
+-- spawn' :: forall a b c. Show a => Component b c -> Component a b -> Component a c
+-- spawn' component2 component1 = wrap \dyna -> do
+--   evb <- unwrap component1 dyna
+--   dynmb <- holdDyn Nothing (Just <$> evb)
+--   let component2' = component2 # _Just 
+--   evmc <- unwrap component2' dynmb
+--   pure $ filterJustEvent evmc
 
 -- infixl 1 composeFlipped as >>>>
 
@@ -221,8 +271,8 @@ spawn' component2 component1 = wrap \dyna -> do
 lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> ComponentWrapper Identity a b -> Widget Unit
 lala dyn callback w' = do
   let (Identity w) = unwrap w'
-  b <- unwrap w dyn
-  subscribeEvent_ callback b
+  b <- unwrap w (dyn <#> \value -> { path: [], value })
+  subscribeEvent_ callback (b <#> _.value)
 
 renderComponent :: forall a. a -> ComponentWrapper Identity a a -> Widget Unit
 renderComponent a w = do
@@ -234,7 +284,7 @@ renderComponent a w = do
 -- mempty
 
 text :: forall f a. Applicative f => ComponentWrapper f String a
-text = withUniqDyn $ wrap $ pure $ wrap \textD -> do
+text = withUniqDyn $ wrap $ pure $ wrap \textpD -> let textD = textpD <#> _.value in do
   S.dynText (weaken textD)
   subscribeEvent_ (\text -> log $ "text updated: '" <> text <> "'") (changed textD)
   pure never
@@ -288,11 +338,11 @@ withUniqDyn = modify $ map \component -> wrap \dyn -> do
   unwrap component udyn
 
 static :: forall f a b s. Functor f => a -> ComponentWrapper f a s -> ComponentWrapper f b s
-static a = unwrap >>> map (\component -> Component \_ -> unwrap component (pure a)) >>> wrap
+static a = unwrap >>> map (\component -> Component \_ -> unwrap component (pure {path: [], value: a})) >>> wrap
 
-inside :: forall f a b. Functor f => TagName -> (a -> Attrs) -> (Dynamic a -> Node -> Widget (Event b)) -> ComponentWrapper f a b -> ComponentWrapper f a b
+inside :: forall f a b. Functor f => TagName -> (a -> Attrs) -> (Dynamic (WithPath a) -> Node -> Widget (Event (WithPath b))) -> ComponentWrapper f a b -> ComponentWrapper f a b
 inside tagName attrs event = modify $ map \component -> wrap \dyn -> do
-  Tuple node innerEvent <- elDynAttr' tagName (weaken dyn <#> attrs) $ unwrap component dyn
+  Tuple node innerEvent <- elDynAttr' tagName (weaken dyn <#> _.value >>> attrs) $ unwrap component dyn
   outerEvent <- event dyn node
   pure $ innerEvent <> outerEvent
 
@@ -302,13 +352,18 @@ textInput :: forall f. Applicative f => (String -> Attrs) -> ComponentWrapper f 
 textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   liftEffect $ do
     initialValue <- readDynamic dyn
-    setTextInputValue node initialValue
-  subscribeEvent_ (setTextInputValue node) (changed dyn)
-  domEventWithSample (\_ -> getTextInputValue node) "input" node) # withUniqDyn
+    setTextInputValue node (initialValue.value)
+  subscribeEvent_ (setTextInputValue node) (changed (dyn <#> _.value))
+  (domEventWithSample (\_ -> getTextInputValue node <#> \value -> {path: [], value}) "input" node))
 
 checkbox :: forall f. Applicative f => (Boolean -> Attrs) -> ComponentWrapper f Boolean Boolean
 checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
-  domEventWithSample (\_ -> getCheckboxChecked node) "change" node) # withUniqDyn
+  domEventWithSample (\_ -> getCheckboxChecked node <#> \value -> { path: [], value }) "change" node)
+
+-- radio :: forall a b f. Applicative f => (a -> Attrs) -> ComponentWrapper f a b
+-- radio attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
+--   domEventWithSample (\_ -> getCheckboxChecked node <#> \value -> { path: [], value }) "change" node)
+
 
 onClick ∷ forall a. Dynamic a → Node → Widget (Event a)
 onClick dyna node = do
@@ -342,28 +397,28 @@ controller :: forall r801 a802 b803 p.
                    }
 controller = prop (Proxy :: Proxy "controller")
 
-withControl :: forall f a b c. Functor f => c -> ComponentWrapper f (Control a c) (Control b c) -> ComponentWrapper f a b
-withControl c = unwrap >>> (map \component -> Component \dyna -> do
-  cref <- newRef c
-  let dynac = (\controlled controller -> { controlled, controller }) <$> dyna <*> value cref
-  evbc <- unwrap component dynac
-  let evc = (\({ controller }) -> controller) <$> evbc
-  subscribeEvent_ (write cref) evc
-  pure $ (\({ controlled }) -> controlled) <$> evbc) >>> wrap
+-- withControl :: forall f a b c. Functor f => c -> ComponentWrapper f (Control a c) (Control b c) -> ComponentWrapper f a b
+-- withControl c = unwrap >>> (map \component -> Component \dyna -> do
+--   cref <- newRef c
+--   let dynac = (\controlled controller -> { controlled, controller }) <$> dyna <*> value cref
+--   evbc <- unwrap component dynac
+--   let evc = (\({ controller }) -> controller) <$> evbc
+--   subscribeEvent_ (write cref) evc
+--   pure $ (\({ controlled }) -> controlled) <$> evbc) >>> wrap
 
 whenControl :: forall p a b. Profunctor p => Strong p => Choice p => (b -> Boolean) -> p a a -> p (Control a b) (Control a b)
 whenControl pred p = dimap (\({ controlled, controller }) -> Tuple controlled controller) (\(Tuple controlled controller) -> { controlled, controller} ) $ dimap (\(Tuple a b) -> (if pred b then Right else Left) (Tuple a b)) (either identity identity) $ right $ first p
 
 --- BELOW ARE JUST SCATCHES
 
-mergeUnit :: Component Unit Void
-mergeUnit = mempty
+-- mergeUnit :: Component Unit Void
+-- mergeUnit = mempty
 
-merge :: forall a b c d . Component a b -> Component c d -> Component (Tuple a c) (Either b d)
-merge (Component w1) (Component w2) = Component \ac -> do
-  b <- w1 (fst <$> ac)
-  d <- w2 (snd <$> ac)
-  pure ((Left <$> b) <> (Right <$> d))
+-- merge :: forall a b c d . Component a b -> Component c d -> Component (Tuple a c) (Either b d)
+-- merge (Component w1) (Component w2) = Component \ac -> do
+--   b <- w1 (fst <$> ac)
+--   d <- w2 (snd <$> ac)
+--   pure ((Left <$> b) <> (Right <$> d))
 
 adaptInput :: forall a b c. (c -> a) -> Component a b -> Component c b
 adaptInput f = lcmap f
@@ -371,10 +426,10 @@ adaptInput f = lcmap f
 adaptOutput :: forall a b c. (b -> c) -> Component a b -> Component a c
 adaptOutput f = rmap f
 
-enrich :: forall a b . Component a b -> Component a (Tuple a b)
-enrich (Component w) = Component \dyna -> do
-  eventb <- w dyna
-  pure (attachDynWith Tuple dyna eventb)
+-- enrich :: forall a b . Component a b -> Component a (Tuple a b)
+-- enrich (Component w) = Component \dyna -> do
+--   eventb <- w dyna
+--   pure (attachDynWith Tuple dyna eventb)
 
 eff :: forall a b. (a -> Effect b) -> Action a b
 eff f = wrap  \eva -> do
@@ -509,6 +564,7 @@ hide = const mempty
 
 --
 
+newtype Cayley :: forall k1 k2 k3. (k1 -> Type) -> (k2 -> k3 -> k1) -> k2 -> k3 -> Type
 newtype Cayley f p a b = Cayley (f (p a b))
 
 derive instance Newtype (Cayley f p a b) _

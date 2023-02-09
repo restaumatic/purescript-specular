@@ -6,15 +6,15 @@ module DemoComponent
 import Prelude
 
 import Data.Generic.Rep (class Generic)
-import Data.Lens (only)
+import Data.Lens (_Just, lens, only)
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.Profunctor (dimap, lcmap, rmap)
 import Data.Show.Generic (genericShow)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Console (log)
-import Specular.Dom.Component (Component, ComponentWrapper, aff, controlled, controller, eff, eff_, inside, nth, onChange, prismEq, propEq, react, react_, renderComponent, spawn', static, text, whenControl, withControl)
+import Specular.Dom.Component (Component, ComponentWrapper, aff, controlled, controller, eff, eff_, inside, nth, prismEq, propEq, renderComponent, static, text, whenControl)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -23,9 +23,11 @@ type Order =
   { id :: String
   , fulfillment :: Fulfillment
   , items :: Array Item
-  , paid :: Boolean
+  , paymentMethod :: Maybe PaymentMethod
   , customer :: String
   }
+
+type PaymentMethod = String
 
 data Fulfillment
   = DineIn
@@ -94,8 +96,11 @@ to = propEq (Proxy :: Proxy "to")
 product = propEq (Proxy :: Proxy "product")
 qty = propEq (Proxy :: Proxy "qty")
 fulfillment = propEq (Proxy :: Proxy "fulfillment")
-paid = propEq (Proxy :: Proxy "paid")
-paid' = prop (Proxy :: Proxy "paid")
+paymentMethod = propEq (Proxy :: Proxy "paymentMethod")
+paid = lens (\order -> isJust order.paymentMethod) (\order -> case _ of
+  true -> order { paymentMethod = Just "Cash"}
+  false -> order { paymentMethod = Nothing })
+paymentMethod' = prop (Proxy :: Proxy "paymentMethod")
 customer = propEq (Proxy :: Proxy "customer")
 
 data ShowMode = Capitals | Verbatim
@@ -121,7 +126,7 @@ main = runMainWidgetInBody do
             , qty: 1
             , addition: Nothing}
           ]
-        , paid: true
+        , paymentMethod: Just "Cash"
         , customer: "John Doe"
         }
   -- View
@@ -162,40 +167,27 @@ order =
           (
             (text # static "Address" # inside "span" mempty mempty)
             <>
-            (MDC.checkbox # dimap (case _ of
-              Verbatim -> false
-              Capitals -> true) (if _ then Capitals else Verbatim) # controller)
+            (MDC.filledText "City" # city)
             <>
-            (MDC.filledText "City" # city # controlled)
+            (MDC.filledText "Street" # street)
             <>
-            (MDC.filledText "Street" # street # controlled)
-            <>
-            (MDC.filledText "Street number" # streetNumber # controlled)
+            (MDC.filledText "Street number" # streetNumber)
             <>
             (text # static "Clear" # MDC.button)
-          # withControl Capitals # address)
+          # address)
         # inside "div" mempty mempty # to)
       # delivery)
     # inside "div" mempty mempty # fulfillment)
     <>
-    (MDC.checkbox # paid)
+    (MDC.checkbox # paid) <> (text # static "Paid" # inside "span" mempty mempty)
+    <>
+    (MDC.filledText "PaymentMethod" # _Just # paymentMethod)
     <>
     ( 
       (text # static "Customer" # inside "span" mempty mempty)
       <>
-      (
-        (
-          (text # static "Show" # MDC.button # rmap (const true))
-          <>
-          (text # static "Hide" # MDC.button # rmap (const false))
-        )
-      # controller)
-      <>
-      (text # static "Peek" # MDC.button # controlled)
-      <>
-      (MDC.filledText "Customer" # whenControl identity)
-
-    # inside "div" mempty mempty # withControl true # customer)
+      (text # static "Peek" # MDC.button)
+    # inside "div" mempty mempty # customer)
     <>
     (
       (itemComponent # inside "li" mempty mempty # nth 0)

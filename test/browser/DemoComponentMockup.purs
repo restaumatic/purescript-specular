@@ -5,21 +5,36 @@ module DemoComponentMockup
 
 import Prelude
 
+import BuilderSpec (newDynamic)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
-import Data.Array (head, (!!))
-import Data.Foldable (fold, for_)
+import Data.Array (head, length, (!!))
+import Data.Foldable (fold, for_, intercalate)
 import Data.Identity (Identity(..))
-import Data.Map (Map, empty, lookup, mapMaybeWithKey, singleton, size, toUnfoldable, values)
-import Data.Maybe (Maybe(..))
+import Data.Int (fromString)
+import Data.Map (Map, lookup, mapMaybeWithKey, singleton, size, toUnfoldable, values)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
+import Effect.Class (liftEffect)
+import Effect.Class.Console (log)
 import Effect.Exception.Unsafe (unsafeThrow)
 import Specular.Dom.Component (ComponentWrapper, inside, static, swallow, text)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (Widget, runMainWidgetInBody)
-import Unsafe.Coerce (unsafeCoerce)
+import Specular.FRP (readDynamic, subscribeDyn_, whenJustD, withDynamic_)
+import Specular.Ref (modify, newRef, read, value, write)
+
+-- foreign import locationHash :: Effect String
+
+foreign import onHash :: (String -> Effect Unit) -> Effect Unit
+
+foreign import setHash :: String -> Effect Unit
+
+foreign import setTitle :: String -> Effect Unit
+
+foreign import onKeyDown :: (String -> Effect Unit) -> Effect Unit
 
 
 type FieldName = String
@@ -30,7 +45,7 @@ newtype Scenario = Scenario (Map FieldName (Tuple ConstructorName Scenario))
 derive instance Newtype Scenario _
 
 instance Show Scenario where
-   show (Scenario s) = fold $ values $ mapMaybeWithKey (\fieldName (Tuple constructorName subScenarios) -> Just $ fieldName <> ": " <> constructorName <> (if size (unwrap subScenarios) > 0 then " (" <> show subScenarios <> ")" else "")) s
+   show (Scenario s) = intercalate " | " $ values $ mapMaybeWithKey (\fieldName (Tuple constructorName subScenarios) -> Just $ fieldName <> ": " <> constructorName <> (if size (unwrap subScenarios) > 0 then " (" <> show subScenarios <> ")" else "")) s
 
 newtype Scenarios = Scenarios (Map FieldName (Map ConstructorName Scenarios))
 
@@ -48,7 +63,7 @@ instance Monoid Scenarios where
   mempty = wrap mempty
 
 main :: Effect Unit
-main = runMainWidgetInBody $ mockComponent order
+main = mockComponent order
 
 newtype Mocking a = Mocking (Tuple Scenarios (ReaderT Scenario Identity a)) 
 
@@ -69,14 +84,35 @@ instance Apply Mocking where
 instance Applicative Mocking where
   pure a = Mocking (Tuple mempty (pure a))
  
-mockComponent :: (forall a. ComponentWrapper Mocking a a) -> Widget Unit
+mockComponent :: (forall a. ComponentWrapper Mocking a a) -> Effect Unit
 mockComponent componentWrapper = do
-  let (Tuple allScenarios runWithSelectedScenario) = unwrap $ unwrap componentWrapper
-  for_ (extractScenarios allScenarios !! 3) \firstScenario -> do
-    let (Identity component) = runReaderT runWithSelectedScenario firstScenario
-    unwrap component (pure unit) -- when attempted to read the error will occur 
+  let (Tuple allScenarios' runWithSelectedScenario) = unwrap $ unwrap componentWrapper
+  let allScenarios = extractScenarios allScenarios'
+  let noOfScenarios = length allScenarios 
+  log (show noOfScenarios <> " scenario(s): " <> show allScenarios)
+  runMainWidgetInBody $ do
+    mScenarioNoRef <- newRef Nothing
+    liftEffect $ onHash \hash -> do
+      let mScenarioNo = fromString hash >>= (\n -> if n < 0 || n >= noOfScenarios then Nothing else Just n) 
+      write mScenarioNoRef mScenarioNo
+    liftEffect $ onKeyDown \keyCode -> do
+      mn <- read mScenarioNoRef
+      case keyCode of
+        -- Left
+        "ArrowLeft" -> (setHash <<< show <<< maybe 0 (\n -> if n == 0 then n else n - 1)) mn
+        -- Right
+        "ArrowRight" -> (setHash <<< show <<< maybe 0 (\n -> if n == noOfScenarios - 1 then n else n + 1)) mn
+        -- Up
+        "ArrowUp" -> (setHash <<< show) (noOfScenarios - 1)
+        -- Down
+        "ArrowDown" -> (setHash <<< show) 0
+        _ -> pure unit
+    whenJustD (value mScenarioNoRef <#> (_ >>= \n -> allScenarios !! n)) $ flip withDynamic_ \scenario -> do
+      liftEffect $ setTitle $ show scenario
+      let (Identity component) = runReaderT runWithSelectedScenario scenario
+      void $ unwrap component (pure {path: [], value: unit}) -- when attempted to read the error will occur
+  pure unit
 
--- generic lens
 
 mockData :: forall a b s t. String -> a → ComponentWrapper Mocking a b → ComponentWrapper Mocking s t
 mockData dataName dataValue = static dataValue >>> swallow
@@ -95,6 +131,15 @@ altSection fieldName constructorName componentWrapper = let
     _ -> pure mempty  
     ))
   
+enabledWhen :: forall a. String -> String -> ComponentWrapper Mocking Boolean Boolean → ComponentWrapper Mocking a a
+enabledWhen fieldName constructorName componentWrapper = let 
+    (Tuple scenariosForTrue runWithSelectedScenarioForTrue) = unwrap $ unwrap (componentWrapper # static true # swallow)
+    (Tuple scenariosForFalse runWithSelectedScenarioForFalse) = unwrap $ unwrap (componentWrapper # static false # swallow)
+  in wrap $ wrap $ Tuple (Scenarios $ singleton fieldName (singleton "true" mempty <> singleton "false" mempty)) (ReaderT (\(Scenario scenario) -> case lookup fieldName scenario of
+    Nothing -> unsafeThrow "!!!"
+    Just (Tuple constructorName' scenario') -> runReaderT (if constructorName' == constructorName then runWithSelectedScenarioForTrue else runWithSelectedScenarioForFalse) scenario'
+    ))
+
 -- instance (Functor f, Profunctor p, Monoid p) => Monoid (Cayley f p) where
 --   dimap f g = wrap <<< map (dimap f g) <<< unwrap
 
@@ -143,7 +188,9 @@ order =
       # altSection "fulfillment" "delivery")
     # inside "div" mempty mempty)
     <>
-    (MDC.checkbox # mockData "paid" true)
+    (MDC.checkbox # enabledWhen "paid" "true")
+    <>
+    (MDC.filledText "Payment method" # mockData "payment method" "Cash" # altSection "paid" "true")
     <>
     ( 
       (text # static "Customer" # inside "span" mempty mempty)
