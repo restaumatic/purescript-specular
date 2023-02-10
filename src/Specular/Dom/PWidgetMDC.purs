@@ -2,11 +2,11 @@ module Specular.Dom.ComponentMDC
   ( button
   , filledText
   , checkbox
+  , radioButton
   ) where
 
 import Prelude
 
-import Data.Newtype (modify, wrap)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Uncurried (EffectFn2, runEffectFn2)
@@ -36,8 +36,8 @@ filledText hintText = withUniqDyn $
 
 checkbox :: forall f. Applicative f => Specular.ComponentWrapper f Boolean Boolean
 checkbox = withUniqDyn $
-  inside "div" (const $ "class" := "mdc-touch-target-wrapper") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
-    inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") mempty $
+  inside "div" (const $ "class" := "mdc-touch-target-wrapper") mempty $
+    inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
       (Specular.checkbox (const $ "class" := "mdc-checkbox__native-control"))
       <>
       (inside "div" (const $ "class":= "mdc-checkbox__background") mempty $
@@ -49,7 +49,24 @@ checkbox = withUniqDyn $
       <>
       (inside "div" (const $ "class" := "mdc-checkbox__ripple") mempty mempty)
 
-
+radioButton :: forall f. Applicative f => Specular.ComponentWrapper f Boolean Boolean
+radioButton = withUniqDyn $
+  inside "div" (const $ "class" := "mdc-form-field") mempty
+  (
+    (inside "div" (const $ "class" := "mdc-radio") (\_ node -> (liftEffect $ mdcWith material.radio."MDCRadio" node mempty) *> pure never) $
+      (Specular.radio (const $ "class" := "mdc-radio__native-control" <> "id" := "radio-1"))
+      <>
+      (inside "div" (const $ "class" := "mdc-radio__background") mempty $
+        inside "div" (const $ "class" := "mdc-radio__outer-circle") mempty mempty
+        <>
+        inside "div" (const $ "class" := "mdc-radio__inner-circle") mempty mempty
+      )
+      <>
+      (inside "div" (const $ "class" := "mdc-radio__ripple") mempty mempty)
+    )
+    -- <>
+    -- (inside "label" (const $ "for" := "radio-1") (\_ node -> (liftEffect $ mdcWith material.formField."MDCFormField" node mempty) *> pure never) $ text # static "Radio 1")
+  )
 ---
 
 foreign import data ComponentClass :: Type
@@ -67,6 +84,7 @@ foreign import material
      , select :: { "MDCSelect" :: ComponentClass }
      , list :: { "MDCList" :: ComponentClass }
      , checkbox :: { "MDCCheckbox" :: ComponentClass }
+     , formField :: { "MDCFormField" :: ComponentClass }
      }
 
 foreign import _new :: EffectFn2 ComponentClass Node Component

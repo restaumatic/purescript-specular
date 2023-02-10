@@ -5,16 +5,20 @@ module DemoComponent
 
 import Prelude
 
+import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
-import Data.Lens (_Just, lens, only)
+import Data.Lens (_Just, lens, only, prism)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), isJust)
+import Data.Newtype (overF)
 import Data.Profunctor (dimap, lcmap, rmap)
+import Data.Profunctor.Choice (class Choice)
+import Data.Profunctor.Strong (class Strong)
 import Data.Show.Generic (genericShow)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), delay)
 import Effect.Console (log)
-import Specular.Dom.Component (Component, ComponentWrapper, aff, controlled, controller, eff, eff_, inside, nth, prismEq, propEq, renderComponent, static, text, whenControl)
+import Specular.Dom.Component (Component, ComponentWrapper, aff, controlled, controller, eff, eff_, inside, nth, prismEq, propEq, radio, renderComponent, static, text, whenControl)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -23,11 +27,17 @@ type Order =
   { id :: String
   , fulfillment :: Fulfillment
   , items :: Array Item
-  , paymentMethod :: Maybe PaymentMethod
+  , paymentMethod :: PaymentMethod
   , customer :: String
   }
 
-type PaymentMethod = String
+data PaymentMethod = Cash | Card
+
+derive instance Generic PaymentMethod _
+derive instance Eq PaymentMethod
+instance Show PaymentMethod where
+  show = genericShow
+
 
 data Fulfillment
   = DineIn
@@ -98,10 +108,23 @@ qty = propEq (Proxy :: Proxy "qty")
 fulfillment = propEq (Proxy :: Proxy "fulfillment")
 paymentMethod = propEq (Proxy :: Proxy "paymentMethod")
 paid = lens (\order -> isJust order.paymentMethod) (\order -> case _ of
-  true -> order { paymentMethod = Just "Cash"}
+  true -> order { paymentMethod = Just Cash}
   false -> order { paymentMethod = Nothing })
 paymentMethod' = prop (Proxy :: Proxy "paymentMethod")
 customer = propEq (Proxy :: Proxy "customer")
+
+
+card = prism (\_ -> Card) (\order -> case order.fulfillment of
+  Delivery _ -> Left order.paymentMethod
+  _ -> Right $ case order.paymentMethod of
+    Card -> true
+    _ -> false) >>> lens identity (\order paymentMethod' -> order { paymentMethod = paymentMethod'})
+
+cash = prism (\_ -> Cash) (\order -> case order.fulfillment of
+  _ -> Right $ case order.paymentMethod of
+    Cash -> true
+    _ -> false) >>> lens identity (\order paymentMethod' -> order { paymentMethod = paymentMethod'})
+
 
 data ShowMode = Capitals | Verbatim
 
@@ -110,14 +133,15 @@ main = runMainWidgetInBody do
   -- Data model - not a view model
   let initialOrder =
         { id: "178"
-        , fulfillment: Delivery
-          { to: Address
-            { city: "London"
-            , street: "Abbey Road"
-            , streetNumber: "13"
-            }
-          , at: "12:15"
-          }
+        -- , fulfillment: Delivery
+        --   { to: Address
+        --     { city: "London"
+        --     , street: "Abbey Road"
+        --     , streetNumber: "13"
+        --     }
+        --   , at: "12:15"
+        --   }
+        , fulfillment: DineIn
         , items:
           [ { product: "Cappriciosa"
             , qty: 2
@@ -126,7 +150,7 @@ main = runMainWidgetInBody do
             , qty: 1
             , addition: Nothing}
           ]
-        , paymentMethod: Just "Cash"
+        , paymentMethod: Cash
         , customer: "John Doe"
         }
   -- View
@@ -179,9 +203,9 @@ order =
       # delivery)
     # inside "div" mempty mempty # fulfillment)
     <>
-    (MDC.checkbox # paid) <> (text # static "Paid" # inside "span" mempty mempty)
+    (MDC.radioButton # cash)
     <>
-    (MDC.filledText "PaymentMethod" # _Just # paymentMethod)
+    (MDC.radioButton # card)
     <>
     ( 
       (text # static "Customer" # inside "span" mempty mempty)

@@ -9,7 +9,7 @@ import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
-import Data.Lens (_Just, left, prism', second)
+import Data.Lens (left, prism', second)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (class Newtype, modify, unwrap, wrap)
@@ -31,8 +31,8 @@ import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
-import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setTextInputValue)
-import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeDyn_, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD, withDynamic_)
+import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setCheckboxChecked, setTextInputValue)
+import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeDyn_, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD)
 import Specular.Ref (newRef, value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
@@ -357,8 +357,16 @@ textInput attrs = mempty # (inside "input" attrs \dyn node -> do
   (domEventWithSample (\_ -> getTextInputValue node <#> \value -> {path: [], value}) "input" node))
 
 checkbox :: forall f. Applicative f => (Boolean -> Attrs) -> ComponentWrapper f Boolean Boolean
-checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
+checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \dyn node -> do
+  flip subscribeDyn_ dyn (\{value} -> setCheckboxChecked node value)
   domEventWithSample (\_ -> getCheckboxChecked node <#> \value -> { path: [], value }) "change" node)
+
+radio :: forall f. Applicative f => (Boolean -> Attrs) -> ComponentWrapper f Boolean Boolean
+radio attrs = mempty # (inside "input" (\enabled -> ("type" := "radio") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \dyn node -> do
+  flip subscribeDyn_ dyn (\{value} -> setCheckboxChecked node value)
+  ev <- domEventWithSample (\_ -> getCheckboxChecked node <#> \value -> if value then Just value else Nothing) "change" node
+  pure $ filterJustEvent ev <#> \value -> {path:[],value})
+
 
 -- radio :: forall a b f. Applicative f => (a -> Attrs) -> ComponentWrapper f a b
 -- radio attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \_ node -> do
