@@ -29,6 +29,7 @@ type Order =
   , items :: Array Item
   , paymentMethod :: PaymentMethod
   , customer :: String
+  , note :: Maybe String
   }
 
 data PaymentMethod = Cash | Card
@@ -107,9 +108,11 @@ product = propEq (Proxy :: Proxy "product")
 qty = propEq (Proxy :: Proxy "qty")
 fulfillment = propEq (Proxy :: Proxy "fulfillment")
 paymentMethod = propEq (Proxy :: Proxy "paymentMethod")
-paid = lens (\order -> isJust order.paymentMethod) (\order -> case _ of
-  true -> order { paymentMethod = Just Cash}
-  false -> order { paymentMethod = Nothing })
+hasNote = lens (\order -> isJust order.note) (\order -> case _ of
+  true -> order { note = Just ""}
+  false -> order { note = Nothing })
+
+note = prop (Proxy :: Proxy "note")
 paymentMethod' = prop (Proxy :: Proxy "paymentMethod")
 customer = propEq (Proxy :: Proxy "customer")
 
@@ -152,6 +155,7 @@ main = runMainWidgetInBody do
           ]
         , paymentMethod: Cash
         , customer: "John Doe"
+        , note: Just "Please, be on time"
         }
   -- View
   order # renderComponent initialOrder
@@ -206,6 +210,10 @@ order =
     (MDC.radioButton # cash)
     <>
     (MDC.radioButton # card)
+    <>
+    (MDC.checkbox # hasNote)
+    <>
+    (MDC.filledText "Note" # _Just # note)
     <>
     ( 
       (text # static "Customer" # inside "span" mempty mempty)
