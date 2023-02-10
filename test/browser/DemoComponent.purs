@@ -126,19 +126,19 @@ cash = affineTraversal (\order bool -> if bool then order { paymentMethod = Cash
   _ -> Right $ order.paymentMethod == Cash
  )
 
-isDelivery = affineTraversal (\ff bool -> if bool then Delivery { to: Address {city: "", street: "", streetNumber: ""}, at: "12:15"} else ff) (case _ of
-  Delivery _ -> Right true
-  _ -> Right false
+isDelivery = flip lens (\ff bool -> if bool then Delivery { to: Address {city: "", street: "", streetNumber: ""}, at: "12:15"} else ff) (case _ of
+  Delivery _ -> true
+  _ -> false
  )
 
-isDineIn = affineTraversal (\ff bool -> if bool then DineIn else ff) (case _ of
-  DineIn -> Right true
-  _ -> Right false
+isDineIn = flip lens (\ff bool -> if bool then DineIn else ff) (case _ of
+  DineIn -> true
+  _ -> false
  )
 
-isTakeaway = affineTraversal (\ff bool -> if bool then Takeaway { at: "12:15" } else ff) (case _ of
-  Takeaway _ -> Right true
-  _ -> Right false
+isTakeaway = flip lens (\ff bool -> if bool then Takeaway { at: "12:15" } else ff) (case _ of
+  Takeaway _ -> true
+  _ -> false
  )
 
 data ShowMode = Capitals | Verbatim
