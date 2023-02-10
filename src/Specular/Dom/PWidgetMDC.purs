@@ -17,7 +17,7 @@ import Specular.FRP (never)
 
 button :: forall f a. Applicative f => Specular.ComponentWrapper f a a -> Specular.ComponentWrapper f a a
 button wrapped = 
-  inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\dyn node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick) $
+  inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\_ node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick) $
     (inside "div" (const $ "class" := "mdc-button__ripple") mempty mempty)
     <>
     (inside "span" (const $ "class" := "mdc-button__label") mempty wrapped)
