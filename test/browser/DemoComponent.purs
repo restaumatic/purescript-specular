@@ -8,6 +8,7 @@ import Prelude
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Lens (_Just, lens, only, prism)
+import Data.Lens.AffineTraversal (affineTraversal)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (overF)
@@ -116,18 +117,29 @@ note = prop (Proxy :: Proxy "note")
 paymentMethod' = prop (Proxy :: Proxy "paymentMethod")
 customer = propEq (Proxy :: Proxy "customer")
 
+card = affineTraversal (\order bool -> if bool then order { paymentMethod = Card } else order) (\order -> case order.fulfillment of
+  Delivery _ -> Left $ order
+  _ -> Right $ order.paymentMethod == Card
+ )
 
-card = prism (\_ -> Card) (\order -> case order.fulfillment of
-  Delivery _ -> Left order.paymentMethod
-  _ -> Right $ case order.paymentMethod of
-    Card -> true
-    _ -> false) >>> lens identity (\order paymentMethod' -> order { paymentMethod = paymentMethod'})
+cash = affineTraversal (\order bool -> if bool then order { paymentMethod = Cash } else order) (\order -> case order.fulfillment of
+  _ -> Right $ order.paymentMethod == Cash
+ )
 
-cash = prism (\_ -> Cash) (\order -> case order.fulfillment of
-  _ -> Right $ case order.paymentMethod of
-    Cash -> true
-    _ -> false) >>> lens identity (\order paymentMethod' -> order { paymentMethod = paymentMethod'})
+isDelivery = affineTraversal (\ff bool -> if bool then Delivery { to: Address {city: "", street: "", streetNumber: ""}, at: "12:15"} else ff) (case _ of
+  Delivery _ -> Right true
+  _ -> Right false
+ )
 
+isDineIn = affineTraversal (\ff bool -> if bool then DineIn else ff) (case _ of
+  DineIn -> Right true
+  _ -> Right false
+ )
+
+isTakeaway = affineTraversal (\ff bool -> if bool then Takeaway { at: "12:15" } else ff) (case _ of
+  Takeaway _ -> Right true
+  _ -> Right false
+ )
 
 data ShowMode = Capitals | Verbatim
 
@@ -155,7 +167,7 @@ main = runMainWidgetInBody do
           ]
         , paymentMethod: Cash
         , customer: "John Doe"
-        , note: Just "Please, be on time"
+        , note: Nothing
         }
   -- View
   order # renderComponent initialOrder
@@ -170,6 +182,12 @@ order =
     (text # static "Generate" # MDC.button # id)
     <>
     (
+      (MDC.radioButton # isDineIn)
+      <>
+      (MDC.radioButton # isTakeaway)
+      <>
+      (MDC.radioButton # isDelivery)
+      <>
       (text # static "Dine-in" # only DineIn)
       <>
       (
