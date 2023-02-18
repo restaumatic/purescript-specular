@@ -9,7 +9,7 @@ import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
-import Data.Lens (left, prism', second)
+import Data.Lens (Lens, Optic, left, lens, prism', second)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (class Newtype, modify, unwrap, wrap)
@@ -72,7 +72,7 @@ replace = const
 
 instance Profunctor Component where
   dimap pre post c = wrap \dynap -> do
-    b <- unwrap c $ (\{ value} -> { path: [], value: pre value }) <$> dynap
+    b <- unwrap c $ (\{ value } -> { path: [], value: pre value }) <$> dynap
     pure $ (\{ value } -> { path: [], value: post value}) <$> b
 
 instance Strong Component where
@@ -149,123 +149,6 @@ noChoiceComponent' = rmap absurd noChoiceComponent
 --     -> Component s t -- Dynamic s -> Widget (Event t)
   -- wander = unsafeThrow "impossible?"
 
-newtype Action a b = Action (Event a -> Widget (Event b))
-
-derive instance Newtype (Action a b) _
-
-instance Profunctor Action where
-  dimap pre post action = wrap \eva -> map post <$> unwrap action (pre <$> eva)
-
-instance Strong Action where
-  first action = wrap \evab -> do
-    let eva = fst <$> evab
-    dynmb <- holdDyn Nothing ((Just <<< snd) <$> evab)
-    evc <- unwrap action eva
-    let evmcb = attachDynWith (\mc mb -> lift2 Tuple mb mc) dynmb (Just <$> evc) -- TODO refactor
-    pure $ filterJustEvent evmcb
-  second action = wrap \evab -> do
-    let evb = snd <$> evab
-    dynma <- holdDyn Nothing ((Just <<< fst) <$> evab) -- TODO refactor
-    evc <- unwrap action evb
-    let evmac = attachDynWith (lift2 Tuple) dynma (Just <$> evc)
-    pure $ filterJustEvent evmac
-
-noStrongAction :: forall a. Action a Unit
-noStrongAction = wrap $ \ev -> pure $ unit <$ ev
-
-noStrongAction' :: forall a b. b -> Action a b
-noStrongAction' b = rmap (const b) noStrongAction
-
-instance Choice Action where
-  left action = wrap \evab -> do
-    let evb = filterMapEvent (either (const Nothing) Just) evab
-    {event: evc, fire: firec} <- newEvent
-    whenJustE ((either Just (const Nothing) <$> evab)) $ \eva -> do
-      evc' <- unwrap action eva
-      subscribeEvent_ firec evc'
-    pure $ (Left <$> evc) <> (Right <$> evb)
-  right action = wrap \evab -> do
-    let eva = filterMapEvent (either Just (const Nothing)) evab
-    {event: evc, fire: firec} <- newEvent
-    whenJustE ((either (const Nothing) Just <$> evab)) $ \evb -> do
-      evc' <- unwrap action evb
-      subscribeEvent_ firec evc'
-    pure $ (Left <$> eva) <> (Right <$> evc)
-
--- Unit for Choice
-noChoiceAction :: forall a. Action a Void
-noChoiceAction = wrap $ const $ pure never
-
-noChoiceAction' :: forall a b. Action a b
-noChoiceAction' = rmap absurd noChoiceAction
-
-
-whenJustE :: forall m a. MonadReplace m => MonadFRP m => Event (Maybe a) -> (Event a -> m Unit) -> m Unit
-whenJustE evt widget = do
-  let eva = filterJustEvent evt
-  dyn <- holdDyn Nothing evt
-  whenD (isJust <$> dyn) do
-    widget eva
-
-
-instance Semigroupoid Action where
-  compose action2 action1 = wrap $ unwrap action1 >=> unwrap action2
-
-instance Category Action where
-  identity = wrap pure
-
-instance Semigroup (Action a b) where
-  append action1 action2 = wrap \eva -> do
-    evb1 <- unwrap action1 eva
-    evb2 <- unwrap action2 eva
-    pure $ append evb1 evb2
-
-instance Monoid (Action a b) where
-  mempty = wrap (const $ pure never)
-
--- onChange :: forall a b c. Component b c -> Component a b -> Component a c 
--- onChange component2 component1 = wrap \dynap -> let dyna = dynap <#> _.value in do
---   evb <- unwrap component1 dynap
---   dynb <- holdDyn Nothing (Just <$> evb)
---   evmc <- unwrap (component2 # _Just) dynb 
---   -- pure $ filterJustEvent evmc
---   pure $ never
-
--- react :: forall a b c. Action b c -> Component a b -> Component a c
--- react action component = wrap \dyna -> do
---   evb <- unwrap component dyna
---   unwrap action evb
-
--- react_ :: forall a b c. Action b c -> Component a b -> Component a b
--- react_ action component = wrap \dyna -> do
---   evb <- unwrap component dyna
---   _ <- unwrap action evb -- TODO: should we ingore outcome?
---   pure evb
-
-
--- spawn :: forall a b. Show a => Component a b -> Action a b
--- spawn component = wrap \eva -> do
---   { event, fire } <- newEvent
---   subscribeEvent_ (log <<< ("!!!" <> _) <<< show) eva
---   dynma <- holdDyn Nothing ((Just <$> eva))
---   -- dynma <- holdDyn Nothing ((Just <$> eva) <> event)
---   let component' = component # _Just 
---   evmb <- unwrap component' dynma
---   let evb = filterJustEvent evmb
---   subscribeEvent_ (const (fire Nothing)) evb
---   pure evb
-
--- spawn' :: forall a b c. Show a => Component b c -> Component a b -> Component a c
--- spawn' component2 component1 = wrap \dyna -> do
---   evb <- unwrap component1 dyna
---   dynmb <- holdDyn Nothing (Just <$> evb)
---   let component2' = component2 # _Just 
---   evmc <- unwrap component2' dynmb
---   pure $ filterJustEvent evmc
-
--- infixl 1 composeFlipped as >>>>
-
-
 -- entry points
 
 lala :: forall a b. Dynamic a -> (b -> Effect Unit) -> ComponentWrapper Identity a b -> Widget Unit
@@ -288,14 +171,6 @@ text = withUniqDyn $ wrap $ pure $ wrap \textpD -> let textD = textpD <#> _.valu
   S.dynText (weaken textD)
   subscribeEvent_ (\text -> log $ "text updated: '" <> text <> "'") (changed textD)
   pure never
-
--- Action primitives
-
-textA :: forall a b. String -> Action a b
-textA txt = wrap $ \ev -> do
-  S.text txt
-  pure never
-
 
 -- Component combinators
 
@@ -439,31 +314,6 @@ adaptOutput f = rmap f
 --   eventb <- w dyna
 --   pure (attachDynWith Tuple dyna eventb)
 
-eff :: forall a b. (a -> Effect b) -> Action a b
-eff f = wrap  \eva -> do
-  {event, fire} <- newEvent
-  subscribeEvent_ (\e -> f e >>= \e' -> liftEffect $ fire e') eva
-  pure event
-
-eff_ :: forall a b. (a -> Effect b) -> Action a a
-eff_ f = wrap  \eva -> do
-  subscribeEvent_ (\e -> f e $> unit) eva
-  pure eva
-
-aff :: forall a b. (a -> Aff b) -> Action a b
-aff f = wrap  \eva -> do
-  {event, fire} <- newEvent
-  subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eva
-  pure event
-
--- bar :: forall a b c. (a -> Aff a) -> Component a a -> Component a a
--- bar f (Component w) = Component \dyna -> do
---   eventb <- w dyna
---   {event, fire} <- newEvent
---   subscribeEvent_ (\e -> launchAff_ (f e >>= \e' -> liftEffect $ fire e')) eventb
---   pure $ eventb <> event
-
-
 -- turn "legacy" Widget into profunctor (notice: widget return value is discarded)
 widget :: forall a i o. Widget a -> Component i o
 widget w = Component $ const $ w *> pure never
@@ -595,3 +445,26 @@ instance (Applicative f, Profunctor p, Monoid (p a b)) => Monoid (Cayley f p a b
   mempty = wrap $ pure mempty
 
 type ComponentWrapper f a b = Cayley f Component a b
+
+-- cast :: forall s t a. (s -> a) -> Lens s t a Void
+-- cast f = lens f (const absurd)
+
+cast :: forall p s a t. Profunctor p => (s -> a) -> p a Void -> p s t 
+cast f = dimap f absurd
+
+mockCast :: forall p s a t. Profunctor p => String -> a -> p a Void -> p s t 
+mockCast functionName functionValue = cast (const functionValue)
+
+-- when :: forall a p. Profunctor p => Choice p => String -> a -> p a b -> p s t
+-- when  
+
+
+-- when :: forall a p. Profunctor p => Choice p => String -> a -> p a b -> p s t 
+-- when functionName functionValue = 
+
+-- whenCast :: forall p s. Profunctor p => Strong p => Choice p => p s Boolean -> p s s -> p s s
+-- -- whenCast cast p = p # rmap (\s -> Tuple s s) # first cast # rmap (\s checked -> if checked then Right s else Left unit) # right identity
+-- whenCast cast p =   
+
+-- invariantFailedMessage :: Cast s String 
+-- invariantFailedMessage :: forall p. Profunctor p => Strong p => Choice p=> VirtualField p s Boolean = prism
