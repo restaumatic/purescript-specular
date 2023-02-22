@@ -14,7 +14,7 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Profunctor (lcmap)
 import Data.Show.Generic (genericShow)
 import Effect (Effect)
-import Specular.Dom.Component (ComponentWrapper, inside, nth, prismEq, propEq, renderComponent, static, text)
+import Specular.Dom.Component (ComponentWrapper, component, inside, nth, prismEq, propEq, renderComponent, static, text)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (runMainWidgetInBody)
 import Type.Proxy (Proxy(..))
@@ -169,94 +169,61 @@ main = runMainWidgetInBody do
 
 order :: forall f. Applicative f => ComponentWrapper f Order Order
 order =
-  (
+  (component
     (MDC.filledText "Id" # id)
-    <>
     (text # static "Generate" # MDC.button # id)
-    <>
     (text # static "Generate" # MDC.button # id)
-    <>
-    (
+    (component
       (MDC.radioButton # isDineIn)
-      <>
       (MDC.radioButton # isTakeaway)
-      <>
       (MDC.radioButton # isDelivery)
-      <>
       (text # static "Dine-in" # only DineIn)
-      <>
-      (
+      (component
         (text # static "Takeaway")
-        <>
         (text # at)
       # takeaway)
-      <>
-      (
+      (component
         (text # static "Delivery")
-        <>
         (text # inside "div" mempty mempty # at)
-        <>
-        (
-          (
+        (component
+          (component
             (text # static "Coordinates")
-            <>
             (text # long)
-            <>
             (text # lat)
           # coords)
-          <>
-          (
+          (component
             (text # static "Address" # inside "span" mempty mempty)
-            <>
             (MDC.filledText "City" # city)
-            <>
             (MDC.filledText "Street" # street)
-            <>
             (MDC.filledText "Street number" # streetNumber)
-            <>
             (text # static "Clear" # MDC.button)
           # address)
         # inside "div" mempty mempty # to)
       # delivery)
     # inside "div" mempty mempty # fulfillment)
-    <>
     (MDC.radioButton # cash)
-    <>
     (MDC.radioButton # card)
-    <>
     (MDC.checkbox # hasNote)
-    <>
     (MDC.filledText "Note" # _Just # note)
-    <>
-    ( 
+    (component 
       (text # static "Customer" # inside "span" mempty mempty)
-      <>
       (text # static "Peek" # MDC.button)
     # inside "div" mempty mempty # customer)
-    <>
-    (
+    (component
       (itemComponent # inside "li" mempty mempty # nth 0)
-      <>
       (itemComponent # inside "li" mempty mempty # nth 1)
-      <>
       (itemComponent # inside "li" mempty mempty # nth 2)
-      <>
       (itemComponent # inside "li" mempty mempty # nth 3)
-      <>
       (itemComponent # inside "li" mempty mempty # nth 4)
     # inside "ol" mempty mempty # items)
-    <>
     (text # static "Submit" # MDC.button)
-    <>
     (text # lcmap show # inside "p" mempty mempty)
   # inside "div" mempty mempty)
 
 
 itemComponent =
-  (
+  (component
     (MDC.filledText "Product" # inside "span" mempty mempty # product)
-    <>
     (text # static " x " # inside "span" mempty mempty)
-    <>
     (text # inside "span" mempty mempty # lcmap show # qty)
   )

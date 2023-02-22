@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Apply (lift2)
 import Control.Monad.Replace (class MonadReplace)
-import Data.Array (cons, drop, fromFoldable, head, tail, take, toUnfoldable, (!!))
+import Data.Array (cons, drop, fold, fromFoldable, head, tail, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
@@ -468,3 +468,19 @@ mockCast functionName functionValue = cast (const functionValue)
 
 -- invariantFailedMessage :: Cast s String 
 -- invariantFailedMessage :: forall p. Profunctor p => Strong p => Choice p=> VirtualField p s Boolean = prism
+
+--
+
+-- variadic function to append ComponentWrappers
+component ::  forall p a b cws. ComponentWrappers p a b cws => cws
+component = cappend []
+
+class ComponentWrappers p a b cws | cws -> p a b where
+  cappend :: Array (ComponentWrapper p a b) -> cws
+ 
+instance Applicative p => ComponentWrappers p a b (ComponentWrapper p a b) where
+  cappend cws = fold cws
+  
+instance ComponentWrappers p a b r => ComponentWrappers p a b (ComponentWrapper p a b -> r) where
+  cappend cws cw = cappend (cws <> [cw])
+
