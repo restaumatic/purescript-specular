@@ -2,14 +2,14 @@ module Specular.Dom.Builder.Class where
 
 import Prelude
 
-import Control.Monad.Cleanup (onCleanup)
+import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
 import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple, snd)
 import Effect (Effect)
-import Effect.Class (liftEffect)
+import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn2)
 import Specular.Dom.Browser (Attrs, EventType, Namespace, Node, TagName, addEventListener)
 import Specular.Dom.Browser as DOM
@@ -74,7 +74,7 @@ domEvent :: forall m. MonadFRP m => EventType -> Node -> m (FRP.Event Unit)
 domEvent = domEventWithSample (\_ -> pure unit)
 
 -- | Register a DOM event listener.
-onDomEvent :: forall m. MonadFRP m => EventType -> Node -> (DOM.Event -> Effect Unit) -> m Unit
+onDomEvent :: forall m. MonadCleanup m => MonadEffect m => EventType -> Node -> (DOM.Event -> Effect Unit) -> m Unit
 onDomEvent eventType node handler = do
   unsub <- liftEffect $ addEventListener eventType handler node
   onCleanup unsub
