@@ -1,4 +1,5 @@
-module Specular.Dom.Component where
+module Specular.Dom.Component
+  where
 
 import Prelude
 
@@ -26,8 +27,9 @@ import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect.Exception.Unsafe (unsafeThrow)
 import Prim.Row as Row
-import Specular.Dom.Browser (Attrs, Node, TagName, (:=))
+import Specular.Dom.Browser (Node, TagName, Attrs, (:=))
 import Specular.Dom.Browser as DOM
+import Specular.Dom.Builder (Builder)
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr')
 import Specular.Dom.Builder.Class as S
 import Specular.Dom.Widget (Widget)
@@ -472,15 +474,34 @@ mockCast functionName functionValue = cast (const functionValue)
 --
 
 -- variadic function to append ComponentWrappers
-component ::  forall p a b cws. ComponentWrappers p a b cws => cws
-component = cappend []
+component' ::  forall f a b cws. ComponentWrappers f a b cws => (ComponentWrapper f a b -> ComponentWrapper f a b) -> cws
+component' optics = cappend optics []
 
-class ComponentWrappers p a b cws | cws -> p a b where
-  cappend :: Array (ComponentWrapper p a b) -> cws
+component = component' identity
+inside' t as es = component' (inside t as es)
+
+
+class ComponentWrappers f a b cws | cws -> f a b where
+  cappend :: (ComponentWrapper f a b -> ComponentWrapper f a b) -> Array (ComponentWrapper f a b) -> cws
  
-instance Applicative p => ComponentWrappers p a b (ComponentWrapper p a b) where
-  cappend cws = fold cws
+instance Applicative f => ComponentWrappers f a b (ComponentWrapper f a b) where
+  cappend optics cws = fold cws
   
-instance ComponentWrappers p a b r => ComponentWrappers p a b (ComponentWrapper p a b -> r) where
-  cappend cws cw = cappend (cws <> [cw])
+instance ComponentWrappers f a b r => ComponentWrappers f a b (ComponentWrapper f a b -> r) where
+  cappend optics cws cw = cappend identity (cws <> [cw])
+
+
+-- inside' ::  forall p a b cws. ComponentWrappers p a b cws => TagName -> (a -> Attrs) -> (Dynamic (WithPath a) -> Node -> Widget (Event (WithPath b))) -> cws
+-- inside' tag attrs events cws = inside tag attrs events $ component cws
+-- inside' ∷ ∀ (b1714 ∷ Type) (f1717 ∷ Type -> Type) (a1718 ∷ Type) (b1719 ∷ Type) (t1720 ∷ Type -> Type) (t1721 ∷ Type) (t1722 ∷ Type). Functor f1717 ⇒ ComponentWrappers t1720 t1721 t1722 (b1714 -> Cayley f1717 Component a1718 b1719) ⇒ String → (a1718 → Object String) → (Dynamic { path ∷ Array Hop , value ∷ a1718 } → Node → Builder Unit (Event { path ∷ Array Hop , value ∷ b1719 } ) ) → b1714 → Cayley f1717 Component a1718 b1719
+-- inside' :: forall a b. TagName -> (a -> Attrs) -> (Dynamic (WithPath a) -> Node -> Widget (Event (WithPath b))) -> Unit
+-- inside' tag attrs events = component (inside tag attrs events)
+
+-- (ComponentWrapper f a b -> ComponentWrapper f a b) instantiates ComponentWrappers
+
+-- instance ComponentWrappers f a b (ComponentWrapper f a b -> ComponentWrapper f a b) 
+
+-- foo :: forall f a b. Applicative f => Array (ComponentWrapper f a b) -> (ComponentWrapper f a b -> ComponentWrapper f a b)
+-- foo cws = cappend cws
+
 

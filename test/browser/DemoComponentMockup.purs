@@ -21,7 +21,7 @@ import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Class.Console (log)
 import Effect.Exception.Unsafe (unsafeThrow)
-import Specular.Dom.Component (ComponentWrapper, component, inside, static, swallow, text)
+import Specular.Dom.Component (ComponentWrapper, component, inside, inside', static, swallow, text)
 import Specular.Dom.ComponentMDC as MDC
 import Specular.Dom.Widget (Widget, runMainWidgetInBody)
 import Specular.FRP (readDynamic, subscribeDyn_, whenJustD, withDynamic_)
@@ -149,34 +149,34 @@ order =
   component
     (MDC.filledText "Id" # mockData "id" "42375293")
     (component
-      (text # static "Dine in" # altSection "fulfillment" "dine in")
-      (altSection "fulfillment" "takeaway" $ component
-        (text # static "Takeaway")
-        (text # mockData "at" "12:45")
-      )
+      (static "Dine in" text # altSection "fulfillment" "dine in")
       (component
-        (text # static "Delivery")
+        (static "Takeaway" text)
+        (text # mockData "at" "12:45")
+      # altSection "fulfillment" "takeaway")
+      (component
+        (static "Delivery" text)
         (MDC.filledText "Hour" # mockData "at" "12:10")
         (component
           (component
-            (text # static "Coordinates")
+            (static "Coordinates: " text)
             (text # mockData "longitude" "21.28990")
             (text # mockData "latitude" "50.27898")
           # altSection "place" "coordinates")
           (component
-            (text # static "Address" # inside "span" mempty mempty)
+            (static "Address" text # inside "span" mempty mempty)
             (MDC.checkbox # mockData "verified" true)
             (MDC.filledText "City" # mockData "city" "London")
             (MDC.filledText "Street" # mockData "street" "Abbey Road")
             (MDC.filledText "Street number" # mockData "street number" "19")
-            (text # static "Clear" # MDC.button)
+            (static "Clear" text # MDC.button)
           # altSection "place" "address")
-        # inside "div" mempty mempty # section "to")
+        # inside "div" mempty mempty)
       # altSection "fulfillment" "delivery")
     # inside "div" mempty mempty)
     (MDC.checkbox # enabledWhen "paid" "true")
     (MDC.filledText "Payment method" # mockData "payment method" "Cash" # altSection "paid" "true")
-    (text # static "Customer" # inside "span" mempty mempty # inside "div" mempty mempty)
+    (static "Customer" text # inside "span" mempty mempty # inside "div" mempty mempty)
     (component
       (itemComponent # inside "li" mempty mempty)
       (itemComponent # inside "li" mempty mempty)
@@ -188,6 +188,6 @@ itemComponent :: forall a. ComponentWrapper Mocking a a
 itemComponent =
   (component
     (MDC.filledText "Product" # inside "span" mempty mempty # mockData "product" "Capriciosa")
-    (text # static " x " # inside "span" mempty mempty)
+    (static " x " text # inside "span" mempty mempty)
     (text # inside "span" mempty mempty # mockData "quantity" "2")
   )
