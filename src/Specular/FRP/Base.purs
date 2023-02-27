@@ -376,7 +376,7 @@ subscribeDyn_
   => (a -> Effect Unit)
   -> Dynamic a
   -> m Unit
-subscribeDyn_ handler _dyn@(Dynamic node) = do
+subscribeDyn_ handler _dyn@(Dynamic node) = do --HERE
   subscribeNode handler node
   liftEffect do
     currentValue <- runEffectFn1 Node.valueExc node

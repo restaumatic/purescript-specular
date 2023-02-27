@@ -30,3 +30,7 @@ export function onKeyDown(handler) {
     document.addEventListener('keydown', update);
   }
 }
+
+export function documentBody() {
+  return document.body;
+}
