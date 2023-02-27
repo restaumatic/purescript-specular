@@ -17,14 +17,14 @@ import Specular.FRP (never)
 
 button :: forall f a. Applicative f => Specular.ComponentWrapper f a a -> Specular.ComponentWrapper f a a
 button wrapped = 
-  inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\_ node -> (liftEffect $ mdcWith material.ripple."MDCRipple" node mempty) *> pure never) <> onClick) $
+  inside "button" (const $ "class" := "mdc-button mdc-button--raised foo-button") ((\_ node _ -> mdcWith material.ripple."MDCRipple" node mempty) <> onClick) $
     (inside "div" (const $ "class" := "mdc-button__ripple") mempty mempty)
     <>
     (inside "span" (const $ "class" := "mdc-button__label") mempty wrapped)
 
 filledText :: forall f. Applicative f => String -> Specular.ComponentWrapper f String String
 filledText hintText = withUniqDyn $
-  inside "label" (const $ "class" := "mdc-text-field mdc-text-field--filled") (\_ node -> (liftEffect $ mdcWith material.textField."MDCTextField" node mempty) *> pure never) $
+  inside "label" (const $ "class" := "mdc-text-field mdc-text-field--filled") (\_ node _ -> mdcWith material.textField."MDCTextField" node mempty) $
     (inside "span" (const $ "class" := "mdc-text-field__ripple") mempty mempty)
     <>
     (inside "span" (const $ "class" := "mdc-floating-label" <> "id" := "my-label-id") mempty (text # static hintText))
@@ -37,7 +37,7 @@ filledText hintText = withUniqDyn $
 checkbox :: forall f. Applicative f => Specular.ComponentWrapper f Boolean Boolean
 checkbox = withUniqDyn $
   inside "div" (const $ "class" := "mdc-touch-target-wrapper") mempty $
-    inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") (\_ node -> (liftEffect $ mdcWith material.checkbox."MDCCheckbox" node mempty) *> pure never) $
+    inside "div" (const $ "class" := "mdc-checkbox mdc-checkbox--touch") (\_ node _ -> mdcWith material.checkbox."MDCCheckbox" node mempty) $
       (Specular.checkbox (const $ "class" := "mdc-checkbox__native-control"))
       <>
       (inside "div" (const $ "class":= "mdc-checkbox__background") mempty $
@@ -50,10 +50,9 @@ checkbox = withUniqDyn $
       (inside "div" (const $ "class" := "mdc-checkbox__ripple") mempty mempty)
 
 radioButton :: forall f. Applicative f => Specular.ComponentWrapper f Boolean Boolean
-radioButton = withUniqDyn $
-  inside "div" (const $ "class" := "mdc-form-field") mempty
+radioButton = inside "div" (const $ "class" := "mdc-form-field") mempty
   (
-    (inside "div" (const $ "class" := "mdc-radio") (\_ node -> (liftEffect $ mdcWith material.radio."MDCRadio" node mempty) *> pure never) $
+    (inside "div" (const $ "class" := "mdc-radio") (\_ node _ -> mdcWith material.radio."MDCRadio" node mempty) $
       (Specular.radio (const $ "class" := "mdc-radio__native-control" <> "id" := "radio-1"))
       <>
       (inside "div" (const $ "class" := "mdc-radio__background") mempty $

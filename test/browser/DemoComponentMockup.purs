@@ -5,26 +5,27 @@ module DemoComponentMockup
 
 import Prelude
 
-import BuilderSpec (newDynamic)
+import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
-import Data.Array (head, length, (!!))
-import Data.Foldable (fold, for_, intercalate)
+import Control.Monad.Replace (destroySlot, newSlot, replaceSlot)
+import Data.Array (length, (!!))
+import Data.Foldable (for_, intercalate)
 import Data.Identity (Identity(..))
 import Data.Int (fromString)
 import Data.Map (Map, lookup, mapMaybeWithKey, singleton, size, toUnfoldable, values)
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Traversable (sequence)
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Class.Console (log)
 import Effect.Exception.Unsafe (unsafeThrow)
+import Effect.Ref as Ref
+import Specular.Dom.Browser (Node)
+import Specular.Dom.Builder (runBuilder)
 import Specular.Dom.Component (ComponentWrapper, inside, static, swallow, text)
 import Specular.Dom.ComponentMDC as MDC
-import Specular.Dom.Widget (Widget, runMainWidgetInBody)
-import Specular.FRP (readDynamic, subscribeDyn_, whenJustD, withDynamic_)
-import Specular.Ref (modify, newRef, read, value, write)
 
 -- foreign import locationHash :: Effect String
 
@@ -35,6 +36,8 @@ foreign import setHash :: String -> Effect Unit
 foreign import setTitle :: String -> Effect Unit
 
 foreign import onKeyDown :: (String -> Effect Unit) -> Effect Unit
+
+foreign import documentBody :: Effect Node
 
 
 type FieldName = String
@@ -90,27 +93,36 @@ mockComponent componentWrapper = do
   let allScenarios = extractScenarios allScenarios'
   let noOfScenarios = length allScenarios 
   log (show noOfScenarios <> " scenario(s): " <> show allScenarios)
-  runMainWidgetInBody $ do
-    mScenarioNoRef <- newRef Nothing
-    liftEffect $ onHash \hash -> do
-      let mScenarioNo = fromString hash >>= (\n -> if n < 0 || n >= noOfScenarios then Nothing else Just n) 
-      write mScenarioNoRef mScenarioNo
-    liftEffect $ onKeyDown \keyCode -> do
-      mn <- read mScenarioNoRef
-      case keyCode of
-        -- Left
-        "ArrowLeft" -> (setHash <<< show <<< maybe 0 (\n -> if n == 0 then n else n - 1)) mn
-        -- Right
-        "ArrowRight" -> (setHash <<< show <<< maybe 0 (\n -> if n == noOfScenarios - 1 then n else n + 1)) mn
-        -- Up
-        "ArrowUp" -> (setHash <<< show) (noOfScenarios - 1)
-        -- Down
-        "ArrowDown" -> (setHash <<< show) 0
-        _ -> pure unit
-    whenJustD (value mScenarioNoRef <#> (_ >>= \n -> allScenarios !! n)) $ flip withDynamic_ \scenario -> do
-      liftEffect $ setTitle $ show scenario
+  mScenarioNoRef <- Ref.new Nothing
+  body <- documentBody
+  slot <- fst <$> runBuilder body do
+    slot <- newSlot
+    onCleanup (destroySlot slot)
+    pure slot -- liftEffect $ replaceSlot slot widget
+  --  body widget
+  -- runMainWidgetInNode body widget
+    
+  onHash \hash -> do
+    let mScenarioNo = fromString hash >>= (\n -> if n < 0 || n >= noOfScenarios then Nothing else Just n) 
+    Ref.write mScenarioNo mScenarioNoRef
+    for_ (mScenarioNo >>= (\scenarioNo -> allScenarios !! scenarioNo)) \scenario -> do
       let (Identity component) = runReaderT runWithSelectedScenario scenario
-      void $ unwrap component (pure {path: [], value: unit}) -- when attempted to read the error will occur
+      replaceSlot slot do
+        f <- unwrap component
+        liftEffect $ f unit mempty
+
+  onKeyDown \keyCode -> do
+    mn <- Ref.read mScenarioNoRef
+    case keyCode of
+      -- Left
+      "ArrowLeft" -> (setHash <<< show <<< maybe 0 (\n -> if n == 0 then n else n - 1)) mn
+      -- Right
+      "ArrowRight" -> (setHash <<< show <<< maybe 0 (\n -> if n == noOfScenarios - 1 then n else n + 1)) mn
+      -- Up
+      "ArrowUp" -> (setHash <<< show) (noOfScenarios - 1)
+      -- Down
+      "ArrowDown" -> (setHash <<< show) 0
+      _ -> pure unit
   pure unit
 
 

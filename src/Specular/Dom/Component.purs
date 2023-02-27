@@ -2,17 +2,16 @@ module Specular.Dom.Component where
 
 import Prelude
 
-import Control.Apply (lift2)
-import Control.Monad.Replace (class MonadReplace, destroySlot, newSlot, replaceSlot)
-import Data.Array (cons, drop, fromFoldable, head, tail, take, toUnfoldable, (!!))
+import Control.Monad.Replace (destroySlot, newSlot, replaceSlot)
+import Data.Array (cons, drop, fromFoldable, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
 import Data.Identity (Identity(..))
-import Data.Lens (Lens, Optic, left, lens, prism', second)
+import Data.Lens (left, prism', second)
 import Data.Lens.Record (prop)
-import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
-import Data.Newtype (class Newtype, modify, overF, unwrap, wrap)
+import Data.Maybe (Maybe(..), maybe)
+import Data.Newtype (class Newtype, modify, unwrap, wrap)
 import Data.Profunctor (class Profunctor, dimap, lcmap, rmap)
 import Data.Profunctor.Choice (class Choice, right)
 import Data.Profunctor.Strong (class Strong, first)
@@ -21,24 +20,19 @@ import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Unfoldable (class Unfoldable)
 import Effect (Effect)
-import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
-import Effect.Console (log)
-import Effect.Exception.Unsafe (unsafeThrow)
 import Effect.Ref (new, read)
 import Prim.Row as Row
 import Specular.Dom.Browser (Attrs, Node, TagName, setAttributes, (:=))
 import Specular.Dom.Browser as DOM
 import Specular.Dom.Builder (Builder)
-import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr', onDomEvent)
+import Specular.Dom.Builder.Class (elDynAttr')
 import Specular.Dom.Builder.Class as S
-import Specular.Dom.Widget (Widget)
-import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue, setCheckboxChecked, setTextInputValue)
-import Specular.FRP (class MonadFRP, Dynamic, Event, attachDynWith, changed, filterJustEvent, filterMapEvent, holdDyn, never, newEvent, readDynamic, subscribeDyn_, subscribeEvent_, tagDyn, uniqDyn, weaken, whenD, whenJustD)
-import Specular.Ref (newRef, value, write)
+import Specular.Dom.Widgets.Input (setCheckboxChecked, setTextInputValue)
+import Specular.FRP (weaken)
+import Specular.Ref (value, write)
 import Specular.Ref as Ref
 import Type.Proxy (Proxy(..))
-import Unsafe.Coerce (unsafeCoerce)
 
 type Path = Array Hop
 
@@ -208,33 +202,31 @@ static a = unwrap >>> map (\component -> wrap do
 
 inside :: forall f a b. Functor f => TagName -> (a -> Attrs) -> (a -> Node -> (b -> Effect Unit) -> Effect Unit) -> ComponentWrapper f a b -> ComponentWrapper f a b
 inside tagName attrs event = modify $ map \component -> wrap do
-  Tuple node f <- elDynAttr' tagName (weaken (pure mempty)) $ unwrap component
+  Tuple node f <- elDynAttr' tagName (weaken (pure mempty)) $ unwrap component -- TODO: stop using (Weak)Dynamic
   pure \a bcallback -> do
     f a bcallback
     setAttributes node (attrs a)
-    event a node bcallback
+    -- TODO: propagate events from wrapper?
+    -- event a node bcallback
   -- outerEvent <- event dyn node
   -- pure $ innerEvent <> outerEvent
 
 -- helpers on top of primitives, combinators and optics
 
 textInput :: forall f. Applicative f => (String -> Attrs) -> ComponentWrapper f String String
-textInput attrs = mempty # (inside "input" attrs \dyn node -> do
-  liftEffect $ do
-    initialValue <- readDynamic dyn
-    setTextInputValue node (initialValue.value)
-  subscribeEvent_ (setTextInputValue node) (changed (dyn <#> _.value))
-  (domEventWithSample (\_ -> getTextInputValue node <#> \value -> {path: [], value}) "input" node))
+textInput attrs = mempty # inside "input" attrs \str node callback -> do
+  setTextInputValue node str
+  -- (domEventWithSample (\_ -> getTextInputValue node <#> \value -> {path: [], value}) "input" node)
 
 checkbox :: forall f. Applicative f => (Boolean -> Attrs) -> ComponentWrapper f Boolean Boolean
-checkbox attrs = mempty # (inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \dyn node -> do
-  flip subscribeDyn_ dyn (\{value} -> setCheckboxChecked node value)
-  domEventWithSample (\_ -> getCheckboxChecked node <#> \value -> { path: [], value }) "change" node)
+checkbox attrs = mempty # inside "input" (\enabled -> ("type" := "checkbox") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \bool node callback -> do
+  setCheckboxChecked node bool
+  -- domEventWithSample (\_ -> getCheckboxChecked node <#> \value -> { path: [], value }) "change" node
 
 radio :: forall f. Applicative f => (Boolean -> Attrs) -> ComponentWrapper f Boolean Boolean
-radio attrs = mempty # (inside "input" (\enabled -> ("type" := "radio") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \value node callback -> do
+radio attrs = mempty # inside "input" (\enabled -> ("type" := "radio") <> (if enabled then "checked" := "checked" else mempty) <> attrs enabled) \value node callback -> do
   setCheckboxChecked node value
-  onDomEvent "change" node (\_ -> getCheckboxChecked node >>= callback))
+  -- onDomEvent "change" node (\_ -> getCheckboxChecked node >>= callback)
 
 
 -- radio :: forall a b f. Applicative f => (a -> Attrs) -> ComponentWrapper f a b
@@ -309,46 +301,6 @@ adaptOutput f = rmap f
 -- widget :: forall a i o. Widget a -> Component i o
 -- widget w = Component $ const $ w *> pure never
 
-data Ref'' e d = Ref'' (Event e -> Effect (Dynamic d))
-
--- newRef'' :: forall a. a -> Ref'' a a
--- newRef'' a = Ref'' $ \e -> do
---   ref <- Ref.newRef a
---   subscribeEvent (write ref) e
---   pure $ value ref
-
-instance Profunctor Ref'' where
- dimap pre post (Ref'' f) = Ref'' (\e' -> map post <$> f (pre <$> e'))
-
--- instance Strong Ref'' where
---   first (Ref'' f) = Ref'' $ \ab -> do
---     d <- f (fst <$> ab)
-
-
--- instance Choice
-
-data Ref' e d = Ref' (Dynamic d) (e -> Effect Unit)
-
-newRef' :: forall a. a -> Effect (Ref' a a)
-newRef' a = do
-  ref <- Ref.newRef a
-  pure $ Ref' (value ref) (write ref)
-
-instance Profunctor Ref' where
-  dimap pre post (Ref' dyn action) = Ref' (post <$> dyn) (pre >>> action)
-
--- instance Costrong Ref' where
---   -- unfirst (Ref dyn action) = Ref (fst <$> dyn) (fst >>> action)
---   unsecond (Ref dyn action) = Ref (fst <$> dyn) (fst >>> action)
-
-instance Choice Ref' where
-  left (Ref' dyn action) = Ref' (Left <$> dyn) (case _ of
-    Left e -> action e
-    _ -> pure unit)
-  right (Ref' dyn action) = Ref' (Right <$> dyn) (case _ of
-    Right e -> action e
-    _ -> pure unit)
-
 data Option
   = OptionInt Int
   | OptionString String
@@ -362,14 +314,6 @@ optionString :: forall p. Choice p => p String String -> p Option Option
 optionString = prism' OptionString (case _ of
   OptionString o -> Just o
   _ -> Nothing)
-
-foo'' :: Effect Unit
-foo'' = do
-  ref <- newRef' 2
-  let (Ref' dyn action) = ref # optionInt
-  action (OptionInt 3)
-  action (OptionString "2")
-  pure unit
 
 --
 
