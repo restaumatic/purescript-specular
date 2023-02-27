@@ -4,7 +4,7 @@ module Specular.Dom.Component
 import Prelude
 
 import Control.Monad.Replace (destroySlot, newSlot, replaceSlot)
-import Data.Array (cons, drop, fromFoldable, take, toUnfoldable, (!!))
+import Data.Array (cons, drop, fold, fromFoldable, take, toUnfoldable, (!!))
 import Data.Either (Either(..), either)
 import Data.Foldable (class Foldable)
 import Data.Generic.Rep (class Generic)
