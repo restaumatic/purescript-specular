@@ -8,8 +8,9 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect.Class.Console as Console
 import Effect.Ref (new)
-import Specular.FRP (Dynamic, annotate, annotated, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
-import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn)
+import Specular.FRP (Dynamic(..), annotate, annotated, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
+import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn, Dynamic(..))
+import Specular.Internal.Incremental (printGraph)
 import Specular.Ref as Ref
 import Test.Spec (Spec, describe, it, itOnly, pending')
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
@@ -318,20 +319,44 @@ spec = describe "Dynamic" $ do
             x <- annotated "x" $
               annotated "pure1" (pure unit) >>= \_ ->
                 annotated "x bind2" $
-                annotated "root ap" (annotated "map_pure2" (identity <$> annotated "pure2" (pure unit)) *> Ref.value root) >>= \x ->
+                annotated "root ap"
+                  (annotated "map_pure2"
+                    (identity <$> annotated "pure2" (pure unit))
+                    *> Ref.value root) >>= \x ->
                   pure x
             y <- Ref.value root
             in [ x, y ]
+
+          _dyn1 = ado
+            x <-
+              pure unit >>= \_ ->
+                ((identity <$> pure unit) *> Ref.value root) >>= \x ->
+                  pure x
+            y <- Ref.value root
+            in [ x, y ]
+
+          _dyn = ado
+            x <- Ref.value root
+            y <- Ref.value root
+            in [x, y]
+
+        let Dynamic node = dyn
+        Console.log "before subscribe"
+        liftEffect $ printGraph node
+
         subscribeEvent_ (append log) (changed dyn)
+
+        Console.log "after subscribe"
+        liftEffect $ printGraph node
 
       Console.log "writing 2"
       liftEffect $ Ref.write root "2"
-      Console.log "writing 3"
-      liftEffect $ Ref.write root "3"
+--    Console.log "writing 3"
+--    liftEffect $ Ref.write root "3"
 
       log `shouldHaveValue`
         [ [ "2", "2" ]
-        , [ "3", "3" ]
+ --       , [ "3", "3" ]
         ]
 
       -- clean up

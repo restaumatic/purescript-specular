@@ -3,15 +3,18 @@ module Specular.Internal.Incremental where
 import Prelude
 
 import Data.Function.Uncurried (Fn2, runFn2)
+import Data.Set as Set
 import Effect (Effect)
 import Effect.Console as Console
+import Effect.Ref as ERef
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
+import Partial.Unsafe (unsafeCrashWith)
+import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Effect (foreachUntil)
 import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum, stabilizationIsNotInProgress)
-import Specular.Internal.Incremental.MutableArray as MutableArray
-import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Mutable (Field(..))
+import Specular.Internal.Incremental.MutableArray as MutableArray
 import Specular.Internal.Incremental.Node (Node, SomeNode, Observer, toSomeNode, toSomeNodeArray)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional (Optional)
@@ -19,7 +22,6 @@ import Specular.Internal.Incremental.Optional as Optional
 import Specular.Internal.Incremental.PriorityQueue as PQ
 import Specular.Internal.Incremental.Ref as Ref
 import Specular.Internal.Profiling as Profiling
-import Partial.Unsafe (unsafeCrashWith)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- | Priority queue for propagating node changes in dependency order.
@@ -138,6 +140,7 @@ connect = mkEffectFn1 \node -> do
   source <- runEffectFn1 Node.get_source node
   dependencies <- source.dependencies
 
+  trace $ "connect " <> show (Node.name node)
   runEffectFn2 Array.iterate dependencies $ mkEffectFn1 \dependency -> do
     runEffectFn2 addDependent dependency (toSomeNode node)
     dependencyHeight <- runEffectFn1 Node.get_height dependency
@@ -221,8 +224,9 @@ recomputeNode = mkEffectFn1 \node -> do
       dependents <- runEffectFn1 Node.get_dependents node
       runEffectFn2 MutableArray.iterate dependents $ mkEffectFn1 \dependent -> do
         added <- runEffectFn2 PQ.add globalRecomputeQueue dependent
-        if added then
-          trace $ "stabilize: node " <> show (Node.name dependent) <> " added to recompute queue"
+        if added then do
+          depHeight <- runEffectFn1 Node.get_height dependent
+          trace $ "stabilize: node " <> show (Node.name dependent) <> " added to recompute queue at height " <> show depHeight
         else
           trace $ "stabilize: node " <> show (Node.name dependent) <> " already in recompute queue"
         pure unit
@@ -422,3 +426,20 @@ isTracing = true
 
 trace :: String -> Effect Unit
 trace = if isTracing then Console.log else \_ -> pure unit
+
+printGraph :: forall a. Node a -> Effect Unit
+printGraph node = do
+  source <- runEffectFn1 Node.get_source node
+  dependencies <- source.dependencies
+
+  src <- showNode node
+  runEffectFn2 Array.iterate dependencies $ mkEffectFn1 \dependency -> do
+    dst <- showNode dependency
+    Console.log $ show src <> " -> " <> show dst
+    printGraph dependency
+
+showNode :: forall a. Node a -> Effect String
+showNode node = do
+  height <- runEffectFn1 Node.get_height node
+  adjustedHeight <- runEffectFn1 Node.get_adjustedHeight node
+  pure $ Node.name node <> " h=" <> show height <> (if adjustedHeight /= height then "->" <> show adjustedHeight else "")

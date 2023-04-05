@@ -135,7 +135,7 @@ annotate :: forall a. EffectFn2 (Node a) String Unit
 annotate = set_name --if Profiling.enabled then set_name else mkEffectFn2 \_ _ -> pure unit
 
 name :: forall a. Node a -> String
-name node = unsafePerformEffect (runEffectFn1 get_name node) <> "@" <> show (id node)
+name node = unsafePerformEffect (runEffectFn1 get_name node) -- <> "@" <> show (id node)
 
 isChangingInCurrentStabilization :: forall a. EffectFn1 (Node a) Boolean
 isChangingInCurrentStabilization = mkEffectFn1 \node -> do

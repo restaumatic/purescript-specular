@@ -14,7 +14,7 @@ module Specular.FRP.Base
   , sampleAt
   , readBehavior
 
-  , Dynamic
+  , Dynamic(..)
   , current
   , changed
   , changed_
