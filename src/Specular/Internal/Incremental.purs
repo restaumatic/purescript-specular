@@ -283,6 +283,15 @@ map2 = mkEffectFn3 \fn a b -> do
     , dependencies: pure deps
     }
 
+mapN :: forall a b. EffectFn2 (Array a -> b) (Array (Node a)) (Node b)
+mapN = mkEffectFn2 \fn inputs -> do
+  runEffectFn1 Node.create
+    { compute: mkEffectFn1 \_ -> do
+        values <- runEffectFn2 Array.mapE inputs Node.valueExc
+        pure (Optional.some (fn values))
+    , dependencies: pure (toSomeNodeArray inputs)
+    }
+
 -- Problem with bind and connect:
 -- We have to:
 -- - first compute LHS

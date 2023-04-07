@@ -50,6 +50,7 @@ module Specular.FRP.Base
   , annotated
 
   , map2
+  , mapN
   ) where
 
 import Prelude
@@ -62,14 +63,15 @@ import Data.Maybe (Maybe(..), maybe)
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
+import Effect.Unsafe (unsafePerformEffect)
+import Safe.Coerce (coerce)
 import Specular.Internal.Incremental as I
 import Specular.Internal.Incremental.Node (Node)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional as Optional
+import Specular.Internal.Profiling as Profiling
 import Specular.Internal.Queue (Queue)
 import Specular.Internal.Queue as Queue
-import Specular.Internal.Profiling as Profiling
-import Effect.Unsafe (unsafePerformEffect)
 
 -- | import Partial.Unsafe (unsafeCrashWith)
 -- | import Unsafe.Coerce (unsafeCoerce)
@@ -262,6 +264,12 @@ map2 :: forall a b c. (a -> b -> c) -> Dynamic a -> Dynamic b -> Dynamic c
 map2 f (Dynamic x) (Dynamic y) = Dynamic $ unsafePerformEffect do
   n <- runEffectFn3 I.map2 (mkFn2 f) x y
   runEffectFn2 Node.annotate n ("map2 (" <> Node.name x <> ") (" <> Node.name y <> ")")
+  pure n
+
+mapN :: forall a b. (Array a -> b) -> Array (Dynamic a) -> Dynamic b
+mapN f inputs = Dynamic $ unsafePerformEffect do
+  n <- runEffectFn2 I.mapN f (coerce inputs)
+  runEffectFn2 Node.annotate n "mapN"
   pure n
 
 instance applicativeDynamic :: Applicative Dynamic where
