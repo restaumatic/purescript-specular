@@ -4,3 +4,7 @@ export function iterate(self, fn) {
     fn(self[i]);
   }
 }
+
+export function mapE(self, fn) {
+  return self.map(fn);
+}
