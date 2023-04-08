@@ -14,6 +14,7 @@
   , "functions"
   , "integers"
   , "invariant"
+  , "lists"
   , "maybe"
   , "newtype"
   , "partial"
@@ -21,6 +22,7 @@
   , "random"
   , "record"
   , "refs"
+  , "safe-coerce"
   , "spec"
   , "spec-mocha"
   , "strings"
@@ -32,10 +34,7 @@
   , "unsafe-reference"
   ]
 , packages = ./packages.dhall
-, sources =
-  [ "src/**/*.purs"
-  , "test/**/*.purs"
-  ]
+, sources = [ "src/**/*.purs", "test/**/*.purs", "bench/**/*.purs" ]
 , license = "MIT"
 , repository = "https://github.com/restaumatic/purescript-specular"
 }

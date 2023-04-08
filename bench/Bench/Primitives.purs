@@ -7,16 +7,20 @@ import Prelude
 
 import Bench.Types (Tests)
 import Control.Monad.Cleanup (CleanupT, runCleanupT)
-import Data.Array (range, replicate)
+import Data.Array (foldr, range, replicate)
+import Data.Array as Array
 import Data.Foldable (for_, sum)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
 import Specular.FRP (Dynamic, WeakDynamic, holdDyn, holdWeakDyn, never, newDynamic, newEvent, subscribeWeakDyn_)
 import Specular.FRP.Base (subscribeDyn_)
+import Specular.Ref as Ref
 
 dynamicTests :: Tests
 dynamicTests =
+  createTests
+    {-
   [ Tuple "10 subscribers" $ nsubscribers 10
   , Tuple "20 subscribers" $ nsubscribers 20
   , Tuple "30 subscribers" $ nsubscribers 30
@@ -31,6 +35,22 @@ dynamicTests =
   , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
   ] <>
   nestedApplyTests
+  -}
+
+createTests :: Tests
+createTests =
+  [ Tuple "create 10map" $ create_map 10
+  , Tuple "create 20map" $ create_map 20
+  , Tuple "create 100map" $ create_map 100
+  ]
+
+  where
+        create_map n = do
+          ref <- Ref.new 0
+          pure do
+            pure unit
+            let _ = foldr ($) (Ref.value ref) $ Array.replicate n (map identity)
+            pure unit
 
 nestedApplyTests :: Tests
 nestedApplyTests =
