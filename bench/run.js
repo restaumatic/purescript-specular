@@ -30,8 +30,9 @@ const express = require("express");
   });
 
   await page.goto("http://localhost:8992/bench/benchmark.html");
+  const filters = process.argv.slice(2);
+  await page.evaluate((filters) => global.runBenchmark(filters), filters);
 
-  await donePromise;
   await browser.close();
   process.exit(1);
 })();
