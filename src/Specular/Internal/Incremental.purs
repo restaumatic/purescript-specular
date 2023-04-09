@@ -94,37 +94,9 @@ removeObserver = mkEffectFn2 \node observer -> do
   runEffectFn2 MutableArray.remove observers observer
   runEffectFn2 handleRefcountChange node oldRefcount
 
-addDependent :: forall a. EffectFn2 (Node a) SomeNode Unit
-addDependent = mkEffectFn2 \node dependent -> do
-  -- trace $ "addDependent " <> show (Node.name node) <> " -> " <> show (Node.name dependent)
-
-  oldRefcount <- runEffectFn1 Node.refcount node
-  dependents <- runEffectFn1 Node.get_dependents node
-  runEffectFn2 MutableArray.push dependents dependent
-  runEffectFn2 handleRefcountChange node oldRefcount
-
-removeDependent :: forall a. EffectFn2 (Node a) SomeNode Unit
-removeDependent = mkEffectFn2 \node dependent -> do
-  -- trace $ "removeDependent " <> show (Node.name node) <> " -> " <> show (Node.name dependent)
-
-  oldRefcount <- runEffectFn1 Node.refcount node
-  dependents <- runEffectFn1 Node.get_dependents node
-  runEffectFn2 MutableArray.remove dependents dependent
-  runEffectFn2 handleRefcountChange node oldRefcount
-
-handleRefcountChange :: forall a. EffectFn2 (Node a) Int Unit
-handleRefcountChange = mkEffectFn2 \node oldRefcount -> do
-  newcount <- runEffectFn1 Node.refcount node
-  if oldRefcount == 0 && newcount > 0 then
-    runEffectFn1 connect node
-  else if oldRefcount > 0 && newcount == 0 then
-    runEffectFn1 disconnect node
-  else
-    pure unit
-
-  -- Update globalTotalRefcount
-  oldTotalRefcount <- runEffectFn1 Ref.read globalTotalRefcount
-  runEffectFn2 Ref.write globalTotalRefcount (oldTotalRefcount - oldRefcount + newcount)
+foreign import addDependent :: forall a. EffectFn2 (Node a) SomeNode Unit
+foreign import removeDependent :: forall a. EffectFn2 (Node a) SomeNode Unit
+foreign import handleRefcountChange :: forall a. EffectFn2 (Node a) Int Unit
 
 -- Preconditions:
 -- - node does not have value computed
@@ -134,38 +106,8 @@ handleRefcountChange = mkEffectFn2 \node oldRefcount -> do
 -- - all dependencies are connected and have value computed
 -- - node has value computed
 -- - node has correct height
-connect :: forall a. EffectFn1 (Node a) Unit
-connect = mkEffectFn1 \node -> do
-  mark <- runEffectFn1 Profiling.begin ("connect " <> Node.name node)
-
-  dependencies <- runEffectFn1 Node.get_dependencies node
-
-  runEffectFn2 Array.iterate (Mutability.unsafeToArray dependencies) $ mkEffectFn1 \dependency -> do
-    runEffectFn2 addDependent dependency (toSomeNode node)
-    dependencyHeight <- runEffectFn1 Node.get_height dependency
-    ourHeight <- runEffectFn1 Node.get_height node
-    if dependencyHeight + 1 > ourHeight then do
-      runEffectFn2 Node.set_height node (dependencyHeight + 1)
-      runEffectFn2 Node.set_adjustedHeight node (dependencyHeight + 1)
-    else
-      pure unit
-
-  value <- runEffectFn1 Node.compute node
-  runEffectFn2 Node.set_value node value
-
-  -- trace $ "connected " <> Node.name node <> " value=" <> unsafeCoerce value
-
-  runEffectFn1 Profiling.end mark
-
-disconnect :: forall a. EffectFn1 (Node a) Unit
-disconnect = mkEffectFn1 \node -> do
-  mark <- runEffectFn1 Profiling.begin ("disconnect " <> Node.name node)
-
-  dependencies <- runEffectFn1 Node.get_dependencies node
-  runEffectFn2 Array.iterate (MutableArray.unsafeToArray dependencies) $ mkEffectFn1 \dependency -> do
-    runEffectFn2 removeDependent dependency (toSomeNode node)
-
-  runEffectFn1 Profiling.end mark
+foreign import connect :: forall a. EffectFn1 (Node a) Unit
+foreign import disconnect :: forall a. EffectFn1 (Node a) Unit
 
 -- * Recompute
 
