@@ -36,18 +36,32 @@ dynamicTests =
 
 createTests :: Tests
 createTests =
-  [ Tuple "create 10map" $ create_map 10
-  , Tuple "create 20map" $ create_map 20
-  , Tuple "create 100map" $ create_map 100
+  [ Tuple "create_map 10" $ create_map 10
+  , Tuple "create_map 20" $ create_map 20
+  , Tuple "create_map 100" $ create_map 100
+  , Tuple "create_map 1000" $ create_map 1000
+  , Tuple "create_sub_map 2" $ create_sub_map 2
+  , Tuple "create_sub_map 10" $ create_sub_map 10
+  , Tuple "create_sub_map 20" $ create_sub_map 20
+  , Tuple "create_sub_map 100" $ create_sub_map 100
+  , Tuple "create_sub_map 1000" $ create_sub_map 1000
   ]
 
   where
-        create_map n = do
-          ref <- Ref.new 0
-          pure do
-            pure unit
-            let _ = foldr ($) (Ref.value ref) $ Array.replicate n (map identity)
-            pure unit
+  create_map n = do
+    ref <- Ref.new 0
+    pure do
+      pure unit
+      let _ = foldr ($) (Ref.value ref) $ Array.replicate n (map identity)
+      pure unit
+
+  create_sub_map n = do
+    ref <- Ref.new 0
+    pure do
+      pure unit
+      let d = foldr ($) (Ref.value ref) $ Array.replicate n (map identity)
+      void $ runHost $ subscribeDyn_ (\_ -> pure unit) d
+
 
 nestedApplyTests :: Tests
 nestedApplyTests =
