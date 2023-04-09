@@ -5,16 +5,17 @@ module Specular.Internal.Incremental.Node
 
 import Prelude
 
+import Data.Function.Uncurried (Fn2)
 import Effect (Effect)
-import Specular.Internal.Incremental.Ref as Ref
-import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn6, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn6)
+import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn4, mkEffectFn1, mkEffectFn2, runEffectFn1)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum)
+import Specular.Internal.Incremental.Mutable (Any, Field(..), Immutable, Mutable)
 import Specular.Internal.Incremental.MutableArray (MutableArray)
 import Specular.Internal.Incremental.MutableArray as MutableArray
-import Specular.Internal.Incremental.Mutable (Any, Field(..), Immutable, Mutable)
 import Specular.Internal.Incremental.Optional (Optional)
 import Specular.Internal.Incremental.Optional as Optional
+import Specular.Internal.Incremental.Ref as Ref
 import Specular.Internal.Profiling as Profiling
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -52,7 +53,7 @@ foreign import get_dependents :: forall a. EffectFn1 (Node a) (MutableArray Some
 
 foreign import get_observers :: forall a. EffectFn1 (Node a) (MutableArray (Observer a))
 
-foreign import get_source :: forall a. EffectFn1 (Node a) (Source a)
+foreign import get_dependencies :: forall a. EffectFn1 (Node a) (MutableArray SomeNode)
 
 foreign import get_adjustedHeight :: forall a. EffectFn1 (Node a) (Int)
 foreign import set_adjustedHeight :: forall a. EffectFn2 (Node a) (Int) Unit
@@ -71,25 +72,6 @@ foreign import set_value :: forall a. EffectFn2 (Node a) (Optional a) Unit
 
 -- [[[end]]]
 
-foreign import _new
-  :: forall a
-   . EffectFn6
-       (Optional Any) -- Optional.none
-       (Source a)
-       (MutableArray SomeNode)
-       (MutableArray (Observer a))
-       (Optional a)
-       Int
-       (Node a)
-
--- * Node source
-
-type Source a =
-  { compute :: EffectFn1 (Node a) (Optional a)
-  -- Compute the node value, if none is returned then we don't change value and don't propagate.
-  , dependencies :: Effect (Array SomeNode)
-  }
-
 -- * Existential
 
 type SomeNode = Node Any
@@ -102,19 +84,15 @@ toSomeNodeArray = unsafeCoerce
 
 -- * Creation
 
-create :: forall a. EffectFn1 (Source a) (Node a)
-create = mkEffectFn1 \source -> do
-  dependents <- MutableArray.empty
-  observers <- MutableArray.empty
-  runEffectFn6 _new
-    Optional.none
-    source
-    dependents
-    observers
-    Optional.none -- value
-    0 -- height
+type ComputeFn params a = EffectFn2 params (Node a) (Optional a)
+
+foreign import create :: forall params a. EffectFn4 (Optional Any) (Array SomeNode) (ComputeFn params a) params (Node a)
 
 -- * Utils
+
+foreign import get_dependency :: forall a b. EffectFn2 (Node a) Int (Node b)
+
+foreign import compute :: forall a. EffectFn1 (Node a) (Optional a)
 
 refcount :: forall a. EffectFn1 (Node a) Int
 refcount = mkEffectFn1 \node -> do

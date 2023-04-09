@@ -1,11 +1,13 @@
-export function _new(none, source, dependents, observers, value, height) {
+export function create(none, dependencies, compute, params) {
   return {
-    source: source,
-    dependents: dependents,
-    observers: observers,
-    value: value,
-    height: height,
-    adjustedHeight: height,
+    dependents: [],
+    observers: [],
+    dependencies,
+    compute,
+    params,
+    value: none,
+    height: 0,
+    adjustedHeight: 0,
     inRecomputeQueue: false,
     nextInRecomputeQueue: none,
     name: "",
@@ -16,10 +18,24 @@ export function _new(none, source, dependents, observers, value, height) {
   };
 }
 
+// foreign import get_dependency :: forall a b. Fn2 (Node a) Int (Node b)
+export function get_dependency(node, index) {
+  return node.dependencies[index];
+}
+
+export function get_dependencies(node) {
+  return node.dependencies;
+}
+
+export function compute(node) {
+  return node.compute(node.params, node);
+}
+
 // [[[cog
 // immutable_fields = [
 //   ['dependents', 'MutableArray SomeNode'],
 //   ['observers', 'MutableArray (Observer a)'],
+//   ['dependencies', 'MutableArray SomeNode'],
 //   ['source', 'Source a'],
 // ]
 // mutable_fields = [
@@ -28,6 +44,7 @@ export function _new(none, source, dependents, observers, value, height) {
 //   ['height', 'Int'],
 //   ['name', 'String'],
 //   ['value', 'Optional a'],
+//   ['params', 'Any'],
 // ]
 // for name, _ in immutable_fields:
 //     cog.outl("""
@@ -46,10 +63,6 @@ export function get_dependents(node) {
 
 export function get_observers(node) {
   return node.observers;
-}
-
-export function get_source(node) {
-  return node.source;
 }
 
 export function get_adjustedHeight(node) {

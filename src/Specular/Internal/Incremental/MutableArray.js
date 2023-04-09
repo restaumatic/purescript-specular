@@ -8,6 +8,11 @@ export function push(self, x) {
   self.push(x);
 }
 
+// write :: forall a. EffectFn3 (MutableArray a) Int a Unit
+export function write(self, index, x) {
+  self[index] = x;
+}
+
 // remove :: forall a. EffectFn2 (MutableArray a) a Unit
 export function remove(self, x) {
   var index = self.indexOf(x);
