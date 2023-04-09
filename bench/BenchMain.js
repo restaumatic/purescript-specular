@@ -37,12 +37,11 @@ export function exposeRunBenchmark(tests) {
               sum(allTimes.map((x) => (x - mean) * (x - mean)))
             );
             const md = median(allTimes);
-            const fmt = (t) =>
-              Math.round((1000000 * t) / M) / 1000 + " us/iter";
+            const fmt = (t) => Math.round((1000000 * t) / M) / 1000;
             console.log(
               `${t.name}: min=${fmt(min)} mean=${fmt(mean)} median=${fmt(
                 md
-              )} max=${fmt(max)} stddev=${fmt(stddev)} (${
+              )} max=${fmt(max)} stddev=${fmt(stddev)} (us/iter; ${
                 allTimes.length
               } runs, ${M} iters/run)`
             );
