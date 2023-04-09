@@ -3,6 +3,7 @@ module BrowserMain where
 import Prelude
 
 import BuilderSpec as BuilderSpec
+import DynamicSpec as DynamicSpec
 import Effect (Effect)
 import Examples.AsyncRequest as AsyncRequest
 import Examples.Counter as Counter
@@ -18,6 +19,7 @@ import Test.Spec.Mocha (runMocha)
 
 main :: Effect Unit
 main = runMocha $ mapSpecTree (pure <<< unwrap) identity do
+  DynamicSpec.spec
   BuilderSpec.spec
   NewBuilderSpec.spec
   InputWidgetsSpec.spec

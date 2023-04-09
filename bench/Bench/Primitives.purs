@@ -19,8 +19,7 @@ import Specular.Ref as Ref
 
 dynamicTests :: Tests
 dynamicTests =
-  createTests
-    {-
+  createTests <>
   [ Tuple "10 subscribers" $ nsubscribers 10
   , Tuple "20 subscribers" $ nsubscribers 20
   , Tuple "30 subscribers" $ nsubscribers 30
@@ -35,7 +34,6 @@ dynamicTests =
   , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
   ] <>
   nestedApplyTests
-  -}
 
 createTests :: Tests
 createTests =

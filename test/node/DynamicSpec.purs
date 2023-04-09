@@ -6,15 +6,14 @@ import Control.Monad.Cleanup (execCleanupT, runCleanupT)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
+import Debug (traceM)
 import Effect.Console (log) as Console
 import Effect.Ref (new)
-import Specular.FRP (Dynamic, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
+import Specular.FRP (Dynamic, annotated, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn)
 import Specular.Ref as Ref
 import Test.Spec (Spec, describe, it, pending')
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
-
--- | import Debug (traceM)
 
 spec :: Spec Unit
 spec = describe "Dynamic" $ do
@@ -208,55 +207,52 @@ spec = describe "Dynamic" $ do
 
   describe "Monad instance" $ do
     it "works" $ withLeakCheck $ do
-      ev1 <- liftEffect newEvent
-      ev2 <- liftEffect newEvent
       log <- liftEffect $ new []
-      Tuple rootDynInner unsub1 <- liftEffect $ runCleanupT $ holdDyn 0 ev1.event
-      Tuple rootDynOuter unsub2 <- liftEffect $ runCleanupT $ holdDyn rootDynInner ev2.event
+      rootDynInner <- Ref.new 0
+      rootDynOuter <- Ref.new $ annotated "rootDynInner" $ Ref.value rootDynInner
 
-      let dyn = join rootDynOuter
+      let dyn = join $ annotated "rootDynOuter" $ Ref.value rootDynOuter
       unsub3 <- liftEffect $ execCleanupT $ subscribeDyn_ (\x -> append log x) dyn
       log `shouldHaveValue` [ 0 ]
       clear log
 
       -- inner fires
-      liftEffect $ ev1.fire 1
+      Ref.write rootDynInner 1
       log `shouldHaveValue` [ 1 ]
       clear log
 
       -- outer fires
-      liftEffect $ ev2.fire (pure 2)
+      Ref.write rootDynOuter (pure 2)
       log `shouldHaveValue` [ 2 ]
       clear log
 
+
       -- inner fires when outer not pointing to it
-      liftEffect $ ev1.fire 10
+      Ref.write rootDynInner 10
       log `shouldHaveValue` []
 
       -- outer fires to itself
-      liftEffect $ ev2.fire (3 <$ rootDynOuter)
+      Ref.write rootDynOuter (3 <$ Ref.value rootDynOuter)
       log `shouldHaveValue` [ 3 ]
       clear log
 
       -- outer fires to itself again
-      liftEffect $ ev2.fire (4 <$ rootDynOuter)
+      Ref.write rootDynOuter (4 <$ Ref.value rootDynOuter)
       log `shouldHaveValue` [ 4 ]
       clear log
 
       -- outer fires to inner
-      liftEffect $ ev2.fire rootDynInner
+      Ref.write rootDynOuter (Ref.value rootDynInner)
       log `shouldHaveValue` [ 10 ]
       clear log
 
       -- extra subscription should not mess things up
       unsub4 <- liftEffect $ execCleanupT $ subscribeDyn_ (\_ -> pure unit) dyn
-      liftEffect $ ev1.fire 15
-      liftEffect $ ev2.fire rootDynInner
+      Ref.write rootDynInner 15
+      Ref.write rootDynOuter (Ref.value rootDynInner)
       log `shouldHaveValue` [ 15, 15 ]
 
       -- clean up
-      liftEffect unsub1
-      liftEffect unsub2
       liftEffect unsub3
       liftEffect unsub4
 
