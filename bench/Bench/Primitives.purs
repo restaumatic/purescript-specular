@@ -12,9 +12,10 @@ import Data.Foldable (for_, sum)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
-import Specular.FRP (Dynamic, holdDyn, newDynamic, newEvent)
+import Specular.FRP (Dynamic, holdDyn, map2, newDynamic, newEvent)
 import Specular.FRP.Base (subscribeDyn_)
 import Specular.Ref as Ref
+import Test.Utils.Dom (T3(..))
 
 dynamicTests :: Tests
 dynamicTests =
@@ -35,31 +36,32 @@ dynamicTests =
   nestedApplyTests
 
 createTests :: Tests
-createTests =
-  [ Tuple "create_map 10" $ create_map 10
-  , Tuple "create_map 20" $ create_map 20
-  , Tuple "create_map 100" $ create_map 100
-  , Tuple "create_map 1000" $ create_map 1000
-  , Tuple "create_sub_map 2" $ create_sub_map 2
-  , Tuple "create_sub_map 10" $ create_sub_map 10
-  , Tuple "create_sub_map 20" $ create_sub_map 20
-  , Tuple "create_sub_map 100" $ create_sub_map 100
-  , Tuple "create_sub_map 1000" $ create_sub_map 1000
+createTests = do
+  let pureunit = pure unit
+  T3 op_name op sizes<-
+    [ T3 "map" (map identity) [1,2,10,20,100,1000]
+    , T3 "bind_l" (_ >>= pure)  [1,2,10,20,100]
+    , T3 "bind_r" (\x -> pureunit >>= \_ -> x) [1,2,10,20,100]
+    , T3 "map2" (map2 const pureunit) [1,2,10,20,100,1000]
+    ]
+  n <- sizes
+  [ Tuple ("create_" <> op_name <> "_" <> show n) (create op n)
+  , Tuple ("create_sub_" <> op_name <> "_" <> show n) (create_sub op n)
   ]
 
   where
-  create_map n = do
-    ref <- Ref.new 0
+  create op n = do
+    ref <- Ref.new unit
     pure do
       pure unit
-      let _ = foldr ($) (Ref.value ref) $ Array.replicate n (map identity)
+      let _ = foldr ($) (Ref.value ref) $ Array.replicate n op
       pure unit
 
-  create_sub_map n = do
-    ref <- Ref.new 0
+  create_sub op n = do
+    ref <- Ref.new unit
     pure do
       pure unit
-      let d = foldr ($) (Ref.value ref) $ Array.replicate n (map identity)
+      let d = foldr ($) (Ref.value ref) $ Array.replicate n op
       void $ runHost $ subscribeDyn_ (\_ -> pure unit) d
 
 
