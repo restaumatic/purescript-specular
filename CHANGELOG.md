@@ -1,5 +1,9 @@
 ## Next release
 
+## 0.13.2
+
+- Added `mapN` function
+
 ## 0.13.1
 
 - Added support for checkbox `indeterminate` property
