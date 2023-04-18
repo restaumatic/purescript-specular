@@ -35,6 +35,7 @@
         "purescript-random": "^v6.0.0",
         "purescript-record": "^v4.0.0",
         "purescript-refs": "^v6.0.0",
+        "purescript-safe-coerce": "^v2.0.0",
         "purescript-spec": "^v7.0.0",
         "purescript-spec-mocha": "https://github.com/restaumatic/purescript-spec-mocha.git#v4.0.0-restaumatic2",
         "purescript-strings": "^v6.0.0",
