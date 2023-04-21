@@ -9,7 +9,7 @@ import Data.Tuple (Tuple(..))
 import Effect.Console (log) as Console
 import Effect.Ref (new)
 import Specular.FRP (Dynamic, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
-import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn)
+import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn, uniqDynPure)
 import Specular.Ref as Ref
 import Test.Spec (Spec, describe, it, pending')
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
@@ -144,6 +144,28 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub1
       liftEffect unsub2
+
+  describe "uniqDynPure" $ do
+    it "updates value only when it changes" $ withLeakCheck do
+      log <- liftEffect $ new []
+      root <- Ref.new 1
+      unsub1 <- liftEffect $ execCleanupT do
+        let dyn = uniqDynPure (Ref.value root)
+        subscribeEvent_ (append log) (changed dyn)
+
+      liftEffect $ Ref.write root 2
+      liftEffect $ Ref.write root 2
+      liftEffect $ Ref.write root 3
+      liftEffect $ Ref.write root 3
+      liftEffect $ Ref.write root 3
+
+      log `shouldHaveValue`
+        [ 2
+        , 3
+        ]
+
+      -- clean up
+      liftEffect unsub1
 
   describe "foldDynMaybe" $ do
     it "triggers only when function returns Just" $ withLeakCheck $ do

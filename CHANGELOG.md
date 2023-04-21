@@ -1,5 +1,7 @@
 ## Next release
 
+- 2023-04-21 Added pure version of `uniqDyn` - `uniqDynPure`
+
 ## 0.13.2
 
 - Added `mapN` function

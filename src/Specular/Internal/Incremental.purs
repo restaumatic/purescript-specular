@@ -7,11 +7,12 @@ import Effect (Effect)
 import Effect.Console as Console
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
+import Partial.Unsafe (unsafeCrashWith)
+import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Effect (foreachUntil)
 import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum, stabilizationIsNotInProgress)
-import Specular.Internal.Incremental.MutableArray as MutableArray
-import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Mutable (Field(..))
+import Specular.Internal.Incremental.MutableArray as MutableArray
 import Specular.Internal.Incremental.Node (Node, SomeNode, Observer, toSomeNode, toSomeNodeArray)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional (Optional)
@@ -19,7 +20,6 @@ import Specular.Internal.Incremental.Optional as Optional
 import Specular.Internal.Incremental.PriorityQueue as PQ
 import Specular.Internal.Incremental.Ref as Ref
 import Specular.Internal.Profiling as Profiling
-import Partial.Unsafe (unsafeCrashWith)
 import Unsafe.Coerce (unsafeCoerce)
 
 -- | Priority queue for propagating node changes in dependency order.
@@ -353,6 +353,7 @@ switch = mkEffectFn3 \alwaysFire lhs fn -> do
   pure main
 
 fold :: forall a b. EffectFn3 (Fn2 a b (Optional b)) b (Node a) (Node b)
+
 fold = mkEffectFn3 \fn initial a -> do
   let deps = [ toSomeNode a ]
   runEffectFn1 Node.create
@@ -371,6 +372,22 @@ fold = mkEffectFn3 \fn initial a -> do
 
         --        trace $ "fold: " <> (unsafeCoerce result :: String) <> ", " <> (unsafeCoerce result).constructor.name
         pure result
+    , dependencies: pure deps
+    }
+
+uniqBy :: forall a. EffectFn2 (Fn2 a a Boolean) (Node a) (Node a)
+uniqBy = mkEffectFn2 \fn a -> do
+  let deps = [ toSomeNode a ]
+  runEffectFn1 Node.create
+    { compute: mkEffectFn1 \node -> do
+        old <- runEffectFn1 Node.get_value node
+        new <- runEffectFn1 Node.get_value a
+
+        if Optional.isSome new && (not (Optional.isSome old) || not (runFn2 fn (Optional.fromSome old) (Optional.fromSome new))) then do
+          pure new
+        else
+          pure Optional.none
+
     , dependencies: pure deps
     }
 

@@ -31,6 +31,8 @@ module Specular.FRP.Base
   , holdUniqDynBy
   , uniqDynBy
   , uniqDyn
+  , uniqDynPureBy
+  , uniqDynPure
 
   , newEvent
   , newBehavior
@@ -353,6 +355,23 @@ uniqDynBy eq dyn@(Dynamic node) = do
 
 uniqDyn :: forall m a. MonadFRP m => Eq a => Dynamic a -> m (Dynamic a)
 uniqDyn = uniqDynBy (==)
+
+-- | Make a Dynamic that only changes value when the input Dynamic changes
+-- | value, and the new value is not equal to the previous value with respect to
+-- | the given equality test.
+-- |
+-- | This is a pure version of `uniqDynBy`, and should be preferred. 
+-- | However, it can technically break referential transparency if values
+-- | deemed equal by the equality function are observably different.
+uniqDynPureBy :: forall a. (a -> a -> Boolean) -> Dynamic a -> (Dynamic a)
+uniqDynPureBy eq (Dynamic node) = unsafePerformEffect do
+  n <- runEffectFn2 I.uniqBy (mkFn2 eq) node
+  runEffectFn2 Node.annotate n "uniqDyn"
+  pure (Dynamic n)
+
+-- | `uniqDynPureBy` using the `Eq` instance.
+uniqDynPure :: forall a. Eq a => Dynamic a -> (Dynamic a)
+uniqDynPure = uniqDynPureBy (==)
 
 -- | Make an Event that occurs when the current value of the given Dynamic (an Event) occurs.
 -- |
