@@ -1,4 +1,4 @@
-# Specular [![GithubActions](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)](https://github.com/restaumatic/purescript-specular)
+# Specular [![CI](https://github.com/restaumatic/purescript-specular/actions/workflows/ci.yml/badge.svg)](https://github.com/restaumatic/purescript-specular/actions/workflows/ci.yml)
 
 Specular is a library for building Web-based UIs in PureScript, based on
 Functional Reactive Programming (FRP).
