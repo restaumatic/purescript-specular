@@ -11,7 +11,7 @@ import Effect.Ref (new)
 import Specular.FRP (Dynamic, foldDyn, foldDynMaybe, holdDyn, holdUniqDynBy, newEvent, readDynamic, subscribeDyn_, subscribeEvent_)
 import Specular.FRP.Base (changed, latestJust, newDynamic, subscribeDyn, uniqDynPure)
 import Specular.Ref as Ref
-import Test.Spec (Spec, describe, it, pending')
+import Test.Spec (Spec, describe, it)
 import Test.Utils (append, clear, liftEffect, shouldHaveValue, shouldReturn, withLeakCheck, withLeakCheck')
 
 -- | import Debug (traceM)
@@ -329,7 +329,7 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub3
 
-    pending' "weird glitch test" $ withLeakCheck do
+    it "weird glitch test" $ withLeakCheck do
       -- Example minimized from a real-world bug.
       log <- liftEffect $ new []
       root <- Ref.new "1"

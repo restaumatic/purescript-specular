@@ -141,10 +141,13 @@ connect = mkEffectFn1 \node -> do
   runEffectFn2 Array.iterate dependencies $ mkEffectFn1 \dependency -> do
     runEffectFn2 addDependent dependency (toSomeNode node)
     dependencyHeight <- runEffectFn1 Node.get_height dependency
+    adjustedHeight <- runEffectFn1 Node.get_adjustedHeight node
     ourHeight <- runEffectFn1 Node.get_height node
-    if dependencyHeight + 1 > ourHeight then do
-      runEffectFn2 Node.set_height node (dependencyHeight + 1)
-      runEffectFn2 Node.set_adjustedHeight node (dependencyHeight + 1)
+    let desiredHeight = max (dependencyHeight + 1) adjustedHeight
+    -- trace $ "connect " <> show (Node.name node) <> " -> " <> show (Node.name dependency) <> " dependencyHeight=" <> show dependencyHeight <> " ourHeight=" <> show ourHeight
+    if desiredHeight > ourHeight then do
+      runEffectFn2 Node.set_height node desiredHeight
+      runEffectFn2 Node.set_adjustedHeight node desiredHeight
     else
       pure unit
 
