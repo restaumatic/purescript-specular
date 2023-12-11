@@ -12,7 +12,7 @@ import Effect.Class (liftEffect)
 import Specular.FRP (current, newEvent, pull, subscribeEvent_)
 import Specular.FRP.Async (RequestState(..), asyncRequestMaybe, performEvent)
 import Specular.FRP.Base (readBehavior, subscribeDyn_, readDynamic)
-import Effect.Ref (new)
+import Effect.Ref as Ref
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Utils (append, clear, shouldHaveValue, shouldReturn)
@@ -22,7 +22,7 @@ spec = do
   describe "asyncRequestMaybe" $ do
     it "makes a request for initial value" $ do
       avar <- AVar.empty
-      log <- liftEffect $ new []
+      log <- liftEffect $ Ref.new []
 
       let request = AVar.take avar
 
@@ -38,7 +38,7 @@ spec = do
 
     it "makes a request when the value changes" $ do
       avar <- AVar.empty
-      log <- liftEffect $ new []
+      log <- liftEffect $ Ref.new []
 
       let request = AVar.take avar
 
@@ -61,7 +61,7 @@ spec = do
     it "ignores responses to requests older than the current" $ do
       avar1 <- AVar.empty
       avar2 <- AVar.empty
-      log <- liftEffect $ new []
+      log <- liftEffect $ Ref.new []
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
@@ -78,7 +78,7 @@ spec = do
 
       clear log
       AVar.put "result1" avar1
-      log `shouldHaveValue` [] -- should be ignored, as new request is going on
+      log `shouldHaveValue` [] -- should be ignored, as Ref.new request is going on
 
       clear log
       AVar.put "result2" avar2
@@ -87,7 +87,7 @@ spec = do
     it "ignores out-of-order responses" $ do
       avar1 <- AVar.empty
       avar2 <- AVar.empty
-      log <- liftEffect $ new []
+      log <- liftEffect $ Ref.new []
 
       Tuple dyn setDyn <- liftEffect $ newDynamic Nothing
 
@@ -128,7 +128,7 @@ spec = do
 
       -- In `log` we'll have pairs of (String, String)
       -- The first String is the request description, the second is the result.
-      log <- liftEffect $ new []
+      log <- liftEffect $ Ref.new []
 
       Tuple result _ <- runCleanupT do
         status <- asyncRequestMaybe $ map snd dyn
@@ -172,7 +172,7 @@ spec = do
   describe "performEvent" $ do
     it "runs handler and pushes return value to event" $ do
       { event, fire } <- liftEffect newEvent
-      log <- liftEffect $ new []
+      log <- liftEffect $ Ref.new []
       _ <- liftEffect $ runCleanupT $ do
         result <- performEvent $ map
           (\x -> liftEffect (append log ("handler:" <> x)) *> pure x)
