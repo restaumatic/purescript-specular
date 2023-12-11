@@ -2,25 +2,37 @@ module Specular.Internal.Incremental where
 
 import Prelude
 
+import Data.Either (Either(..))
 import Data.Function.Uncurried (Fn2, runFn2)
+import Data.Generic.Rep (class Generic)
+import Data.Maybe (Maybe(..))
+import Data.Show.Generic (genericShow)
 import Effect (Effect)
+import Effect.Aff (Aff, Error)
+import Effect.Class (liftEffect)
 import Effect.Console as Console
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, mkEffectFn1, mkEffectFn2, mkEffectFn3, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Effect.Unsafe (unsafePerformEffect)
 import Partial.Unsafe (unsafeCrashWith)
+import Specular.Internal.ExclusiveTask as ExclusiveTask
+import Specular.Internal.Effect (nextMicrotask)
 import Specular.Internal.Incremental.Array as Array
 import Specular.Internal.Incremental.Effect (foreachUntil)
-import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum, stabilizationIsNotInProgress)
+import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalLastStabilizationNum, globalTotalRefcount, stabilizationIsNotInProgress)
 import Specular.Internal.Incremental.Mutable (Field(..))
 import Specular.Internal.Incremental.MutableArray as MutableArray
-import Specular.Internal.Incremental.Node (Node, SomeNode, Observer, toSomeNode, toSomeNodeArray)
+import Specular.Internal.Incremental.Node (Node, Observer, SomeNode, toSomeNode, toSomeNodeArray)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional (Optional)
 import Specular.Internal.Incremental.Optional as Optional
 import Specular.Internal.Incremental.PriorityQueue as PQ
 import Specular.Internal.Incremental.Ref as Ref
 import Specular.Internal.Profiling as Profiling
+import Specular.Internal.Queue (Queue)
+import Specular.Internal.Queue as Queue
 import Unsafe.Coerce (unsafeCoerce)
+
+type Unsubscribe = Effect Unit
 
 -- | Priority queue for propagating node changes in dependency order.
 globalRecomputeQueue :: PQ.PQ SomeNode
@@ -49,6 +61,10 @@ newVar = mkEffectFn1 \val -> do
 setVar :: forall a. EffectFn2 (Var a) a Unit
 setVar = mkEffectFn2 \(Var node) val -> do
   runEffectFn2 Node.set_value node (Optional.some val)
+  runEffectFn1 addToRecomputeQueue node
+
+addToRecomputeQueue :: forall a. EffectFn1 (Node a) Unit
+addToRecomputeQueue = mkEffectFn1 \node -> do
   _ <- runEffectFn2 PQ.add globalRecomputeQueue (toSomeNode node)
   pure unit
 
@@ -168,11 +184,29 @@ disconnect = mkEffectFn1 \node -> do
 
   runEffectFn1 Profiling.end mark
 
+-- * Effect queue
+
+globalEffectQueue :: Queue (Effect Unit)
+globalEffectQueue = unsafePerformEffect Queue.new
+
+subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (Node a) Unsubscribe
+subscribeNode = mkEffectFn2 \handler node -> do
+  let
+    h = mkEffectFn1 \value -> do
+      runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
+  runEffectFn2 addObserver node h
+  pure (runEffectFn2 removeObserver node h)
+
 -- * Recompute
 
 stabilize :: Effect Unit
 stabilize = do
   mark <- runEffectFn1 Profiling.begin "stabilize"
+
+  stabilizationNum <- runEffectFn1 Ref.read globalCurrentStabilizationNum
+  if stabilizationNum /= stabilizationIsNotInProgress then
+    unsafeCrashWith "Specular: stabilize called when stabilization already in progress"
+  else pure unit
 
   oldStabilizationNum <- runEffectFn1 Ref.read globalLastStabilizationNum
   let currentStabilizationNum = oldStabilizationNum + 1
@@ -183,6 +217,10 @@ stabilize = do
 
   runEffectFn2 Ref.write globalCurrentStabilizationNum stabilizationIsNotInProgress
   runEffectFn1 Profiling.end mark
+
+  mark2 <- runEffectFn1 Profiling.begin "drainEffects"
+  runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler -> handler)
+  runEffectFn1 Profiling.end mark2
 
 recomputeNode :: EffectFn1 SomeNode Unit
 recomputeNode = mkEffectFn1 \node -> do
@@ -274,6 +312,60 @@ mapOptional = mkEffectFn2 \fn a -> do
           )
     , dependencies: pure deps
     }
+
+data AsyncComputation a = Sync a | Async (Aff a)
+
+data AsyncState a
+  = InProgress (Maybe (Either Error a))
+  | Finished (Either Error a)
+
+derive instance Generic (AsyncState a) _
+instance Show a => Show (AsyncState a) where
+  show = genericShow
+
+mapAsync :: forall a b. EffectFn2 (a -> AsyncComputation b) (Node a) (Node (AsyncState b))
+mapAsync = mkEffectFn2 \fn a -> do
+  let deps = [ toSomeNode a ]
+  task <- ExclusiveTask.new
+  finishedRef <- runEffectFn1 Ref.new Nothing
+  runEffectFn1 Node.create
+    { compute: mkEffectFn1 \self -> do
+        -- Need to determine why we're updating - because the input changed, or because the computation finished?
+        finished <- runEffectFn1 Ref.read finishedRef
+        case finished of
+          Nothing -> do
+            value_a <- runEffectFn1 Node.valueExc a
+            case fn value_a of
+              Sync x ->
+                pure (Optional.some (Finished (Right x)))
+              Async aff -> do
+                nextMicrotask do
+                  ExclusiveTask.run task do
+                    newValue <- aff
+                    liftEffect do
+                      runEffectFn2 Ref.write finishedRef (Just (Right newValue))
+                      runEffectFn1 addToRecomputeQueue self
+                      stabilize
+                previous <- runEffectFn1 Node.get_value self
+                pure (Optional.some (InProgress (getPreviousValue previous)))
+          Just x -> do
+            -- Hmm. Can the input also be changing at the same time we're reporting the result of async computation?
+            -- Currently not, because we always stabilize after changing a node.
+            -- But if we introduced some batching later on, it could happen,
+            -- in which case we'd need to check `isChangingInCurrentStabilization` of our dependency.
+
+            runEffectFn2 Ref.write finishedRef Nothing
+            pure (Optional.some (Finished x))
+    , dependencies: pure deps
+    }
+
+  where
+  getPreviousValue opt
+    | Optional.isSome opt =
+      case Optional.fromSome opt of
+        InProgress x -> x
+        Finished x -> Just x
+    | otherwise = Nothing
 
 map2 :: forall a b c. EffectFn3 (Fn2 a b c) (Node a) (Node b) (Node c)
 map2 = mkEffectFn3 \fn a b -> do

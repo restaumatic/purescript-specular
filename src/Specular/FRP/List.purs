@@ -11,16 +11,17 @@ module Specular.FRP.List
 
 import Prelude
 
-import Effect (Effect)
-import Effect.Class (liftEffect)
 import Control.Monad.Replace (class MonadReplace, Slot, newSlot, appendSlot, replaceSlot, destroySlot)
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
+import Effect (Effect)
+import Effect.Class (liftEffect)
+import Effect.Ref (Ref, new, read, write)
 import Specular.FRP (Dynamic, holdDyn, subscribeDyn_)
 import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
 import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn_, weaken)
-import Effect.Ref (Ref, new, read, write)
+import Specular.Internal.Effect (nextMicrotask)
 import Unsafe.Reference (unsafeRefEq)
 
 -- | `dynamicListWithIndex dynArray handler`
@@ -106,8 +107,6 @@ updateList latestRef mainSlot handler newArray = do
   let newLatest = Array.take (Array.length newArray) $ latest <> newEntries
   write newLatest latestRef
   pure $ map _.result newLatest
-
-foreign import nextMicrotask :: Effect Unit -> Effect Unit
 
 dynamicList
   :: forall m a b
