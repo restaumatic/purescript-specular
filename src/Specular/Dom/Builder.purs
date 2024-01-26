@@ -15,17 +15,18 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
+import Control.MonadFix (class MonadFix)
 import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Ref (modify_, new, read, write)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
 import Foreign.Object as SM
-import Specular.Dom.Builder.Class (class MonadDomBuilder)
 import Specular.Dom.Browser (Node, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
+import Specular.Dom.Builder.Class (class MonadDomBuilder)
 import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
-import Effect.Ref (modify_, new, read, write)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, pushDelayed, sequenceEffects, unsafeFreezeDelayed)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
 import Specular.Internal.RIO as RIO
@@ -45,6 +46,7 @@ derive newtype instance applicativeBuilder :: Applicative (Builder env)
 derive newtype instance bindBuilder :: Bind (Builder env)
 derive newtype instance monadBuilder :: Monad (Builder env)
 derive newtype instance monadEffectBuilder :: MonadEffect (Builder env)
+derive newtype instance MonadFix (Builder env)
 
 instance monadCleanupBuilder :: MonadCleanup (Builder env) where
   onCleanup action = mkBuilder $ \env -> pushDelayed env.cleanup action

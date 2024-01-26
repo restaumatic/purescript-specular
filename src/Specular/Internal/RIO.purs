@@ -8,6 +8,7 @@ module Specular.Internal.RIO
 import Prelude
 
 import Control.Monad.Reader.Class (class MonadAsk)
+import Control.MonadFix (class MonadFix)
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
 import Effect.Uncurried (EffectFn1)
@@ -34,6 +35,9 @@ instance monadAskRIO :: MonadAsk r (RIO r) where
 
 instance monadEffectRIO :: MonadEffect (RIO r) where
   liftEffect = unsafeCoerce
+
+instance MonadFix (RIO r) where
+  mfix = unsafeCoerce
 
 foreign import pureImpl :: forall r a. a -> RIO r a
 foreign import mapImpl :: forall r a b. (a -> b) -> RIO r a -> RIO r b
