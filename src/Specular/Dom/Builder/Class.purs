@@ -4,17 +4,13 @@ import Prelude
 
 import Control.Monad.Cleanup (onCleanup)
 import Control.Monad.Reader (ReaderT(..), runReaderT)
-import Control.Monad.Replace (class MonadReplace)
 import Control.Monad.Trans.Class (lift)
-import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple, snd)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn2)
-import Specular.Dom.Browser (Attrs, EventType, Namespace, Node, TagName, addEventListener)
+import Specular.Dom.Browser (EventType, Node, addEventListener)
 import Specular.Dom.Browser as DOM
-import Specular.FRP (class MonadFRP, WeakDynamic, newEvent, weakDynamic_)
-import Specular.FRP as FRP
+import Specular.FRP (class MonadFRP)
 import Specular.Internal.Effect (DelayedEffects)
 
 type BuilderEnv env =
