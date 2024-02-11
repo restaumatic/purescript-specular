@@ -42,7 +42,7 @@ mainWidget = do
 
   el_ "h2" $ text "Choose another demo:"
   for_ demos \demo@(Demo { name }) -> do
-    el "button" [onClick_ $ Ref.write currentDemo (Just demo)] do
+    el "button" [ onClick_ $ Ref.write currentDemo (Just demo) ] do
       text name
 
 main :: Effect Unit

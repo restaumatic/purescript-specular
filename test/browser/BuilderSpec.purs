@@ -68,9 +68,9 @@ spec = describe "Builder" do
     it "surrounded by other elements" $ withLeakCheck do
       Tuple dyn updateDyn <- liftEffect $ newDynamic $ text "foo"
       T3 node _result unsub <- runBuilderInDiv' do
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
         dynamic_ dyn
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
 
       liftEffect (innerHTML node) `shouldReturn`
         """<span></span>foo<span></span>"""
@@ -162,9 +162,9 @@ spec = describe "Builder" do
     it "renders empty when dynamic is initially Nothing" $ withLeakCheck do
       Tuple dynMb _ <- liftEffect $ newDynamic Nothing
       T3 node _ unsub <- runBuilderInDiv' do
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
 
       liftEffect (innerHTML node) `shouldReturn`
         """<span></span><span></span>"""
@@ -175,9 +175,9 @@ spec = describe "Builder" do
     it "renders contents when dynamic is initially Just" $ withLeakCheck do
       Tuple dynMb _ <- liftEffect $ newDynamic $ Just "foobar"
       T3 node _ unsub <- runBuilderInDiv' do
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
 
       liftEffect (innerHTML node) `shouldReturn`
         """<span></span>foobar<span></span>"""
@@ -188,9 +188,9 @@ spec = describe "Builder" do
     it "renders contents when dynamic is initially Nothing then updated to Just" $ withLeakCheck do
       Tuple dynMb updateDyn <- liftEffect $ newDynamic $ Nothing
       T3 node _ unsub <- runBuilderInDiv' do
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
 
       liftEffect (innerHTML node) `shouldReturn`
         """<span></span><span></span>"""
@@ -205,9 +205,9 @@ spec = describe "Builder" do
     it "renders empty when dynamic is initially Just then updated to Nothing" $ withLeakCheck do
       Tuple dynMb updateDyn <- liftEffect $ newDynamic $ Just "foobar"
       T3 node _ unsub <- runBuilderInDiv' do
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
         whenJustD dynMb $ \dyn -> dynText dyn
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
 
       liftEffect (innerHTML node) `shouldReturn`
         """<span></span>foobar<span></span>"""
@@ -224,11 +224,11 @@ spec = describe "Builder" do
       count <- liftEffect $ new 0
 
       T3 node _ unsub <- runBuilderInDiv' do
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
         whenJustD dynMb $ \dyn -> do
           liftEffect $ modify_ (_ + 1) count
           dynText dyn
-        el_ "span"  $ pure unit
+        el_ "span" $ pure unit
 
       liftEffect $ updateDyn $ Just "foo"
       liftEffect $ updateDyn $ Just "bar"
@@ -248,9 +248,9 @@ spec = describe "Builder" do
       it "renders empty when dynamic is initially false" $ withLeakCheck do
         Tuple dynMb _ <- liftEffect $ newDynamic false
         T3 node _ unsub <- runBuilderInDiv' do
-          el_ "span"  $ pure unit
+          el_ "span" $ pure unit
           whenD dynMb $ text "hello"
-          el_ "span"  $ pure unit
+          el_ "span" $ pure unit
 
         liftEffect (innerHTML node) `shouldReturn`
           """<span></span><span></span>"""
@@ -261,9 +261,9 @@ spec = describe "Builder" do
       it "renders contents when dynamic is initially true" $ withLeakCheck do
         Tuple dynMb _ <- liftEffect $ newDynamic true
         T3 node _ unsub <- runBuilderInDiv' do
-          el_ "span"  $ pure unit
+          el_ "span" $ pure unit
           whenD dynMb $ text "hello"
-          el_ "span"  $ pure unit
+          el_ "span" $ pure unit
 
         liftEffect (innerHTML node) `shouldReturn`
           """<span></span>hello<span></span>"""
@@ -274,9 +274,9 @@ spec = describe "Builder" do
       it "renders contents when dynamic is initially false then updated to true" $ withLeakCheck do
         Tuple dynMb updateDyn <- liftEffect $ newDynamic false
         T3 node _ unsub <- runBuilderInDiv' do
-          el_ "span"  $ pure unit
+          el_ "span" $ pure unit
           whenD dynMb $ text "hello"
-          el_ "span"  $ pure unit
+          el_ "span" $ pure unit
 
         liftEffect $ updateDyn true
         liftEffect (innerHTML node) `shouldReturn`
@@ -408,7 +408,7 @@ spec = describe "Builder" do
     it "dispatches DOM events" $ withLeakCheck do
       log <- liftEffect $ new []
 
-      T3 _node  button   unsub1 <- runBuilderInDiv' do
+      T3 _node button unsub1 <- runBuilderInDiv' do
         Tuple button _ <- el' "button" [] (text "foo")
         onDomEvent "click" button \_ -> append log unit
         pure button

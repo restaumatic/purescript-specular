@@ -87,7 +87,7 @@ mainWidget = do
 
     -- FIXME: This should be replaced by `rsequence`
     formResult :: Dynamic FormResult
-    formResult =  do
+    formResult = do
       loginValue <- Ref.value login
       passwordValue <- Ref.value password
       pure { login: loginValue, password: passwordValue }
@@ -98,22 +98,22 @@ mainWidget = do
 
   el_ "div" do
     el_ "label" $ text "Login: "
-    el "input" [class_ "login", bindValueOnChange login] (pure unit)
+    el "input" [ class_ "login", bindValueOnChange login ] (pure unit)
     whenD loginIsTaken do
       text "Login already taken"
 
   el_ "div" do
     el_ "label" $ text "Password: "
-    el "input" [attr "type" "password" , class_ "password", bindValueOnChange password] (pure unit)
+    el "input" [ attr "type" "password", class_ "password", bindValueOnChange password ] (pure unit)
 
   el_ "div" do
     el_ "label" $ text "Repeat password: "
-    el "input" [attr "type" "password" , class_ "repeat-password", bindValueOnChange repeatPassword] (pure unit)
+    el "input" [ attr "type" "password", class_ "repeat-password", bindValueOnChange repeatPassword ] (pure unit)
 
   unlessD passwordsMatch do
-      el_ "div" $ text "Passwords do not match"
+    el_ "div" $ text "Passwords do not match"
 
-  el "button" [onClick_ register] do
+  el "button" [ onClick_ register ] do
     text "Register"
 
   pure result.event

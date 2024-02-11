@@ -56,7 +56,7 @@ mainWidgetWith backend = do
 
   el_ "div" do
     el_ "label" $ text "Input: "
-    el "input" [bindValueOnChange query] (pure unit)
+    el "input" [ bindValueOnChange query ] (pure unit)
 
   el_ "div" do
     withDynamic_ result $
