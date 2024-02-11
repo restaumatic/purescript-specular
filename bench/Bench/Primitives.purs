@@ -1,4 +1,4 @@
-module Bench.Primitives ( dynamicTests) where
+module Bench.Primitives (dynamicTests) where
 
 import Prelude
 
@@ -18,16 +18,18 @@ dynamicTests =
   , Tuple "20 subscribers" $ nsubscribers 20
   , Tuple "30 subscribers" $ nsubscribers 30
   , Tuple "40 subscribers" $ nsubscribers 40
-  ] <>
-  [ Tuple "dyn" $ testDynFn1 pure
-  , Tuple "dyn fmap" $ testDynFn1 \d -> pure (add 1 <$> d)
-  , Tuple "dyn ap pure" $ testDynFn1 \d -> pure (pure (const 1) <*> d)
-  , Tuple "dyn ap self" $ testDynFn1 \d -> pure (add <$> d <*> d)
-  , Tuple "dyn bind self" $ testDynFn1 \d -> pure (d >>= \_ -> d)
-  , Tuple "dyn bind inner" $ testDynFn1 \d -> pure (pure 10 >>= \_ -> d)
-  , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
-  ] <>
-  nestedApplyTests
+  ]
+    <>
+      [ Tuple "dyn" $ testDynFn1 pure
+      , Tuple "dyn fmap" $ testDynFn1 \d -> pure (add 1 <$> d)
+      , Tuple "dyn ap pure" $ testDynFn1 \d -> pure (pure (const 1) <*> d)
+      , Tuple "dyn ap self" $ testDynFn1 \d -> pure (add <$> d <*> d)
+      , Tuple "dyn bind self" $ testDynFn1 \d -> pure (d >>= \_ -> d)
+      , Tuple "dyn bind inner" $ testDynFn1 \d -> pure (pure 10 >>= \_ -> d)
+      , Tuple "dyn bind outer" $ testDynFn1 \d -> pure (d >>= \_ -> pure 10)
+      ]
+    <>
+      nestedApplyTests
 
 nestedApplyTests :: Tests
 nestedApplyTests =
@@ -48,14 +50,14 @@ nestedApplyTests =
       dynamics <- sequence $ replicate n do
         event <- newEvent
         holdDyn 0 event.event
-      pure $ map sum $ sequence ([d] <> dynamics)
+      pure $ map sum $ sequence ([ d ] <> dynamics)
 
   test_n_ap_last n =
     testDynFn1 \d -> do
       dynamics <- sequence $ replicate n do
         event <- newEvent
         holdDyn 0 event.event
-      pure $ map sum $ sequence (dynamics <> [d])
+      pure $ map sum $ sequence (dynamics <> [ d ])
 
 nsubscribers :: Int -> Effect (Effect Unit)
 nsubscribers n =

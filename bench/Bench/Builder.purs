@@ -17,23 +17,23 @@ foreign import replicateM_Widget_ :: Int -> Widget Unit -> Widget Unit
 staticWidgetNewApi :: Int -> Widget Unit
 staticWidgetNewApi n =
   replicateM_Widget_ n $
-    E.el "div" [E.attrs ("class" := "foo")] do
-      E.el "div" [E.attrs ("class" := "bar")] do
+    E.el "div" [ E.attrs ("class" := "foo") ] do
+      E.el "div" [ E.attrs ("class" := "bar") ] do
         E.text "foo"
-      E.el "div" [E.attrs ("class" := "baz")] do
+      E.el "div" [ E.attrs ("class" := "baz") ] do
         E.text "foo"
-      E.el "div" [E.attrs ("class" := "thud")] do
+      E.el "div" [ E.attrs ("class" := "thud") ] do
         E.text "foo"
 
 staticWidgetNewApiD :: Int -> Widget Unit
 staticWidgetNewApiD n =
   replicateM_Widget_ n $
-    E.el "div" [E.attrsD (pure ("class" := "foo"))] do
-      E.el "div" [E.attrsD (pure ("class" := "bar"))] do
+    E.el "div" [ E.attrsD (pure ("class" := "foo")) ] do
+      E.el "div" [ E.attrsD (pure ("class" := "bar")) ] do
         E.text "foo"
-      E.el "div" [E.attrsD (pure ("class" := "baz"))] do
+      E.el "div" [ E.attrsD (pure ("class" := "baz")) ] do
         E.text "foo"
-      E.el "div" [E.attrsD (pure ("class" := "thud"))] do
+      E.el "div" [ E.attrsD (pure ("class" := "thud")) ] do
         E.text "foo"
 
 -- See comments in the FFI module.
@@ -50,7 +50,8 @@ builderTests =
   , Tuple "Widget + attrD             " (pure $ delay \_ -> runWidget $ staticWidgetNewApiD 10)
   ]
 
-  where delay x = pure unit >>= x
+  where
+  delay x = pure unit >>= x
 
 -- mechanics
 
