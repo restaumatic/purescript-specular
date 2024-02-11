@@ -12,7 +12,6 @@ import Effect (Effect)
 import Specular.Dom.Browser (Node)
 import Specular.Dom.Builder.Class (elAttr, elDynAttr, text)
 import Specular.Dom.Element as E
-import Specular.Dom.Node.Class (createElement, (:=))
 import Specular.Dom.Widget (class MonadWidget, Widget, runWidgetInNode)
 import Test.Utils.Dom (T3(T3))
 
