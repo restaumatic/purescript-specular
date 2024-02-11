@@ -1,8 +1,9 @@
 module Specular.Dom.Element
-  ( module X
+  ( rawHtml
   , el'
   , el
   , el_
+  , elNS'
   , Prop(..)
 
   , text
@@ -53,23 +54,20 @@ import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (foreachE, Effect)
+import Effect.Ref (new, read, write)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, EffectFn4, mkEffectFn1, mkEffectFn2, mkEffectFn3, mkEffectFn4, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
 import Foreign.Object as Object
-import Specular.Dom.Browser (EventType, Node, appendChild, createTextNode, setText, (:=))
+import Specular.Dom.Browser (Attrs, EventType, Namespace, Node, TagName, appendChild, appendRawHtml, createElement, createElementNS, createTextNode, getCheckboxChecked, getTextInputValue, removeAttributes, setAttributes, setText, (:=))
 import Specular.Dom.Browser as DOM
-import Specular.Dom.Builder (mkBuilder', runBuilder')
+import Specular.Dom.Builder (Builder, mkBuilder, mkBuilder', runBuilder')
 import Specular.Dom.Builder.Class (BuilderEnv)
-import Specular.Dom.Builder.Class (rawHtml) as X
-import Specular.Dom.Node.Class (Attrs, TagName, createElement, removeAttributes, setAttributes)
 import Specular.Dom.Widget (RWidget)
-import Specular.Dom.Widgets.Input (getCheckboxChecked, getTextInputValue)
 import Specular.FRP (Dynamic, _subscribeEvent, changed, readDynamic, subscribeDyn_)
-import Effect.Ref (new, read, write)
 import Specular.Internal.Effect (DelayedEffects, pushDelayed)
-import Specular.Ref (Ref(..))
-import Unsafe.Coerce (unsafeCoerce)
 import Specular.Internal.Profiling as ProfilingInternal
 import Specular.Profiling as Profiling
+import Specular.Ref (Ref(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 newtype Prop = Prop (EffectFn2 Node DelayedEffects Unit)
 
@@ -80,6 +78,12 @@ instance semigroupProp :: Semigroup Prop where
 
 instance monoidProp :: Monoid Prop where
   mempty = Prop $ mkEffectFn2 \_ _ -> pure unit
+
+elNS' :: forall r a. Maybe Namespace -> TagName -> Array Prop -> RWidget r a -> RWidget r (Tuple Node a)
+elNS' ns tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
+  node <- createElementNS ns tagName
+  result <- runEffectFn4 initElement env node props body
+  pure (Tuple node result)
 
 el' :: forall r a. TagName -> Array Prop -> RWidget r a -> RWidget r (Tuple Node a)
 el' tagName props body = mkBuilder' $ mkEffectFn1 \env -> do
@@ -341,3 +345,8 @@ classWhen enabled cls = if enabled then class_ cls else mempty
 
 classUnless :: Boolean -> ClassName -> Prop
 classUnless enabled cls = if enabled then mempty else class_ cls
+
+-- | Insert a chunk of HTML.
+rawHtml :: forall env. String -> Builder env Unit
+rawHtml html = mkBuilder \env ->
+  appendRawHtml html env.parent

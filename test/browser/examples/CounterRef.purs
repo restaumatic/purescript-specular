@@ -76,20 +76,20 @@ mainWidget = do
   counter :: Ref Int <- Ref.new 0
 
   -- | Subtract 1 from counter value
-  let subtractCb = (Ref.modify counter) (add (negate 1))
+  let decrement = Ref.modify counter (_ - 1)
 
   -- | Add 1 to counter value
-  let addCb = (Ref.modify counter) (add 1)
+  let increment = Ref.modify counter (_ + 1)
 
   -- | Reset counter to 0
   let reset = Ref.write counter 0
 
   el_ "p" $ dynText $ show <$> Ref.value counter
 
-  el "button" [ class_ "increment", attr "type" "button", onClick_ addCb ] do
+  el "button" [ class_ "increment", attr "type" "button", onClick_ increment ] do
     text "Increment"
 
-  el "button" [ class_ "decrement", attr "type" "button", onClick_ subtractCb ] do
+  el "button" [ class_ "decrement", attr "type" "button", onClick_ decrement ] do
     text "Decrement"
 
   el "button" [ class_ "reset", attr "type" "button", onClick_ reset ] do
