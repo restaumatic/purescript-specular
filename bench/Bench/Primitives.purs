@@ -9,7 +9,7 @@ import Data.Foldable (for_, sum)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..), fst)
 import Effect (Effect)
-import Specular.FRP (Dynamic, holdDyn, never, newDynamic, newEvent)
+import Specular.FRP (Dynamic, holdDyn, newDynamic, newEvent)
 import Specular.FRP.Base (subscribeDyn_)
 
 dynamicTests :: Tests
@@ -71,16 +71,6 @@ testDynFn1 fn =
     event <- newEvent
     dyn <- holdDyn 0 event.event
     dyn' <- fn dyn
-    subscribeDyn_ (\_ -> pure unit) dyn'
-    pure (event.fire 1)
-
-testDynFn2 :: (Dynamic Int -> Dynamic Int -> Host (Dynamic Int)) -> Effect (Effect Unit)
-testDynFn2 fn =
-  runHost do
-    event <- newEvent
-    dyn <- holdDyn 0 event.event
-    dyn2 <- holdDyn 0 never
-    dyn' <- fn dyn dyn2
     subscribeDyn_ (\_ -> pure unit) dyn'
     pure (event.fire 1)
 
