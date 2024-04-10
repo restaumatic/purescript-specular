@@ -12,7 +12,7 @@ export function push(self, x) {
 export function remove(self, x) {
   var index = self.indexOf(x);
   if (index !== -1) {
-    self.splice(index, 1);
+    self[index] = null;
   }
 }
 
@@ -23,7 +23,16 @@ export function length(self) {
 
 // iterate :: forall a. EffectFn2 (MutableArray a) (EffectFn1 a Unit) Unit
 export function iterate(self, fn) {
+  var nullIndices = [];
   for (var i = 0; i < self.length; i++) {
-    fn(self[i]);
+    if (self[i] === null) {
+      nullIndices.push(i);
+    } else {
+      fn(self[i]);
+    }
+  }
+
+  for (var i = nullIndices.length - 1; i >= 0; i--) {
+    self.splice(nullIndices[i], 1);
   }
 }
