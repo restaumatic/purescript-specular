@@ -23,16 +23,20 @@ export function length(self) {
 
 // iterate :: forall a. EffectFn2 (MutableArray a) (EffectFn1 a Unit) Unit
 export function iterate(self, fn) {
-  var nullIndices = [];
-  for (var i = 0; i < self.length; i++) {
-    if (self[i] === null) {
-      nullIndices.push(i);
-    } else {
-      fn(self[i]);
+  let writeIndex = 0;
+
+  // Clean up array using in-place filtering technique
+  for (let i = 0; i < self.length; i++) {
+    const value = self[i];
+    if (value !== null) {
+      fn(value);
+      if (writeIndex !== i) {
+        self[writeIndex] = value; // Move non-null values to the left
+      }
+      writeIndex++;
     }
   }
 
-  for (var i = nullIndices.length - 1; i >= 0; i--) {
-    self.splice(nullIndices[i], 1);
-  }
+  // Trim the array to remove null values
+  self.length = writeIndex;
 }
