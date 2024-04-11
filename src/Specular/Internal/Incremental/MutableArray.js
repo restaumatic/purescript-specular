@@ -11,17 +11,8 @@ export function push(self, x) {
 // remove :: forall a. EffectFn2 (MutableArray a) a Unit
 export function remove(self, x) {
   var index = self.indexOf(x);
-
-  // The removed element is replaced by the last element of the array.
-  // This does not preserve ordering, but is *O*(1). 
   if (index !== -1) {
-    var lastIdx = self.length - 1;
-
-    if (index !== lastIdx) {
-      self[index] = self[lastIdx];
-    }
-
-    self.length = lastIdx;
+    self[index] = null;
   }
 }
 
@@ -32,7 +23,20 @@ export function length(self) {
 
 // iterate :: forall a. EffectFn2 (MutableArray a) (EffectFn1 a Unit) Unit
 export function iterate(self, fn) {
+  let writeIndex = 0;
+
+  // Clean up array using in-place filtering technique
   for (let i = 0; i < self.length; i++) {
-    fn(self[i]);
+    const value = self[i];
+    if (value !== null) {
+      fn(value);
+      if (writeIndex !== i) {
+        self[writeIndex] = value; // Move non-null values to the left
+      }
+      writeIndex++;
+    }
   }
+
+  // Trim the array to remove null values
+  self.length = writeIndex;
 }
