@@ -4,6 +4,7 @@ module Specular.Dom.Builder
   , local
   , unBuilder
   , mkBuilder'
+  , mkBuilder
   , runBuilder'
   , getParentNode
   ) where
@@ -15,16 +16,13 @@ import Control.Monad.Cleanup (class MonadCleanup, onCleanup)
 import Control.Monad.Reader (ask, asks)
 import Control.Monad.Reader.Class (class MonadAsk, class MonadReader)
 import Control.Monad.Replace (class MonadReplace, Slot(Slot), newSlot)
-import Data.Array as A
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn1, EffectFn2, mkEffectFn2, runEffectFn1, runEffectFn2)
-import Foreign.Object as SM
 import Specular.Dom.Builder.Class (class MonadDomBuilder)
-import Specular.Dom.Browser (Node, appendChild, appendRawHtml, createDocumentFragment, createElementNS, createTextNode, insertBefore, parentNode, removeAllBetween, removeAttributes, setAttributes, setText, removeNode)
-import Specular.FRP.WeakDynamic (subscribeWeakDyn_)
+import Specular.Dom.Browser (Node, appendChild, createDocumentFragment, createTextNode, insertBefore, parentNode, removeAllBetween, removeNode)
 import Effect.Ref (modify_, new, read, write)
 import Specular.Internal.Effect (DelayedEffects, emptyDelayed, pushDelayed, sequenceEffects, unsafeFreezeDelayed)
 import Specular.Internal.RIO (RIO(..), rio, runRIO)
@@ -84,13 +82,10 @@ runBuilderWithUserEnv userEnv parent (Builder f) = do
 getEnv :: forall env. Builder env (BuilderEnv env)
 getEnv = Builder ask
 
-setParent :: forall env. Node -> BuilderEnv env -> BuilderEnv env
-setParent parent env = env { parent = parent }
-
 getParentNode :: forall env. Builder env Node
 getParentNode = Builder (asks _.parent)
 
-instance monadReplaceBuilder :: MonadReplace (Builder env) where
+instance MonadReplace (Builder env) where
 
   newSlot = do
     env <- getEnv
@@ -159,58 +154,14 @@ instance monadReplaceBuilder :: MonadReplace (Builder env) where
 
     pure $ Slot replace destroy append
 
-instance monadDomBuilderBuilder :: MonadDomBuilder (Builder env) where
-
-  text str = mkBuilder \env -> do
-    node <- createTextNode str
-    appendChild node env.parent
-
-  dynText dstr = do
-    node <- mkBuilder \env -> do
-      node <- createTextNode ""
-      appendChild node env.parent
-      pure node
-    subscribeWeakDyn_ (setText node) dstr
-
-  rawHtml html = mkBuilder \env ->
-    appendRawHtml html env.parent
-
-  elDynAttrNS' namespace tagName dynAttrs inner = do
-    env <- getEnv
-    node <- liftEffect $ createElementNS namespace tagName
-
-    attrsRef <- liftEffect $ new mempty
-    let
-      resetAttributes newAttrs = do
-        oldAttrs <- read attrsRef
-        write newAttrs attrsRef
-        let
-          changed = SM.filterWithKey (\k v -> SM.lookup k oldAttrs /= Just v) newAttrs
-          removed = A.filter (\k -> not (k `SM.member` newAttrs)) $ SM.keys oldAttrs
-
-        removeAttributes node removed
-        setAttributes node changed
-
-    subscribeWeakDyn_ resetAttributes dynAttrs
-    result <- Builder $ RIO.local (setParent node) $ unBuilder inner
-    liftEffect $ appendChild node env.parent
-    pure (Tuple node result)
-
-  elAttr tagName attrs inner = do
-    env <- getEnv
-    node <- liftEffect $ createElementNS Nothing tagName
-    liftEffect $ setAttributes node attrs
-    result <- Builder $ RIO.local (setParent node) $ unBuilder inner
-    liftEffect $ appendChild node env.parent
-    pure result
-
+instance MonadDomBuilder (Builder env) where
   liftBuilder fn = Builder (RIO fn)
   liftBuilderWithRun fn =
     Builder $ rio \env ->
       runEffectFn2 fn env (mkEffectFn2 \env' (Builder (RIO m)) -> runEffectFn1 m env')
 
-instance semigroupBuilder :: Semigroup a => Semigroup (Builder node a) where
+instance Semigroup a => Semigroup (Builder node a) where
   append = lift2 append
 
-instance monoidBuilder :: Monoid a => Monoid (Builder node a) where
+instance Monoid a => Monoid (Builder node a) where
   mempty = pure mempty

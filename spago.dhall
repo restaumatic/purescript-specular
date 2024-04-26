@@ -12,14 +12,11 @@
   , "foreign"
   , "foreign-object"
   , "functions"
-  , "integers"
   , "invariant"
   , "maybe"
   , "newtype"
   , "partial"
   , "prelude"
-  , "random"
-  , "record"
   , "refs"
   , "safe-coerce"
   , "spec"
@@ -27,13 +24,12 @@
   , "strings"
   , "transformers"
   , "tuples"
-  , "type-equality"
   , "typelevel-prelude"
   , "unsafe-coerce"
   , "unsafe-reference"
   ]
 , packages = ./packages.dhall
-, sources = [ "src/**/*.purs", "test/**/*.purs" ]
+, sources = [ "src/**/*.purs", "test/**/*.purs", "bench/**/*.purs" ]
 , license = "MIT"
 , repository = "https://github.com/restaumatic/purescript-specular"
 }

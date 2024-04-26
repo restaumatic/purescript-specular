@@ -10,7 +10,6 @@ module Specular.Ref
   , focusRef
   , pureFocusRef
   , previewRef
-  , wrapViewWidget
   , Lens
   , Prism
   --
@@ -42,8 +41,7 @@ import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Prelude as Prelude
-import Specular.Dom.Widget (class MonadWidget)
-import Specular.FRP (class MonadFRP, Dynamic, Event, WeakDynamic, newDynamic, readDynamic, subscribeEvent_, weaken)
+import Specular.FRP (class MonadFRP, Dynamic, Event, newDynamic, readDynamic, subscribeEvent_)
 
 data Ref a = Ref (Dynamic a) ((a -> a) -> Effect Unit)
 
@@ -114,16 +112,6 @@ previewRef prism (Ref value_ update) =
             _ -> s
       ) >>> update
     )
-
-wrapViewWidget
-  :: forall m a
-   . MonadWidget m
-  => (WeakDynamic a -> m (Event a))
-  -> Ref a
-  -> m Unit
-wrapViewWidget widget r@(Ref value_ _update) = do
-  updateE <- widget (weaken value_)
-  subscribeEvent_ (set r) updateE
 
 -- | Old name for `new`.
 newRef :: forall m a. MonadEffect m => a -> m (Ref a)
