@@ -152,7 +152,14 @@ connect = mkEffectFn1 \node -> do
       pure unit
 
   value <- runEffectFn1 source.compute node
-  runEffectFn2 Node.set_value node value
+
+  -- Note: `compute` can return `none`, which means "do not update the value",
+  -- in cases where we're re-connecting a node which was previously alive.
+  -- In that case, don't erase the previous value.
+  if Optional.isSome value then
+    runEffectFn2 Node.set_value node value
+  else
+    pure unit
 
   runEffectFn1 Profiling.end mark
 
