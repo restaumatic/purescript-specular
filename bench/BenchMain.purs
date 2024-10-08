@@ -16,6 +16,7 @@ main :: Effect Unit
 main = launchAff_ do
   bench "Builder" builderTests
   bench "Dynamic" dynamicTests
+  Console.log "finished"
 
 bench :: String -> Tests -> Aff Unit
 bench suiteName tests = do
