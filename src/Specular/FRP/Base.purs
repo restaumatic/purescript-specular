@@ -66,7 +66,6 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
-import Safe.Coerce (coerce)
 import Specular.Internal.Incremental as I
 import Specular.Internal.Incremental.Node (Node)
 import Specular.Internal.Incremental.Node as Node
@@ -74,9 +73,6 @@ import Specular.Internal.Incremental.Optional as Optional
 import Specular.Internal.Profiling as Profiling
 import Specular.Internal.Queue (Queue)
 import Specular.Internal.Queue as Queue
-
--- | import Partial.Unsafe (unsafeCrashWith)
--- | import Unsafe.Coerce (unsafeCoerce)
 
 -------------------------------------------------------------
 
@@ -89,8 +85,7 @@ newtype Behavior a = Behavior (Dynamic a)
 
 -- | Read a value of a Behavior.
 readBehavior :: forall a. Behavior a -> Effect a
-readBehavior (Behavior (Dynamic node)) = do
-  readNode node
+readBehavior (Behavior d) = readDynamic d
 
 pull :: forall a m. MonadEffect m => Effect a -> m a
 pull = liftEffect
@@ -147,7 +142,8 @@ never :: forall a. Event a
 never = Event (I.readEvent (unsafePerformEffect I.newEvent))
 
 sampleAt :: forall a b. Event (a -> b) -> Behavior a -> Event b
-sampleAt (Event clock) (Behavior (Dynamic signal)) = Event $ unsafePerformEffect do
+sampleAt clock (Behavior (DynPure x)) = (_ $ x) <$> clock
+sampleAt (Event clock) (Behavior (DynNode signal)) = Event $ unsafePerformEffect do
   n <- runEffectFn3 I.sample (mkFn2 \a b -> Optional.some (b a)) signal clock
   runEffectFn2 Node.annotate n "sampleAt"
   pure n
@@ -239,7 +235,9 @@ leftmost events = Event $ unsafePerformEffect do
 -- | `Dynamic a` represents a _dynamically changing value_ of type `a`. The
 -- | current value may be queried at any time (using `current`), and it's
 -- | possible to be notified of changes (using `changed`).
-newtype Dynamic a = Dynamic (Node a)
+data Dynamic a
+  = DynPure a
+  | DynNode (Node a)
 
 -- | The Behavior representing the current value of the Dynamic.
 -- | When it is changing (the change event occurs), it has the new value.
@@ -251,41 +249,53 @@ current = Behavior
 
 -- | An Event that fires with the new value every time the Dynamic changes.
 changed :: forall a. Dynamic a -> Event a
-changed (Dynamic node) = Event node
+changed (DynPure _) = never
+changed (DynNode node) = Event node
 
 -- | An Event that fires every time the Dynamic changes.
 changed_ :: forall a. Dynamic a -> Event Unit
 changed_ = changed <<< void
 
 instance functorDynamic :: Functor Dynamic where
-  map f (Dynamic node) = Dynamic $ unsafePerformEffect do
+  map f (DynPure x) = DynPure (f x)
+  map f (DynNode node) = DynNode $ unsafePerformEffect do
     n <- runEffectFn2 I.map f node
     runEffectFn2 Node.annotate n ("map " <> Node.name node)
     pure n
 
 instance applyDynamic :: Apply Dynamic where
-  apply (Dynamic f) (Dynamic x) = Dynamic $ unsafePerformEffect do
+  apply (DynPure f) dx = f <$> dx
+  apply df (DynPure x) = (_ $ x) <$> df
+  apply (DynNode f) (DynNode x) = DynNode $ unsafePerformEffect do
     n <- runEffectFn3 I.map2 (mkFn2 ($)) f x
     runEffectFn2 Node.annotate n ("apply (" <> Node.name f <> ") (" <> Node.name x <> ")")
     pure n
 
 map2 :: forall a b c. (a -> b -> c) -> Dynamic a -> Dynamic b -> Dynamic c
-map2 f (Dynamic x) (Dynamic y) = Dynamic $ unsafePerformEffect do
+map2 f (DynPure x) dy = f x <$> dy
+map2 f dx (DynPure y) = (\x -> f x y) <$> dx
+map2 f (DynNode x) (DynNode y) = DynNode $ unsafePerformEffect do
   n <- runEffectFn3 I.map2 (mkFn2 f) x y
   runEffectFn2 Node.annotate n ("map2 (" <> Node.name x <> ") (" <> Node.name y <> ")")
   pure n
 
 mapN :: forall a b. (Array a -> b) -> Array (Dynamic a) -> Dynamic b
-mapN f inputs = Dynamic $ unsafePerformEffect do
-  n <- runEffectFn2 I.mapN f (coerce inputs)
+mapN f inputs = DynNode $ unsafePerformEffect do
+  -- TODO: optimize (eliminate pure nodes)
+  let inputs' = dynToNode <$> inputs
+  n <- runEffectFn2 I.mapN f inputs'
   runEffectFn2 Node.annotate n "mapN"
   pure n
 
-instance applicativeDynamic :: Applicative Dynamic where
-  pure x = Dynamic $ unsafePerformEffect do
-    n <- runEffectFn1 I.constant x
-    runEffectFn2 Node.annotate n "pure"
-    pure n
+instance Applicative Dynamic where
+  pure = DynPure
+
+dynToNode :: forall a. Dynamic a -> Node a
+dynToNode (DynPure x) = unsafePerformEffect do
+  n <- runEffectFn1 I.constant x
+  runEffectFn2 Node.annotate n "pure"
+  pure n
+dynToNode (DynNode x) = x
 
 -- | `foldDyn f x e` - Make a Dynamic that will have the initial value `x`,
 -- | and every time `e` fires, its value will update by applying `f` to the
@@ -299,7 +309,7 @@ foldDyn f initial (Event event) = do
     runEffectFn2 Node.annotate n "foldDyn"
     pure n
   subscribeNode (\_ -> pure unit) n
-  pure (Dynamic n)
+  pure (DynNode n)
 
 -- | effectCrash :: forall a. String -> a
 -- | effectCrash msg = unsafeCoerce (\_ -> unsafeCrashWith msg)
@@ -309,7 +319,7 @@ newDynamic :: forall m a. MonadEffect m => a -> m { dynamic :: Dynamic a, read :
 newDynamic initial = liftEffect do
   var <- runEffectFn1 I.newVar initial
   runEffectFn2 Node.annotate (I.readVar var) "root Dynamic"
-  let dynamic = Dynamic (I.readVar var)
+  let dynamic = DynNode (I.readVar var)
   pure
     { dynamic
     , read: readDynamic dynamic
@@ -337,7 +347,7 @@ foldDynMaybe f initial (Event event) = do
     runEffectFn2 Node.annotate n "foldDynMaybe"
     pure n
   subscribeNode (\_ -> pure unit) n
-  pure (Dynamic n)
+  pure (DynNode n)
 
 -- | `holdDyn initialValue event` returns a `Dynamic` that starts with `initialValue`, and changes to the occurence value of `event` when `event` fires
 holdDyn :: forall m a. MonadFRP m => a -> Event a -> m (Dynamic a)
@@ -350,7 +360,8 @@ holdUniqDynBy eq = foldDynMaybe (\new old -> if eq new old then Nothing else Jus
 -- | value, and the new value is not equal to the previous value with respect to
 -- | the given equality test.
 uniqDynBy :: forall m a. MonadFRP m => (a -> a -> Boolean) -> Dynamic a -> m (Dynamic a)
-uniqDynBy eq dyn@(Dynamic node) = do
+uniqDynBy _ dyn@(DynPure _) = pure dyn
+uniqDynBy eq dyn@(DynNode node) = do
   -- HACK: For now we have to observe node to be sure we have the latest value
   let handler = mkEffectFn1 \_ -> pure unit
   initialValue <- liftEffect do
@@ -370,11 +381,12 @@ uniqDyn = uniqDynBy (==)
 -- | This is a pure version of `uniqDynBy`, and should be preferred. 
 -- | However, it can technically break referential transparency if values
 -- | deemed equal by the equality function are observably different.
-uniqDynPureBy :: forall a. (a -> a -> Boolean) -> Dynamic a -> (Dynamic a)
-uniqDynPureBy eq (Dynamic node) = unsafePerformEffect do
+uniqDynPureBy :: forall a. (a -> a -> Boolean) -> Dynamic a -> Dynamic a
+uniqDynPureBy _ dyn@(DynPure _) = dyn
+uniqDynPureBy eq (DynNode node) = unsafePerformEffect do
   n <- runEffectFn2 I.uniqBy (mkFn2 eq) node
   runEffectFn2 Node.annotate n "uniqDyn"
-  pure (Dynamic n)
+  pure (DynNode n)
 
 -- | `uniqDynPureBy` using the `Eq` instance.
 uniqDynPure :: forall a. Eq a => Dynamic a -> (Dynamic a)
@@ -384,14 +396,16 @@ uniqDynPure = uniqDynPureBy (==)
 -- |
 -- | `switch (pure e) = e`
 switch :: forall a. Dynamic (Event a) -> Event a
-switch (Dynamic lhs) = Event $ unsafePerformEffect do
+switch (DynPure lhs) = lhs
+switch (DynNode lhs) = Event $ unsafePerformEffect do
   n <- runEffectFn3 I.switch false lhs (\(Event e) -> e)
   runEffectFn2 Node.annotate n "switch"
   pure n
 
 instance bindDynamic :: Bind Dynamic where
-  bind (Dynamic lhs) f = Dynamic $ unsafePerformEffect do
-    n <- runEffectFn2 I.bind_ lhs (\x -> let Dynamic dyn = f x in dyn)
+  bind (DynPure lhs) f = f lhs
+  bind (DynNode lhs) f = DynNode $ unsafePerformEffect do
+    n <- runEffectFn2 I.bind_ lhs (\x -> dynToNode (f x))
     runEffectFn2 Node.annotate n "bindDynamic"
     pure n
 
@@ -403,7 +417,9 @@ subscribeDyn_
   => (a -> Effect Unit)
   -> Dynamic a
   -> m Unit
-subscribeDyn_ handler _dyn@(Dynamic node) = do
+subscribeDyn_ handler _dyn@(DynPure x) =
+  liftEffect $ handler x
+subscribeDyn_ handler _dyn@(DynNode node) = do
   subscribeNode handler node
   liftEffect do
     currentValue <- runEffectFn1 Node.valueExc node
@@ -415,7 +431,10 @@ subscribeDyn
   => (a -> Effect b)
   -> Dynamic a
   -> m (Dynamic b)
-subscribeDyn handler _dyn@(Dynamic node) = do
+subscribeDyn handler _dyn@(DynPure x) = do
+  result <- liftEffect $ handler x
+  pure (pure result)
+subscribeDyn handler _dyn@(DynNode node) = do
   evt <- liftEffect do
     evt <- I.newEvent
     runEffectFn2 Node.annotate (I.readEvent evt) "subscribeDyn"
@@ -433,7 +452,7 @@ subscribeDyn handler _dyn@(Dynamic node) = do
     currentValue <- runEffectFn1 Node.valueExc node
     initialResult <- handler currentValue
     runEffectFn2 Node.set_value (I.readEvent evt) (Optional.some initialResult)
-    pure (Dynamic (I.readEvent evt))
+    pure (DynNode (I.readEvent evt))
 
 tagDyn :: forall a. Dynamic a -> Event Unit -> Event a
 tagDyn dyn event = sampleAt (identity <$ event) (current dyn)
@@ -453,7 +472,8 @@ latestJust dyn = do
   foldDynMaybe (\new _ -> map Just new) currentValue (changed dyn)
 
 readDynamic :: forall m a. MonadEffect m => Dynamic a -> m a
-readDynamic (Dynamic n) = liftEffect do
+readDynamic (DynPure x) = pure x
+readDynamic (DynNode n) = liftEffect do
   mark <- runEffectFn1 Profiling.begin "readDynamic"
   result <- readNode n
   runEffectFn1 Profiling.end mark
@@ -468,7 +488,10 @@ traceEventIO :: forall a. (a -> Effect Unit) -> Event a -> Event a
 traceEventIO handler (Event n) = Event (traceNode handler n)
 
 traceDynIO :: forall a. (a -> Effect Unit) -> Dynamic a -> Dynamic a
-traceDynIO handler (Dynamic n) = Dynamic (traceNode handler n)
+traceDynIO handler (DynPure x) = unsafePerformEffect do
+  handler x
+  pure (DynPure x)
+traceDynIO handler (DynNode n) = DynNode (traceNode handler n)
 
 traceNode :: forall a. (a -> Effect Unit) -> Node a -> Node a
 traceNode handler input = unsafePerformEffect do
@@ -477,12 +500,14 @@ traceNode handler input = unsafePerformEffect do
   pure n
 
 annotated :: forall a. String -> Dynamic a -> Dynamic a
-annotated name dyn@(Dynamic n) = unsafePerformEffect do
+annotated _ dyn@(DynPure _) = dyn
+annotated name dyn@(DynNode n) = unsafePerformEffect do
   runEffectFn2 Node.annotate n name
   pure dyn
 
 annotate :: forall m a. MonadEffect m => Dynamic a -> String -> m Unit
-annotate _dyn@(Dynamic n) name = liftEffect $ runEffectFn2 Node.annotate n name
+annotate (DynPure _) _ = pure unit
+annotate (DynNode n) name = liftEffect $ runEffectFn2 Node.annotate n name
 
 --- Lifted instances
 
