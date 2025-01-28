@@ -6,15 +6,15 @@ module Specular.Internal.Incremental.Node
 import Prelude
 
 import Effect (Effect)
-import Specular.Internal.Incremental.Ref as Ref
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn6, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn6)
 import Effect.Unsafe (unsafePerformEffect)
 import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum)
+import Specular.Internal.Incremental.Mutable (Any, Field(..), Immutable, Mutable)
 import Specular.Internal.Incremental.MutableArray (MutableArray)
 import Specular.Internal.Incremental.MutableArray as MutableArray
-import Specular.Internal.Incremental.Mutable (Any, Field(..), Immutable, Mutable)
 import Specular.Internal.Incremental.Optional (Optional)
 import Specular.Internal.Incremental.Optional as Optional
+import Specular.Internal.Incremental.Ref as Ref
 import Specular.Internal.Profiling as Profiling
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -67,9 +67,15 @@ foreign import get_name :: forall a. EffectFn1 (Node a) (String)
 foreign import set_name :: forall a. EffectFn2 (Node a) (String) Unit
 
 foreign import get_value :: forall a. EffectFn1 (Node a) (Optional a)
-foreign import set_value :: forall a. EffectFn2 (Node a) (Optional a) Unit
+foreign import set_value_impl :: forall a. Optional a -> EffectFn2 (Node a) (Optional a) Unit
+
+set_value :: forall a. EffectFn2 (Node a) (Optional a) Unit
+set_value = set_value_impl Optional.none
 
 -- [[[end]]]
+
+foreign import traceEdgeAdd :: forall a b. EffectFn2 (Node a) (Node b) Unit
+foreign import traceEdgeRemove :: forall a b. EffectFn2 (Node a) (Node b) Unit
 
 foreign import _new
   :: forall a
@@ -124,10 +130,12 @@ refcount = mkEffectFn1 \node -> do
   numObservers <- runEffectFn1 MutableArray.length dependents
   pure (numDependents + numObservers)
 
+foreign import _valueExc :: forall a. Optional a -> EffectFn1 (Node a) a
+
 valueExc :: forall a. EffectFn1 (Node a) a
-valueExc = mkEffectFn1 \node -> do
-  value_opt <- runEffectFn1 get_value node
-  pure (Optional.fromSome value_opt)
+valueExc = _valueExc Optional.none
+
+foreign import catchCycleError :: forall a b. EffectFn2 (Node a) (Effect b) b
 
 annotate :: forall a. EffectFn2 (Node a) String Unit
 annotate = if Profiling.enabled then set_name else mkEffectFn2 \_ _ -> pure unit
@@ -140,3 +148,5 @@ isChangingInCurrentStabilization = mkEffectFn1 \node -> do
   currentStabilizationNum <- runEffectFn1 Ref.read globalCurrentStabilizationNum
   changedAt <- runEffectFn1 get_changedAt node
   pure (changedAt == currentStabilizationNum)
+
+foreign import dumpGraph :: forall a. EffectFn2 String (Node a) Unit
