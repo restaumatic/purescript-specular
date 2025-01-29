@@ -22,9 +22,12 @@ interface NodeData {
 }
 
 interface GraphState {
+  event?: Event;
   nodes: Record<number, NodeData>;
   edges: Set<string>;
 }
+
+const nodeNames = new Map<number, string>();
 
 const processEvents = (events: Event[]): GraphState[] => {
   const states: GraphState[] = [];
@@ -44,6 +47,10 @@ const processEvents = (events: Event[]): GraphState[] => {
         ]),
       };
     } else if (event.type === "attrChange") {
+      if (event.attr === "name") {
+        nodeNames.set(event.node!, event.value);
+        continue;
+      }
       if (!attrBuffer[event.node!]) attrBuffer[event.node!] = {};
       attrBuffer[event.node!][event.attr!] = event.value;
     } else if (event.type === "edgeAdd") {
@@ -69,9 +76,9 @@ const processEvents = (events: Event[]): GraphState[] => {
         };
       }
       attrBuffer = {};
-      states.push({ nodes: newNodes, edges: current.edges });
+      states.push({ event, nodes: newNodes, edges: current.edges });
     } else {
-      states.push(current);
+      states.push({ ...current, event: event });
     }
   }
   return states;
@@ -83,7 +90,20 @@ function GraphViewer({ events }: { events: Event[] }) {
   const graph = useMemo(() => states[step], [step, states]);
 
   useEffect(() => {
-    const svg = d3.select("#graph");
+    const svg = d3.select<Element, any>("#graph");
+
+    const g = svg.selectAll("g").data([null]);
+    g.enter().append("g");
+
+    const zoom = d3
+      .zoom()
+      .scaleExtent([0.5, 5]) // Min and max zoom levels
+      .on("zoom", (event) => {
+        svg.select("g").attr("transform", event.transform);
+      });
+
+    svg.call(zoom);
+
     const nodes = Object.values(graph.nodes);
     const links = [...graph.edges].map((e) => {
       const [from, to] = e.split("-").map(Number);
@@ -125,13 +145,32 @@ function GraphViewer({ events }: { events: Event[] }) {
       .attr("cx", (d: any) => d.x)
       .attr("cy", (d: any) => d.y);
     node.exit().remove();
+
+    const labels = svg.selectAll("text").data(nodes);
+    labels
+      .enter()
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", -15)
+      .attr("font-size", "12px")
+      .attr("fill", "black")
+      .merge(labels as any)
+      .text((d: any) => {
+        const name = nodeNames.get(d.id);
+        return name ? `${d.id}@${name}` : d.id;
+      })
+      .transition()
+      .duration(500)
+      .attr("x", (d: any) => d.x)
+      .attr("y", (d: any) => d.y);
+    labels.exit().remove();
   }, [graph]);
 
   return (
     <div className="flex">
       <div className="w-1/4 h-600 overflow-y-auto border-r p-2">
-        <ul>
-          {states.map((_, index) => (
+        <ul style={{ height: "100vh" }}>
+          {states.map((state, index) => (
             <li
               key={index}
               className={`cursor-pointer p-1 ${
@@ -139,7 +178,7 @@ function GraphViewer({ events }: { events: Event[] }) {
               }`}
               onClick={() => setStep(index)}
             >
-              Step {index + 1}
+              {index + 1}: {state.event?.type}
             </li>
           ))}
         </ul>
@@ -167,14 +206,17 @@ function GraphViewer({ events }: { events: Event[] }) {
 
 fetch("./trace.jsonl").then(async (res) => {
   const events: Event[] = await res.text().then((text) =>
-    text.trim().split("\n").map((x, index) => {
-      try {
-        return JSON.parse(x);
-      } catch (e) {
-        console.log("Error at line", index, e);
-        throw e;
-      }
-    })
+    text
+      .trim()
+      .split("\n")
+      .map((x, index) => {
+        try {
+          return JSON.parse(x);
+        } catch (e) {
+          console.log("Error at line", index, e);
+          throw e;
+        }
+      })
   );
   render(<GraphViewer events={events} />, document.getElementById("app")!);
 });
