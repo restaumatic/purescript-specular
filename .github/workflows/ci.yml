@@ -19,7 +19,7 @@ jobs:
           spago: "latest"
 
       - name: Cache NPM dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           key: ${{ runner.os }}-lerna-${{ hashFiles('**/package-lock.json') }}
           path: |
