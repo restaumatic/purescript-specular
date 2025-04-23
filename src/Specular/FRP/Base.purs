@@ -125,6 +125,13 @@ readNode node = do
 -- | events coincide), but it's not very useful.
 newtype Event a = Event (Node a)
 
+-- append biased towards first argument - if appended events occur simultaneously then the first one is returned
+instance Semigroup (Event a) where
+  append e1 e2 = leftmost [ e1, e2 ]
+
+instance Monoid (Event a) where
+  mempty = never
+
 -- We represent an Event with:
 --  - a Behavior that tells whether this Event occurs during a given frame,
 --    and if so, its occurence value,

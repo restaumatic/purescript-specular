@@ -7,20 +7,16 @@ import DynamicSpec as DynamicSpec
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import EventSpec as EventSpec
-import FixSpec as FixSpec
 import RIOSpec as RIOSpec
 import Test.Spec.Reporter (consoleReporter)
 import Test.Spec.Runner (runSpec)
 import TraceSpec as TraceSpec
-import WeakDynamicSpec as WeakDynamicSpec
 import MapAsyncSpec as MapAsyncSpec
 
 main :: Effect Unit
 main = launchAff_ $ runSpec [ consoleReporter ] do
-  FixSpec.spec
   EventSpec.spec
   DynamicSpec.spec
-  WeakDynamicSpec.spec
   RIOSpec.spec
   TraceSpec.spec
   AsyncSpec.spec

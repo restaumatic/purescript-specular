@@ -3,10 +3,6 @@ module Specular.FRP.List
   , dynamicList
   , dynamicListWithIndex_
   , dynamicList_
-  , weakDynamicListWithIndex
-  , weakDynamicList
-  , weakDynamicListWithIndex_
-  , weakDynamicList_
   ) where
 
 import Prelude
@@ -20,8 +16,8 @@ import Effect.Class (liftEffect)
 import Effect.Ref (Ref, new, read, write)
 import Specular.FRP (Dynamic, holdDyn, subscribeDyn_)
 import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
-import Specular.FRP.WeakDynamic (WeakDynamic, holdWeakDyn, subscribeWeakDyn_, weaken)
 import Specular.Internal.Effect (nextMicrotask)
+import Effect.Ref (Ref, new, read, write)
 import Unsafe.Reference (unsafeRefEq)
 
 -- | `dynamicListWithIndex dynArray handler`
@@ -51,25 +47,6 @@ dynamicListWithIndex dynArray handler = do
 
   subscribeDyn_ (updateList latestRef mainSlot handler >=> resultChanged.fire) dynArray
   pure result
-
--- | Like `listWithIndex`, but operates on `WeakDynamics`.
-weakDynamicListWithIndex
-  :: forall m a b
-   . MonadFRP m
-  => MonadReplace m
-  => WeakDynamic (Array a)
-  -> (Int -> WeakDynamic a -> m b)
-  -> m (WeakDynamic (Array b))
-weakDynamicListWithIndex dynArray handler = do
-  (latestRef :: Ref (Array (ListEntry m a b))) <- liftEffect $ new []
-
-  mainSlot <- newSlot
-  resultChanged <- newEvent
-
-  let handler' i dyn = handler i (weaken dyn)
-  subscribeWeakDyn_ (updateList latestRef mainSlot handler' >=> resultChanged.fire) dynArray
-
-  holdWeakDyn resultChanged.event
 
 type ListEntry m a b =
   { slot :: Slot m
@@ -116,33 +93,6 @@ dynamicList
   -> (Dynamic a -> m b)
   -> m (Dynamic (Array b))
 dynamicList dynArray handler = dynamicListWithIndex dynArray (\_ -> handler)
-
-weakDynamicList
-  :: forall m a b
-   . MonadFRP m
-  => MonadReplace m
-  => WeakDynamic (Array a)
-  -> (WeakDynamic a -> m b)
-  -> m (WeakDynamic (Array b))
-weakDynamicList dynArray handler = weakDynamicListWithIndex dynArray (\_ -> handler)
-
-weakDynamicListWithIndex_
-  :: forall m a
-   . MonadFRP m
-  => MonadReplace m
-  => WeakDynamic (Array a)
-  -> (Int -> WeakDynamic a -> m Unit)
-  -> m Unit
-weakDynamicListWithIndex_ dynArray handler = void $ weakDynamicListWithIndex dynArray handler
-
-weakDynamicList_
-  :: forall m a
-   . MonadFRP m
-  => MonadReplace m
-  => WeakDynamic (Array a)
-  -> (WeakDynamic a -> m Unit)
-  -> m Unit
-weakDynamicList_ dynArray handler = void $ weakDynamicListWithIndex dynArray (\_ -> handler)
 
 dynamicListWithIndex_
   :: forall m a

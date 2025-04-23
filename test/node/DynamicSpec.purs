@@ -167,6 +167,22 @@ spec = describe "Dynamic" $ do
       -- clean up
       liftEffect unsub1
 
+    it "works after disconnecting and reconnecting" $ withLeakCheck do
+      log <- liftEffect $ new []
+      root <- Ref.new 1
+      let dyn = uniqDynPure (Ref.value root)
+      unsub1 <- liftEffect $ execCleanupT do
+        subscribeEvent_ (append log) (changed dyn)
+      liftEffect unsub1
+
+      unsub2 <- liftEffect $ execCleanupT do
+        subscribeEvent_ (append log) (changed dyn)
+
+      readDynamic dyn `shouldReturn` 1
+
+      -- clean up
+      liftEffect unsub2
+
   describe "foldDynMaybe" $ do
     it "triggers only when function returns Just" $ withLeakCheck $ do
       { event, fire } <- liftEffect newEvent

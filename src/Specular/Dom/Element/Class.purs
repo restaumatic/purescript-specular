@@ -5,10 +5,9 @@ import Prelude
 import Data.Tuple (Tuple(..), snd)
 import Effect (foreachE)
 import Effect.Uncurried (mkEffectFn2, runEffectFn2)
-import Specular.Dom.Browser (Node, appendChild)
+import Specular.Dom.Browser (Node, TagName, appendChild, createElement)
 import Specular.Dom.Builder.Class (liftBuilderWithRun)
 import Specular.Dom.Element (Prop(..))
-import Specular.Dom.Node.Class (TagName, createElement)
 import Specular.Dom.Widget (class MonadWidget)
 
 el' :: forall m a. MonadWidget m => TagName -> Array Prop -> m a -> m (Tuple Node a)
