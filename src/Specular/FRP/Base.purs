@@ -484,6 +484,13 @@ instance semigroupDynamic :: Semigroup a => Semigroup (Dynamic a) where
 instance monoidDynamic :: Monoid a => Monoid (Dynamic a) where
   mempty = pure mempty
 
+-- | Map a possibly-asynchronous function over a Dynamic.
+-- |
+-- | When the source dynamic changes, the mapping function is re-evaluated. If it returns `Sync`,
+-- | this works like `map` - the change is propagated in the same cycle.
+-- |
+-- | If it returns `Async`, then the dynamic will first transition to `InProgress` and start the async computation.
+-- | After it finished, it will transition to `Finished` (which might contain an error).
 mapAsync :: forall a b. (a -> I.AsyncComputation b) -> Dynamic a -> Dynamic (I.AsyncState b)
 mapAsync f (Dynamic node) = Dynamic $ unsafePerformEffect do
   n <- runEffectFn2 I.mapAsync f node
