@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "esbuild main.tsx --bundle --outfile=dist/bundle.js"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "d3": "^7.9.0",
+    "esbuild": "^0.24.2",
+    "preact": "^10.25.4",
+    "typescript": "^5.7.3"
+  }
+}

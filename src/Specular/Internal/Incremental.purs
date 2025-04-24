@@ -13,7 +13,7 @@ import Specular.Internal.Incremental.Effect (foreachUntil)
 import Specular.Internal.Incremental.Global (globalCurrentStabilizationNum, globalTotalRefcount, globalLastStabilizationNum, stabilizationIsNotInProgress)
 import Specular.Internal.Incremental.Mutable (Field(..))
 import Specular.Internal.Incremental.MutableArray as MutableArray
-import Specular.Internal.Incremental.Node (Node, SomeNode, Observer, toSomeNode, toSomeNodeArray)
+import Specular.Internal.Incremental.Node (Node, Observer, SomeNode, toSomeNode, toSomeNodeArray, traceEdgeAdd, traceEdgeRemove)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional (Optional)
 import Specular.Internal.Incremental.Optional as Optional
@@ -100,6 +100,7 @@ addDependent = mkEffectFn2 \node dependent -> do
   oldRefcount <- runEffectFn1 Node.refcount node
   dependents <- runEffectFn1 Node.get_dependents node
   runEffectFn2 MutableArray.push dependents dependent
+  runEffectFn2 traceEdgeAdd node dependent
   runEffectFn2 handleRefcountChange node oldRefcount
 
 removeDependent :: forall a. EffectFn2 (Node a) SomeNode Unit
@@ -107,6 +108,7 @@ removeDependent = mkEffectFn2 \node dependent -> do
   oldRefcount <- runEffectFn1 Node.refcount node
   dependents <- runEffectFn1 Node.get_dependents node
   runEffectFn2 MutableArray.remove dependents dependent
+  runEffectFn2 traceEdgeRemove node dependent
   runEffectFn2 handleRefcountChange node oldRefcount
 
 handleRefcountChange :: forall a. EffectFn2 (Node a) Int Unit
@@ -132,13 +134,14 @@ handleRefcountChange = mkEffectFn2 \node oldRefcount -> do
 -- - node has value computed
 -- - node has correct height
 connect :: forall a. EffectFn1 (Node a) Unit
-connect = mkEffectFn1 \node -> do
+connect = mkEffectFn1 \node -> runEffectFn2 Node.catchCycleError node do
   mark <- runEffectFn1 Profiling.begin ("connect " <> Node.name node)
 
   source <- runEffectFn1 Node.get_source node
   dependencies <- source.dependencies
 
   runEffectFn2 Array.iterate dependencies $ mkEffectFn1 \dependency -> do
+    -- runEffectFn2 dumpGraph ("before_connect_" <> Node.name node <> "_" <> Node.name dependency) node
     runEffectFn2 addDependent dependency (toSomeNode node)
     dependencyHeight <- runEffectFn1 Node.get_height dependency
     adjustedHeight <- runEffectFn1 Node.get_adjustedHeight node
@@ -192,7 +195,7 @@ stabilize = do
   runEffectFn1 Profiling.end mark
 
 recomputeNode :: EffectFn1 SomeNode Unit
-recomputeNode = mkEffectFn1 \node -> do
+recomputeNode = mkEffectFn1 \node -> runEffectFn2 Node.catchCycleError node do
   height <- runEffectFn1 Node.get_height node
   adjustedHeight <- runEffectFn1 Node.get_adjustedHeight node
 
