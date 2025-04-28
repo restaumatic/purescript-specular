@@ -17,7 +17,6 @@ import Effect.Ref (Ref, new, read, write)
 import Specular.FRP (Dynamic, holdDyn, subscribeDyn_)
 import Specular.FRP.Base (class MonadFRP, holdUniqDynBy, newEvent)
 import Specular.Internal.Effect (nextMicrotask)
-import Effect.Ref (Ref, new, read, write)
 import Unsafe.Reference (unsafeRefEq)
 
 -- | `dynamicListWithIndex dynArray handler`
