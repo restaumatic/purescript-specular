@@ -11,6 +11,7 @@ import RIOSpec as RIOSpec
 import Test.Spec.Reporter (consoleReporter)
 import Test.Spec.Runner (runSpec)
 import TraceSpec as TraceSpec
+import MapAsyncSpec as MapAsyncSpec
 
 main :: Effect Unit
 main = launchAff_ $ runSpec [ consoleReporter ] do
@@ -19,3 +20,4 @@ main = launchAff_ $ runSpec [ consoleReporter ] do
   RIOSpec.spec
   TraceSpec.spec
   AsyncSpec.spec
+  MapAsyncSpec.spec
