@@ -23,18 +23,6 @@ new = do
   state_ <- liftEffect $ ERef.new Idle
   pure $ ExclusiveTask { state: state_ }
 
-cancel :: forall m. MonadEffect m => ExclusiveTask -> m Unit
-cancel (ExclusiveTask self) = liftEffect do
-  state <- ERef.read self.state
-  case state of
-    Idle ->
-      pure unit
-    Running fiber ->
-      launchAff_ do
-        killFiber (error "Cancelled") fiber
-        -- TODO: any race conditions here?
-        liftEffect $ ERef.write Idle self.state
-
 -- | Run an Aff action in this exclusive task slot.
 -- | If there was a previous task running, it is first cancelled.
 run :: ExclusiveTask -> Aff Unit -> Effect Unit
