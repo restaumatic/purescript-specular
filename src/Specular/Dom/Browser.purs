@@ -116,3 +116,9 @@ foreign import preventDefault :: Event -> Effect Unit
 
 -- | Get `innerHTML` of a node.
 foreign import innerHTML :: Node -> Effect String
+
+foreign import getTextInputValue :: Node -> Effect String
+foreign import setTextInputValue :: Node -> String -> Effect Unit
+
+foreign import getCheckboxChecked :: Node -> Effect Boolean
+foreign import setCheckboxChecked :: Node -> Boolean -> Effect Unit

@@ -16,10 +16,7 @@ module Specular.Dom.Widgets.Input
   , booleanInputView
 
   -- TODO: move to Internal
-  , getTextInputValue
-  , setTextInputValue
-  , getCheckboxChecked
-  , setCheckboxChecked
+  , module X
   ) where
 
 import Prelude
@@ -27,8 +24,9 @@ import Prelude
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Data.Tuple (Tuple(..))
-import Specular.Dom.Browser (Node)
+import Specular.Dom.Browser (Node, getTextInputValue, setTextInputValue, getCheckboxChecked, setCheckboxChecked)
 import Specular.Dom.Browser as Browser
+import Specular.Dom.Browser (getTextInputValue, setTextInputValue, getCheckboxChecked, setCheckboxChecked) as X
 import Specular.Dom.Builder.Class (domEventWithSample, elDynAttr', text)
 import Specular.Dom.Node.Class (Attrs, (:=))
 import Specular.Dom.Widget (class MonadWidget)
@@ -93,9 +91,6 @@ booleanInputView type_ dchecked dattrs = do
   subscribeWeakDyn_ (setCheckboxChecked node) dchecked
   domEventWithSample (\_ -> getCheckboxChecked node) "change" node
 
-foreign import getCheckboxChecked :: Node -> Effect Boolean
-foreign import setCheckboxChecked :: Node -> Boolean -> Effect Unit
-
 type TextInputConfig =
   { initialValue :: String
   , setValue :: Event String
@@ -146,6 +141,3 @@ textInputValueEventOnEnter (TextInput { element, value }) = do
 
 unsafeEventKey :: Browser.Event -> Effect String
 unsafeEventKey event = pure (unsafeCoerce event).key
-
-foreign import getTextInputValue :: Node -> Effect String
-foreign import setTextInputValue :: Node -> String -> Effect Unit
