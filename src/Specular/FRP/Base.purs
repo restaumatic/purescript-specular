@@ -517,7 +517,8 @@ instance monoidDynamic :: Monoid a => Monoid (Dynamic a) where
 -- | If it returns `Async`, then the dynamic will first transition to `InProgress` and start the async computation.
 -- | After it finished, it will transition to `Finished` (which might contain an error).
 mapAsync :: forall a b. (a -> I.AsyncComputation b) -> Dynamic a -> Dynamic (I.AsyncState b)
-mapAsync f (Dynamic node) = Dynamic $ unsafePerformEffect do
+mapAsync f dyn = DynNode $ unsafePerformEffect do
+  let node = dynToNode dyn
   n <- runEffectFn2 I.mapAsync f node
   runEffectFn2 Node.annotate n ("mapAsync " <> Node.name node)
   pure n
