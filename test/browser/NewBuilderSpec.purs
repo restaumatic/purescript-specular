@@ -4,16 +4,15 @@ import Prelude hiding (append)
 
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Element (ClassName, attrs, attrsD, classWhenD, classesD, dynText, el, el_, rawHtml, text, class_)
+import Specular.Dom.Browser (createElement, innerHTML, (:=))
+import Specular.Dom.Element (ClassName, attrs, classWhenD, class_, classesD, dynText, el, el_, text)
 import Specular.Dom.Element as E
-import Specular.Dom.Node.Class ((:=), createElement)
 import Specular.Dom.Widget (emptyWidget, runMainWidgetInBody, runWidgetInNode)
 import Specular.FRP (newDynamic)
+import Specular.Ref as Ref
 import Test.Spec (Spec, after_, describe, it)
 import Test.Utils (liftEffect, shouldReturn, withLeakCheck)
-import Test.Utils.Dom (T3(..), runBuilderInDiv, runBuilderInDiv', numChildNodes)
-import Specular.Ref as Ref
+import Test.Utils.Dom (T3(..), numChildNodes, runBuilderInDiv')
 
 spec :: Spec Unit
 spec =
@@ -39,35 +38,6 @@ spec =
           liftEffect remove2
           liftEffect (innerHTML parent) `shouldReturn` ""
           liftEffect (numChildNodes parent) `shouldReturn` 0
-
-      it "builds static DOM" $ withLeakCheck do
-        Tuple node _result <- runBuilderInDiv do
-          el "div" [ attrs ("class" := "content") ] do
-            text "foo"
-            el "span" [] $ text "bar"
-            rawHtml """<p class="foo">Raw</p>"""
-            text "baz"
-          el_ "hr" emptyWidget
-          el_ "span" (text "foo")
-
-        liftEffect (innerHTML node) `shouldReturn`
-          """<div class="content">foo<span>bar</span><p class="foo">Raw</p>baz</div><hr><span>foo</span>"""
-
-      it "updates attributes" $ withLeakCheck do
-        { dynamic, set } <- liftEffect $ newDynamic $ "k1" := "v1" <> "k2" := "v2"
-        T3 node _result unsub <- runBuilderInDiv' do
-          el "div" [ attrsD dynamic ] emptyWidget
-
-        liftEffect (innerHTML node) `shouldReturn`
-          """<div k2="v2" k1="v1"></div>"""
-
-        liftEffect $ set $ "k1" := "v1.1" <> "k3" := "v3"
-
-        liftEffect (innerHTML node) `shouldReturn`
-          """<div k1="v1.1" k3="v3"></div>"""
-
-        -- clean up
-        liftEffect unsub
 
       describe "classesD" do
         it "single instance" do

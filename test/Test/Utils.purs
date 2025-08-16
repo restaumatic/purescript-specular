@@ -5,21 +5,21 @@ module Test.Utils
 
 import Prelude hiding (append)
 
-import Effect.Aff (Aff, Milliseconds(..), delay)
-import Effect (Effect)
-import Effect.Class (liftEffect)
 import Data.Array (snoc)
+import Effect (Effect)
+import Effect.Aff (Aff, Milliseconds(..), delay)
+import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Ref (Ref, modify_, new, read, write)
-import Test.Spec.Assertions (fail, shouldEqual)
-import Type.Prelude (Proxy)
 import Effect.Uncurried (runEffectFn1)
 import Specular.Internal.Incremental.Global (globalTotalRefcount)
 import Specular.Internal.Incremental.Ref as Ref
+import Test.Spec.Assertions (fail, shouldEqual)
+import Type.Prelude (Proxy)
 
-append :: forall a. Ref (Array a) -> a -> Effect Unit
-append ref value = modify_ (\a -> snoc a value) ref
+append :: forall m a. MonadEffect m => Ref (Array a) -> a -> m Unit
+append ref value = liftEffect $ modify_ (\a -> snoc a value) ref
 
-clear :: forall a. Ref (Array a) -> Aff Unit
+clear :: forall m a. MonadEffect m => Ref (Array a) -> m Unit
 clear ref = liftEffect $ write [] ref
 
 shouldHaveValue :: forall a. Eq a => Show a => Ref a -> a -> Aff Unit

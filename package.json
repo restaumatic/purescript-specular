@@ -13,7 +13,7 @@
     "build-bench": "spago bundle-app --main BenchMain --to output/BenchMain.js",
     "open-bench": "xdg-open ./bench/benchmark.html",
     "run-bench": "node bench/run.js",
-    "format": "purs-tidy format-in-place 'src/**/*.purs' 'test/**/*.purs' && prettier -w src test"
+    "format": "purs-tidy format-in-place 'src/**/*.purs' 'test/**/*.purs' 'bench/**/*.purs' && prettier -w src test"
   },
   "author": "Maciej Bielecki <zyla@prati.pl>",
   "license": "MIT",

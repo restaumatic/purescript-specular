@@ -53,6 +53,10 @@ module Specular.FRP.Base
 
   , map2
   , mapN
+
+  , mapAsync
+
+  , module X.Incremental
   ) where
 
 import Prelude
@@ -66,13 +70,12 @@ import Effect (Effect)
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Uncurried (EffectFn2, mkEffectFn1, mkEffectFn2, runEffectFn1, runEffectFn2, runEffectFn3)
 import Effect.Unsafe (unsafePerformEffect)
+import Specular.Internal.Incremental (AsyncComputation(..), AsyncState(..)) as X.Incremental
 import Specular.Internal.Incremental as I
 import Specular.Internal.Incremental.Node (Node)
 import Specular.Internal.Incremental.Node as Node
 import Specular.Internal.Incremental.Optional as Optional
 import Specular.Internal.Profiling as Profiling
-import Specular.Internal.Queue (Queue)
-import Specular.Internal.Queue as Queue
 
 -------------------------------------------------------------
 
@@ -107,8 +110,6 @@ readNode node = do
 
 -------------------------------------------------------------
 
-type Unsubscribe = Effect Unit
-
 -- | A source of occurences.
 -- |
 -- | During a frame, an Event occurs at most once with a value of type a.
@@ -121,7 +122,7 @@ newtype Event a = Event (Node a)
 
 -- append biased towards first argument - if appended events occur simultaneously then the first one is returned
 instance Semigroup (Event a) where
-  append e1 e2 = leftmost [e1, e2]
+  append e1 e2 = leftmost [ e1, e2 ]
 
 instance Monoid (Event a) where
   mempty = never
@@ -162,7 +163,7 @@ filterEvent f (Event node) = Event $ unsafePerformEffect do
 
 subscribeNode :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Node a -> m Unit
 subscribeNode handler event = do
-  unsub <- liftEffect $ runEffectFn2 _subscribeNode handler event
+  unsub <- liftEffect $ runEffectFn2 I.subscribeNode handler event
   onCleanup unsub
 
 filterJustEvent :: forall a. Event (Maybe a) -> Event a
@@ -171,23 +172,9 @@ filterJustEvent = filterMapEvent identity
 subscribeEvent_ :: forall m a. MonadEffect m => MonadCleanup m => (a -> Effect Unit) -> Event a -> m Unit
 subscribeEvent_ handler (Event node) = subscribeNode handler node
 
-globalEffectQueue :: Queue (Effect Unit)
-globalEffectQueue = unsafePerformEffect Queue.new
-
-drainEffects :: Effect Unit
-drainEffects = runEffectFn2 Queue.drain globalEffectQueue (mkEffectFn1 \handler -> handler)
-
-_subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) Unsubscribe
+_subscribeEvent :: forall a. EffectFn2 (a -> Effect Unit) (Event a) I.Unsubscribe
 _subscribeEvent = mkEffectFn2 \handler (Event node) ->
-  runEffectFn2 _subscribeNode handler node
-
-_subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (Node a) Unsubscribe
-_subscribeNode = mkEffectFn2 \handler node -> do
-  let
-    h = mkEffectFn1 \value -> do
-      runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
-  runEffectFn2 I.addObserver node h
-  pure (runEffectFn2 I.removeObserver node h)
+  runEffectFn2 I.subscribeNode handler node
 
 -- | Create an Event that can be triggered externally.
 -- | Each `fire` will run a frame where the event occurs.
@@ -206,11 +193,7 @@ newEvent = liftEffect do
     }
 
 stabilize :: Effect Unit
-stabilize = do
-  mark <- runEffectFn1 Profiling.begin "Specular.stabilize"
-  I.stabilize
-  drainEffects
-  runEffectFn1 Profiling.end mark
+stabilize = I.stabilize
 
 -- | Create a new Behavior whose value can be modified outside a frame.
 newBehavior :: forall m a. MonadEffect m => a -> m { behavior :: Behavior a, set :: a -> Effect Unit }
@@ -525,3 +508,16 @@ instance semigroupDynamic :: Semigroup a => Semigroup (Dynamic a) where
 
 instance monoidDynamic :: Monoid a => Monoid (Dynamic a) where
   mempty = pure mempty
+
+-- | Map a possibly-asynchronous function over a Dynamic.
+-- |
+-- | When the source dynamic changes, the mapping function is re-evaluated. If it returns `Sync`,
+-- | this works like `map` - the change is propagated in the same cycle.
+-- |
+-- | If it returns `Async`, then the dynamic will first transition to `InProgress` and start the async computation.
+-- | After it finished, it will transition to `Finished` (which might contain an error).
+mapAsync :: forall a b. (a -> I.AsyncComputation b) -> Dynamic a -> Dynamic (I.AsyncState b)
+mapAsync f (Dynamic node) = Dynamic $ unsafePerformEffect do
+  n <- runEffectFn2 I.mapAsync f node
+  runEffectFn2 Node.annotate n ("mapAsync " <> Node.name node)
+  pure n

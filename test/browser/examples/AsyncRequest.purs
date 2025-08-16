@@ -2,24 +2,19 @@ module Examples.AsyncRequest (spec, mainWidget) where
 
 import Prelude hiding (append)
 
-import BuilderSpec (newDynamic)
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff, delay)
-import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
 import Specular.Dom.Browser (innerHTML)
-import Specular.Dom.Builder.Class (el, text)
-import Specular.Dom.Widget (class MonadWidget)
-import Specular.Dom.Widgets.Input (textInputOnInput)
-import Specular.FRP (Dynamic, current, pull, readBehavior, weakDynamic_)
+import Specular.Dom.Element (bindValueOnChange, el, el_, text)
+import Specular.Dom.Widget (Widget)
+import Specular.FRP (withDynamic_)
 import Specular.FRP.Async (RequestState(Loaded, Loading, NotRequested), asyncRequestMaybe)
-import Specular.FRP.Fix (fixFRP)
-import Specular.FRP.WeakDynamic (WeakDynamic)
-import Effect.Ref (new, read, write)
+import Specular.Ref as Ref
 import Test.Spec (Spec, describe, it)
 import Test.Utils (shouldReturn)
 import Test.Utils.Dom (runBuilderInDiv)
@@ -33,45 +28,6 @@ spec = describe "AsyncRequest" $ do
       ( """<div><label>Input: </label><input></div>""" <>
           """<div></div>"""
       )
-
-  describe "logic" $ do
-    it "renders request state" $ do
-      avar <- AVar.empty
-      let backend = { toUpper: \_ -> AVar.take avar }
-      Tuple query setQuery <- liftEffect $ newDynamic ""
-
-      Tuple _ (Tuple { result } _) <- runBuilderInDiv $ control backend { query }
-      liftEffect (pull $ readBehavior $ current result) `shouldReturn` NotRequested
-
-      liftEffect $ setQuery "foo"
-      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loading
-
-      AVar.put "FOO" avar
-      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loaded "FOO"
-
-    it "always displays the latest request" $ do
-      firstRequest <- AVar.empty
-      secondRequest <- AVar.empty
-      currentRequestVar <- liftEffect $ new firstRequest
-      let
-        backend =
-          { toUpper: \_ -> do
-              var <- liftEffect $ read currentRequestVar
-              AVar.take var
-          }
-      Tuple query setQuery <- liftEffect $ newDynamic ""
-
-      Tuple _ (Tuple { result } _) <- runBuilderInDiv $ control backend { query }
-
-      liftEffect $ setQuery "foo"
-      liftEffect $ write secondRequest currentRequestVar
-      liftEffect $ setQuery "bar"
-
-      AVar.put "FOO" firstRequest
-      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loading
-
-      AVar.put "BAR" secondRequest
-      liftEffect (pull $ readBehavior $ current result) `shouldReturn` Loaded "BAR"
 
 instantBackend :: Backend
 instantBackend = { toUpper: pure <<< String.toUpper }
@@ -89,42 +45,22 @@ type Backend =
   { toUpper :: String -> Aff String
   }
 
-mainWidget :: forall m. MonadWidget m => m Unit
+mainWidget :: Widget Unit
 mainWidget = mainWidgetWith slowBackend
 
-mainWidgetWith :: forall m. MonadWidget m => Backend -> m Unit
-mainWidgetWith backend = fixFRP $ view >=> control backend
+mainWidgetWith :: Backend -> Widget Unit
+mainWidgetWith backend = do
+  query <- Ref.new ""
+  result <- asyncRequestMaybe $
+    map (\s -> if s == "" then Nothing else Just (backend.toUpper s)) (Ref.value query)
 
-view
-  :: forall m
-   . MonadWidget m
-  => { result :: WeakDynamic (RequestState String) }
-  -> m { query :: Dynamic String }
-view { result } = do
-  query <- el "div" $ do
-    el "label" $ text "Input: "
-    textInputOnInput "" mempty
+  el_ "div" do
+    el_ "label" $ text "Input: "
+    el "input" [ bindValueOnChange query ] (pure unit)
 
-  el "div" $ do
-    weakDynamic_ $ flip map result $
+  el_ "div" do
+    withDynamic_ result $
       case _ of
         NotRequested -> pure unit
         Loading -> text $ "Accessing Webscale Uppercase Service..."
         Loaded x -> text $ "Result is: " <> x
-
-  pure { query }
-
-control
-  :: forall m
-   . MonadWidget m
-  => Backend
-  -> { query :: Dynamic String }
-  -> m
-       ( Tuple
-           { result :: Dynamic (RequestState String) }
-           Unit
-       )
-control backend { query } = do
-  result <- asyncRequestMaybe $
-    map (\s -> if s == "" then Nothing else Just (backend.toUpper s)) query
-  pure $ Tuple { result } unit

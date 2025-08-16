@@ -3,7 +3,7 @@ module BenchMain where
 import Prelude
 
 import Bench.Builder (builderTests)
-import Bench.Primitives (dynamicTests, weakDynamicTests)
+import Bench.Primitives (dynamicTests)
 import Bench.Types (Tests)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(Tuple))
@@ -16,7 +16,7 @@ main :: Effect Unit
 main = launchAff_ do
   bench "Builder" builderTests
   bench "Dynamic" dynamicTests
-  bench "WeakDynamic" weakDynamicTests
+  Console.log "finished"
 
 bench :: String -> Tests -> Aff Unit
 bench suiteName tests = do

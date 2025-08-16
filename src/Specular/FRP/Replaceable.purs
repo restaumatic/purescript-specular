@@ -5,7 +5,6 @@ import Prelude
 import Control.Monad.Replace (class MonadReplace, newSlot, replaceSlot)
 import Data.Maybe (Maybe(..), isJust)
 import Specular.FRP.Base (class MonadFRP, Dynamic, changed, filterJustEvent, newDynamic, readDynamic, subscribeDyn, subscribeDyn_, subscribeEvent_, uniqDyn)
-import Specular.FRP.WeakDynamic (WeakDynamic, subscribeWeakDyn, subscribeWeakDyn_)
 
 dynamic_ :: forall m. MonadReplace m => MonadFRP m => Dynamic (m Unit) -> m Unit
 dynamic_ dyn = do
@@ -21,16 +20,6 @@ dynamic :: forall m a. MonadReplace m => MonadFRP m => Dynamic (m a) -> m (Dynam
 dynamic dyn = do
   slot <- newSlot
   subscribeDyn (replaceSlot slot) dyn
-
-weakDynamic_ :: forall m. MonadReplace m => MonadFRP m => WeakDynamic (m Unit) -> m Unit
-weakDynamic_ dyn = do
-  slot <- newSlot
-  subscribeWeakDyn_ (replaceSlot slot) dyn
-
-weakDynamic :: forall m a. MonadReplace m => MonadFRP m => WeakDynamic (m a) -> m (WeakDynamic a)
-weakDynamic dyn = do
-  slot <- newSlot
-  subscribeWeakDyn (replaceSlot slot) dyn
 
 whenJustD :: forall m a. MonadReplace m => MonadFRP m => Dynamic (Maybe a) -> (Dynamic a -> m Unit) -> m Unit
 whenJustD dyn widget = do
