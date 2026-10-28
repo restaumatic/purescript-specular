@@ -96,6 +96,7 @@ instance MonadReplace (Builder env) where
     liftEffect $ appendChild placeholderAfter env.parent
 
     cleanupRef <- liftEffect $ new (mempty :: Effect Unit)
+    destroyedRef <- liftEffect $ new false
 
     let
       replace :: forall a. Builder env a -> Effect a
@@ -108,9 +109,14 @@ instance MonadReplace (Builder env) where
           runBuilderWithUserEnv env.userEnv fragment inner
         join $ read cleanupRef
 
+        destroyed <- read destroyedRef
         m_parent <- parentNode placeholderAfter
 
         case m_parent of
+          _ | destroyed ->
+            -- The slot has already been cleaned up, so nothing would run this cleanup later.
+            cleanup
+
           Just parent -> do
             insertBefore fragment placeholderAfter parent
 
@@ -127,12 +133,19 @@ instance MonadReplace (Builder env) where
 
         pure result
 
+      runCleanup :: Effect Unit
+      runCleanup = do
+        write true destroyedRef
+        cleanup <- read cleanupRef
+        write mempty cleanupRef
+        cleanup
+
       destroy :: Effect Unit
       destroy = do
         removeAllBetween placeholderBefore placeholderAfter
         removeNode placeholderBefore
         removeNode placeholderAfter
-        join $ read cleanupRef
+        runCleanup
 
       append :: Effect (Slot (Builder env))
       append = do
@@ -150,7 +163,7 @@ instance MonadReplace (Builder env) where
 
         pure slot
 
-    onCleanup $ join $ read cleanupRef
+    onCleanup runCleanup
 
     pure $ Slot replace destroy append
 
