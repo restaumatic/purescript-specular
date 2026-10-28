@@ -10,7 +10,7 @@ import Effect.Ref (modify_, new)
 import Specular.Dom.Browser (innerHTML, (:=))
 import Specular.Dom.Builder.Class (onDomEvent)
 import Specular.Dom.Widget (emptyWidget)
-import Specular.FRP (Dynamic, dynamic_, unlessD, whenD, whenJustD)
+import Specular.FRP (Dynamic, dynamic_, unlessD, whenD, whenJustD, withDynamic_)
 import Specular.FRP as FRP
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -114,6 +114,23 @@ spec = describe "Builder" do
 
       liftEffect (innerHTML node) `shouldReturn`
         """barbar"""
+
+      -- clean up
+      liftEffect unsub
+
+    it "nested, same Dynamic, inner content subscribes" $ withLeakCheck do
+      Tuple dyn updateDyn <- liftEffect $ newDynamic "foo"
+      Tuple label _ <- liftEffect $ newDynamic "label"
+      T3 node _result unsub <- runBuilderInDiv' do
+        withDynamic_ dyn \_ ->
+          withDynamic_ dyn \x -> do
+            text x
+            dynText label
+
+      liftEffect $ updateDyn "bar"
+
+      liftEffect (innerHTML node) `shouldReturn`
+        """barlabel"""
 
       -- clean up
       liftEffect unsub

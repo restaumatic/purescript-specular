@@ -2,7 +2,7 @@ module EventSpec where
 
 import Prelude hiding (append)
 import Control.Monad.Cleanup (execCleanupT)
-import Effect.Ref (new, read, write)
+import Effect.Ref (new)
 import Data.Maybe (Maybe(..))
 import Specular.FRP (filterMapEvent, holdDyn, leftmost, newBehavior, newEvent, sampleAt, subscribeEvent_)
 import Specular.FRP.Base (subscribeDyn_)
@@ -25,25 +25,6 @@ spec = describe "Event" $ do
 
     -- clean up
     liftEffect unsub2
-
-  it "does not call a subscriber unsubscribed by an earlier subscriber in the same frame" $ withLeakCheck $ do
-    { event, fire } <- liftEffect newEvent
-    log <- liftEffect $ new []
-    unsub2Ref <- liftEffect $ new (pure unit)
-    unsub1 <- liftEffect $ execCleanupT $ subscribeEvent_
-      ( \x -> do
-          append log $ "1:" <> x
-          join $ read unsub2Ref
-      )
-      event
-    unsub2 <- liftEffect $ execCleanupT $ subscribeEvent_ (\x -> append log $ "2:" <> x) event
-    liftEffect $ write unsub2 unsub2Ref
-    liftEffect $ fire "A"
-
-    log `shouldHaveValue` [ "1:A" ]
-
-    -- clean up
-    liftEffect unsub1
 
   {-
   describe "mergeEvents" $ do

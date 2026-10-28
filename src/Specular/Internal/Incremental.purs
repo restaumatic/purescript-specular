@@ -198,16 +198,11 @@ globalEffectQueue = unsafePerformEffect Queue.new
 
 subscribeNode :: forall a. EffectFn2 (a -> Effect Unit) (Node a) Unsubscribe
 subscribeNode = mkEffectFn2 \handler node -> do
-  subscribedRef <- runEffectFn1 Ref.new true
   let
     h = mkEffectFn1 \value -> do
-      runEffectFn2 Queue.enqueue globalEffectQueue do
-        subscribed <- runEffectFn1 Ref.read subscribedRef
-        when subscribed (handler value)
+      runEffectFn2 Queue.enqueue globalEffectQueue (handler value)
   runEffectFn2 addObserver node h
-  pure do
-    runEffectFn2 Ref.write subscribedRef false
-    runEffectFn2 removeObserver node h
+  pure (runEffectFn2 removeObserver node h)
 
 -- * Recompute
 

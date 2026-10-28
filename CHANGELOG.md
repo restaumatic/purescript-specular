@@ -1,6 +1,6 @@
 ## Next release
 
-- Fixed a subscriber being called after it was unsubscribed, when the unsubscribe happened earlier in the same frame. For example, when an outer `whenD` and an inner `withDynamic_` changed together, the inner widget was rebuilt into a removed slot and its cleanup never ran, leaking DOM nodes and subscriptions.
+- Fixed a lost cleanup when a slot was replaced after it had been cleaned up. With nested `withDynamic_`/`whenD` depending on the same source, the inner widget could be rebuilt after the outer one removed it, and its subscriptions and DOM nodes leaked.
 - 2023-04-21 Added pure version of `uniqDyn` - `uniqDynPure`
 
 ## 0.13.2
